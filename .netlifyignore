@@ -1,0 +1,15 @@
+# Ignore unnecessary or heavy files and folders during Netlify deploy and scan operations
+.git/
+.github/
+.gradle/
+android/
+ios/
+capacitor.config.ts
+node_modules/
+dist/
+build/
+coverage/
+.DS_Store
+*.log
+.env*
+! .env.example

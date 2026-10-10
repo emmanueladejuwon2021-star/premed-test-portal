@@ -1,0 +1,11 @@
+{
+  "name": "PremedTestPortal",
+  "description": "The ultimate medical test preparation portal with advanced simulations and AI-powered question analysis.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
