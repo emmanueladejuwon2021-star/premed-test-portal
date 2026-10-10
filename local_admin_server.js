@@ -10,7 +10,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { exec } = require('node:child_process');
 
-const PORT = 8080;
+const PORT = 8899;
 const DB_PATH = path.join(__dirname, 'premed_portal.sqlite');
 const GIT_PATH = 'C:\\tools\\mingit\\cmd\\git.exe';
 

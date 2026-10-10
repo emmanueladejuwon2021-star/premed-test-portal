@@ -11,15 +11,15 @@ echo   Operating strictly on Localhost (Offline & Isolated)
 echo ========================================================
 echo.
 
-echo Starting Local Admin Server on http://localhost:8080 ...
+echo Starting Local Admin Server on http://localhost:8899 ...
 start "" node local_admin_server.js
 timeout /t 2 /nobreak >nul
-start "" "http://localhost:8080"
+start "" "http://localhost:8899"
 
 echo.
 echo ========================================================
 echo  Local Admin Console is running!
-echo  URL: http://localhost:8080
+echo  URL: http://localhost:8899
 echo ========================================================
 echo.
 echo Keep this command prompt window open while using the admin console.
