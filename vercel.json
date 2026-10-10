@@ -3,21 +3,26 @@
     "api/**/*.php": {
       "runtime": "vercel-php@0.7.3"
     },
-    "php/**/*.php": {
-      "runtime": "vercel-php@0.7.3"
-    },
-    "index.php": {
+    "*.php": {
       "runtime": "vercel-php@0.7.3"
     }
   },
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/php_backend/index.php"
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(login|admin_login|admin|admin_dashboard|courses|practice|exam|submit_exam|results|history|leaderboard|profile|combat|active_study|question_search|readiness|countdown|chill|logout)",
+      "dest": "/$1.php"
+    },
+    {
+      "src": "/$",
+      "dest": "/index.php"
     },
     {
       "src": "/(.*)",
-      "dest": "/php/$1"
+      "dest": "/$1"
     }
   ]
 }

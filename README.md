@@ -1,63 +1,84 @@
-# PreMed Test Portal
+# PreMed Test Portal (Pure PHP & SQLite Edition)
 
-A full-stack, secure, AI-powered academic CBT (Computer Based Test) portal with a React frontend and a Vercel-ready serverless backend using Hono and MongoDB.
+A high-performance, lightweight, and zero-setup academic CBT (Computer-Based Test) portal converted 100% to **pure PHP** with a portable, self-contained **SQLite database** (`premed_portal.sqlite`) containing all 5,630 questions.
 
-## Features
+---
 
-- **Robust Testing Engine**: Secure environment, countdown timers, intelligent tracking.
-- **AI-Powered OCR**: Automatic parsing of PDF and DOCX files to generate interactive question banks.
-- **Admin & Developer Dashboards**: Manage courses, students, results, server monitoring, and incidents.
-- **MongoDB Database**: Scalable NoSQL cloud database integration.
+## 🌟 Key Features
 
-## Local Development (VS Code)
+- **100% Pure PHP**: No node_modules, no React, no Vite build steps. Instant loading and zero build delay.
+- **Embedded SQLite Database**: Pre-seeded with **5,630 questions**, 89 topics, 11 courses, 319 students, and past result records. Zero external cloud database configurations or connection strings required.
+- **Full CBT Engine (`exam.php`)**:
+  - Live countdown timer with auto-submit
+  - Anti-cheating window blur detector
+  - Question palette navigation drawer (answered, flagged, unanswered)
+  - On-screen medical scientific calculator
+  - Text-to-Speech (TTS) question reader
+  - KaTeX mathematical and chemical equation rendering
+- **Student Home Hub (`index.php`)**:
+  - Direct candidate statistics and test history
+  - Active exam alerts and course catalogue
+  - Custom practice generator by subject and topic
+- **Instructor Admin Dashboard (`admin_dashboard.php`)**:
+  - Course deployment control (lock/unlock exams)
+  - Full candidate directory and submission reviews
+  - Searchable question bank across all 5,630 questions
+- **Interactive Medical Modules**:
+  - **Med Combat Arena (`combat.php`)**: Turn-based team duel
+  - **AI Active Study Lab (`active_study.php`)**: Clinical notes digitizer and quiz generator
+  - **Question Search (`question_search.php`)**: Instant keyword search across all items
 
-### Prerequisites
+---
 
-- **Node.js** (v20 or higher recommended)
-- **MongoDB Atlas** account (or local MongoDB server)
+## 🚀 Running Locally
 
-### Setup
+### Option 1: Built-in PHP Development Server (Zero Setup)
+Simply run:
+```bash
+php -S localhost:8000
+```
+Open [http://localhost:8000](http://localhost:8000) in your browser.
 
-1. **Clone/Download** the project files.
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-3. **Configure Environment Variables**:
-   Copy `.env.example` to `.env` and fill in your details:
-   ```bash
-   cp .env.example .env
-   ```
-   **Important Variables**:
-   - `MONGODB_URI`: Your MongoDB database connection string. Ensure your IP (or `0.0.0.0/0`) is whitelisted in Atlas.
-   - `JWT_SECRET`: A secure random string for signing auth tokens.
-   - `EMMANUEL_ADMIN_KEY`: Admin dashboard access key.
-   - `DEVELOPER_PASSWORD`: Developer monitoring dashboard password.
+### Option 2: Apache / Nginx / XAMPP / WampServer / MAMP
+Drop the project into your `htdocs` or web root directory and navigate to `http://localhost/premed-test-portal`.
 
-4. **Run the application**:
-   ```bash
-   npm run dev
-   ```
-   The application will be available at `http://localhost:3000`.
+---
 
-## Deployment
+## ☁️ Deployment
 
-This app is optimized for serverless deployment on platforms like Vercel.
+### Deploy to Vercel
+The repository includes `vercel.json` configured with the serverless PHP runtime (`vercel-php@0.7.3`):
+1. Import repository into [Vercel](https://vercel.com/new).
+2. Leave build settings default.
+3. Deploy!
 
-### Deploying to Vercel
+### Deploy to Traditional Hosting / VPS (cPanel, Render, Railway, Fly.io, DigitalOcean)
+Upload all repository files to your PHP 8.x web root. Ensure SQLite PDO extension is enabled (`php_pdo_sqlite`).
 
-1. Push your code to a GitHub repository.
-2. Import the project in Vercel.
-3. Overwrite the `Build Command` to `npm run build` or let Vercel use defaults.
-4. Set the **Environment Variables** (MONGODB_URI, JWT_SECRET, etc.) in your Vercel project settings.
-5. Deploy. The backend API is automatically routed through Vercel serverless functions via the `api/index.ts` handler and `vercel.json`.
+---
 
-## Project Structure
+## 📁 Project Architecture
 
-- `src/app.ts`: Hono backend main entry point.
-- `src/db.ts`: MongoDB Mongoose connection handler.
-- `src/routes/`: Backend API routes (Admin, Auth, Courses, Simulation, Developer).
-- `src/views/`: Frontend React views (Dashboards, Test Active, Login).
-- `src/components/`: Reusable React components.
-- `api/index.ts`: Vercel serverless function entry script.
-- `vercel.json`: Vercel routing configuration.
+- `config/db.php`: PDO SQLite connection handler with WAL mode
+- `includes/header.php`: Global responsive navigation, Tailwind CSS CDN, Lucide Icons, KaTeX formulas
+- `includes/footer.php`: Global footer & interactive scripts
+- `index.php`: Student Home Hub
+- `login.php`: Student matric login and account registration
+- `admin_login.php`: Instructor access authentication
+- `admin_dashboard.php`: Instructor test control and management
+- `courses.php`: Course/subject directory
+- `practice.php`: Custom practice test builder
+- `readiness.php`: System & browser checks before test
+- `countdown.php`: 5-second countdown launcher
+- `exam.php`: Full-featured CBT examination engine
+- `submit_exam.php`: Server-side auto-grading engine
+- `chill.php`: Post-test calming cooldown screen
+- `results.php`: Detailed result breakdown and review
+- `history.php`: Past examination attempts
+- `leaderboard.php`: Candidate rankings
+- `profile.php`: Student profile editor
+- `combat.php`: Med Combat turn-based team duel
+- `active_study.php`: AI Active Study Lab
+- `question_search.php`: Searchable question bank
+- `premed_portal.sqlite`: Complete SQLite database file (5,630 questions)
+- `database_schema_and_questions.sql`: Raw SQL dump of schema and records
