@@ -22,9 +22,11 @@ $allowedDepts = [
     'Medicine & Surgery',
     'Dentistry',
     'Physiotherapy',
+    'Nursing',
     'NACON Nursing',
-    'Medical Laboratory Science',
+    'Pharmacology',
     'Pharmacy',
+    'Medical Laboratory Science',
     'Physiology',
     'Anatomy'
 ];

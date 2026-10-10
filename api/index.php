@@ -48,6 +48,7 @@ $allowedScripts = [
     'combat',
     'active_study',
     'question_search',
+    'sync_live_data',
     'logout'
 ];
 
