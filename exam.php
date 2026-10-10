@@ -70,8 +70,45 @@ foreach ($questions as $idx => $q) {
     ];
 }
 
+$student = $_SESSION['student'] ?? null;
+if (!$student) {
+    header('Location: login.php');
+    exit;
+}
+
 $sessionId = bin2hex(random_bytes(12));
 $totalQuestions = count($clientQuestions);
+
+// Fetch Security Settings
+$antiCheatBlur = 1;
+$enforceFullscreen = 1;
+$maxTabSwitches = 3;
+$watermarkEnabled = 1;
+
+try {
+    $sRows = $db->query("SELECT key_name, value FROM settings")->fetchAll(PDO::FETCH_KEY_PAIR);
+    if (isset($sRows['anti_cheat_blur'])) $antiCheatBlur = (int)$sRows['anti_cheat_blur'];
+    if (isset($sRows['enforce_fullscreen'])) $enforceFullscreen = (int)$sRows['enforce_fullscreen'];
+    if (isset($sRows['max_tab_switches'])) $maxTabSwitches = (int)$sRows['max_tab_switches'];
+    if (isset($sRows['watermark_enabled'])) $watermarkEnabled = (int)$sRows['watermark_enabled'];
+} catch (Exception $e) {}
+
+// Register active session in exam_sessions table
+try {
+    $sessStmt = $db->prepare("
+        INSERT OR REPLACE INTO exam_sessions (
+            id, student_id, matric_no, student_name, course_id, course_code, status, tab_switches, cheating_log, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 'IN_PROGRESS', 0, '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ");
+    $sessStmt->execute([
+        $sessionId,
+        $student['id'],
+        $student['matric_no'],
+        $student['name'],
+        $course['id'],
+        $course['code']
+    ]);
+} catch (Exception $e) {}
 
 require_once __DIR__ . '/includes/header.php';
 ?>
@@ -205,7 +242,40 @@ require_once __DIR__ . '/includes/header.php';
     <input type="hidden" name="session_id" value="<?= htmlspecialchars($sessionId) ?>">
     <input type="hidden" name="answers_json" id="answersJsonInput" value="">
     <input type="hidden" name="question_ids_json" id="questionIdsJsonInput" value="">
+    <input type="hidden" name="tab_switches" id="tabSwitchesInput" value="0">
+    <input type="hidden" name="is_flagged_cheating" id="isFlaggedCheatingInput" value="0">
+    <input type="hidden" name="cheating_log" id="cheatingLogInput" value="[]">
 </form>
+
+<!-- Cheating Warning Modal -->
+<div id="cheatingModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl border-2 border-rose-500">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center">
+            <i data-lucide="shield-alert" class="w-7 h-7"></i>
+        </div>
+        <div class="space-y-1">
+            <h3 class="text-base font-black text-rose-600" id="cheatModalTitle">Security Alert: Tab Switch Detected!</h3>
+            <p class="text-xs text-slate-600 leading-relaxed font-medium" id="cheatModalMsg">
+                You have navigated away from the exam viewport. This infraction has been logged and reported in real time to the exam administrator.
+            </p>
+        </div>
+        <div class="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold">
+            <span id="cheatModalCount">Violation 1 of 3</span>
+        </div>
+        <button type="button" onclick="dismissCheatingModal()" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md">
+            I Understand & Return to Exam
+        </button>
+    </div>
+</div>
+
+<?php if ($watermarkEnabled): ?>
+<!-- Candidate Translucent Watermark Overlay -->
+<div class="pointer-events-none fixed inset-0 z-30 select-none overflow-hidden opacity-[0.05] flex flex-wrap gap-12 p-8 text-lg font-black text-slate-900 font-mono rotate-[-12deg]">
+    <?php for ($i = 0; $i < 24; $i++): ?>
+    <span><?= htmlspecialchars($student['matric_no']) ?> &bull; <?= htmlspecialchars($student['name']) ?></span>
+    <?php endfor; ?>
+</div>
+<?php endif; ?>
 
 <script>
 const QUESTIONS = <?= json_encode($clientQuestions) ?>;
@@ -446,17 +516,100 @@ function speakCurrentQuestion() {
     }
 }
 
+let tabSwitchCount = 0;
+let cheatingLogs = [];
+const MAX_TAB_SWITCHES = <?= (int)$maxTabSwitches ?>;
+const ANTI_CHEAT_BLUR = <?= (int)$antiCheatBlur ?>;
+const ENFORCE_FULLSCREEN = <?= (int)$enforceFullscreen ?>;
+const SESSION_ID = '<?= htmlspecialchars($sessionId) ?>';
+
+function recordCheatingEvent(type, details) {
+    tabSwitchCount++;
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString();
+    const logItem = { type, time: timeStr, count: tabSwitchCount, details };
+    cheatingLogs.push(logItem);
+
+    const inputSwitches = document.getElementById('tabSwitchesInput');
+    const inputLog = document.getElementById('cheatingLogInput');
+    if (inputSwitches) inputSwitches.value = tabSwitchCount;
+    if (inputLog) inputLog.value = JSON.stringify(cheatingLogs);
+
+    // Send real-time beacon/fetch to log_cheating.php
+    try {
+        const payload = JSON.stringify({
+            session_id: SESSION_ID,
+            type: type,
+            count: tabSwitchCount,
+            log: cheatingLogs
+        });
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon('log_cheating.php', new Blob([payload], { type: 'application/json' }));
+        } else {
+            fetch('log_cheating.php', { method: 'POST', body: payload, headers: { 'Content-Type': 'application/json' } });
+        }
+    } catch (e) {}
+
+    showCheatingWarningModal(tabSwitchCount, MAX_TAB_SWITCHES, type);
+
+    if (MAX_TAB_SWITCHES > 0 && tabSwitchCount >= MAX_TAB_SWITCHES) {
+        const flagInput = document.getElementById('isFlaggedCheatingInput');
+        if (flagInput) flagInput.value = '1';
+        setTimeout(() => {
+            alert(`🚨 EXAM TERMINATED: You exceeded the allowed limit of ${MAX_TAB_SWITCHES} violations. Your test is being automatically submitted and marked as FLAGGED FOR CHEATING.`);
+            executeSubmit();
+        }, 400);
+    }
+}
+
+function showCheatingWarningModal(count, max, type) {
+    const modal = document.getElementById('cheatingModal');
+    if (!modal) return;
+    const title = document.getElementById('cheatModalTitle');
+    const msg = document.getElementById('cheatModalMsg');
+    const badge = document.getElementById('cheatModalCount');
+
+    if (title) title.innerText = type === 'FULLSCREEN_EXIT' ? 'Security Alert: Fullscreen Exited!' : 'Security Alert: Tab Switch Detected!';
+    if (msg) msg.innerText = `You navigated away from the exam viewport. This infraction has been logged and reported in real time to the exam administrator.`;
+    if (badge) badge.innerText = max > 0 ? `Violation ${count} of ${max} allowed` : `Violation #${count} logged`;
+
+    modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+}
+
+function dismissCheatingModal() {
+    const modal = document.getElementById('cheatingModal');
+    if (modal) modal.classList.add('hidden');
+    if (ENFORCE_FULLSCREEN && !document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+    }
+}
+
 // Anti cheating listeners
 function setupAntiCheatingListeners() {
     document.addEventListener('contextmenu', e => e.preventDefault());
     document.addEventListener('copy', e => e.preventDefault());
     document.addEventListener('paste', e => e.preventDefault());
 
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') {
-            console.warn("Security Alert: User navigated away from assessment viewport.");
-        }
-    });
+    if (ANTI_CHEAT_BLUR) {
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                recordCheatingEvent('TAB_SWITCH', 'Switched browser tab or minimized window');
+            }
+        });
+
+        window.addEventListener('blur', () => {
+            recordCheatingEvent('WINDOW_BLUR', 'Window lost focus to background application');
+        });
+    }
+
+    if (ENFORCE_FULLSCREEN) {
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                recordCheatingEvent('FULLSCREEN_EXIT', 'Exited fullscreen mode');
+            }
+        });
+    }
 }
 
 // Calculator functions

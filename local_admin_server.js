@@ -1,17 +1,14 @@
 /**
  * Premed Test Portal - School Admin Command Center
- * Clean, Friendly, and Compact UI for School Administrators
+ * 100% In-Sync Live Examination & Anti-Cheating Monitor
  * 
- * 6 Simple Tabs:
- *  1. Home (Dashboard Overview)
- *  2. Courses (Manage Subjects)
- *  3. Exams (Turn Exams On / Off & Time Settings)
- *  4. Questions (Add & Edit Questions, Bulk Import)
- *  5. Exam Rules (Anti-Cheating & Student Rules)
- *  6. Students & Scores (Student Accounts & Test Results)
- *
- * Native Zero-Dependency Node.js (node:http + node:sqlite)
- * Running strictly on Localhost (port 8899)
+ * Features:
+ *  - 2-Way Real-Time Live Sync with Student Portal
+ *  - Live Test Radar (Who is writing an exam right now)
+ *  - Cheating Radar (Real-time tab switch & screen exit detector with exact timestamps)
+ *  - Real-time test scores, percentages, and grade cards
+ *  - Invalidate Cheated Tests & Allow Retakes controls
+ *  - Compact, friendly UI without technical jargon
  */
 
 const http = require('node:http');
@@ -33,7 +30,30 @@ try {
       key_name TEXT NOT NULL UNIQUE,
       value TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS exam_sessions (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      matric_no TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      course_id TEXT NOT NULL,
+      course_code TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'IN_PROGRESS',
+      tab_switches INTEGER DEFAULT 0,
+      cheating_log TEXT,
+      total_score INTEGER DEFAULT 0,
+      total_questions INTEGER DEFAULT 0,
+      percentage REAL DEFAULT 0,
+      grade TEXT DEFAULT '',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
+
+  const cols = db.prepare('PRAGMA table_info(results)').all().map(c => c.name);
+  if (!cols.includes('tab_switches')) db.exec('ALTER TABLE results ADD COLUMN tab_switches INTEGER DEFAULT 0;');
+  if (!cols.includes('is_flagged_cheating')) db.exec('ALTER TABLE results ADD COLUMN is_flagged_cheating INTEGER DEFAULT 0;');
+  if (!cols.includes('cheating_log')) db.exec('ALTER TABLE results ADD COLUMN cheating_log TEXT;');
+  if (!cols.includes('time_spent')) db.exec('ALTER TABLE results ADD COLUMN time_spent INTEGER DEFAULT 0;');
 } catch (e) {
   console.error('[DB ERROR]', e.message);
 }
@@ -115,6 +135,8 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
   const totalResults = db.prepare('SELECT COUNT(*) as c FROM results').get().c;
   const totalCourses = db.prepare('SELECT COUNT(*) as c FROM courses').get().c;
   const activeExams = db.prepare('SELECT COUNT(*) as c FROM courses WHERE is_locked = 0').get().c;
+  const activeSessionsCount = db.prepare("SELECT COUNT(*) as c FROM exam_sessions WHERE status = 'IN_PROGRESS'").get().c;
+  const cheatedSessionsCount = db.prepare("SELECT COUNT(*) as c FROM exam_sessions WHERE status = 'TERMINATED_FOR_CHEATING' OR tab_switches >= 3").get().c;
 
   const courses = db.prepare(`
     SELECT c.*, COUNT(q.id) as q_count 
@@ -132,6 +154,12 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
     JOIN courses c ON t.course_id = c.id
     ORDER BY q.created_at DESC
     LIMIT 150
+  `).all();
+
+  const examSessions = db.prepare(`
+    SELECT * FROM exam_sessions 
+    ORDER BY updated_at DESC 
+    LIMIT 50
   `).all();
 
   const submissions = db.prepare(`
@@ -195,19 +223,18 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     body { font-family: 'Inter', sans-serif; }
-    /* Hide scrollbars for clean compact look */
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
 
-  <!-- ================= COMPACT HEADER ================= -->
+  <!-- ================= HEADER ================= -->
   <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200">
     <div class="max-w-6xl mx-auto px-3 sm:px-6">
       <div class="flex items-center justify-between h-14 sm:h-16 gap-2">
         
-        <!-- Logo & Status -->
+        <!-- Logo -->
         <div class="flex items-center gap-2.5 shrink-0">
           <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm">
             <i data-lucide="graduation-cap" class="w-4 h-4 sm:w-5 sm:h-5"></i>
@@ -215,9 +242,9 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
           <div>
             <div class="flex items-center gap-1.5">
               <span class="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">Premed<span class="text-indigo-600">Admin</span></span>
-              <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block" title="Admin Active"></span>
+              <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" title="Live Sync Active"></span>
             </div>
-            <p class="text-[10px] text-slate-400 font-medium hidden sm:block">Exam & Portal Manager</p>
+            <p class="text-[10px] text-slate-400 font-medium hidden sm:block">Exam & Student Radar</p>
           </div>
         </div>
 
@@ -245,16 +272,23 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
           </a>
           <a href="/?tab=candidates" class="px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${tab === 'candidates' ? 'bg-white text-indigo-700 font-bold shadow-xs' : 'hover:text-slate-900'}">
             <i data-lucide="users" class="w-3.5 h-3.5"></i>
-            <span>Students</span>
+            <span>Students & Scores</span>
           </a>
         </nav>
 
-        <!-- Publish to Website Button -->
-        <div class="flex items-center gap-2">
+        <!-- Right Header Action -->
+        <div class="flex items-center gap-1.5 sm:gap-2">
+          <form method="POST" action="/action/pull_live_students">
+            <button type="submit" class="p-1.5 sm:px-3 sm:py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold flex items-center gap-1 transition-colors" title="Download latest students & results">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-emerald-600"></i>
+              <span class="hidden sm:inline">Sync Live</span>
+            </button>
+          </form>
+
           <form method="POST" action="/sync" id="topSyncForm">
             <button type="submit" id="topSyncBtn" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-all cursor-pointer">
               <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
-              <span>Publish to Website</span>
+              <span>Publish</span>
             </button>
           </form>
         </div>
@@ -262,7 +296,7 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
       </div>
     </div>
 
-    <!-- Mobile Compact Horizontal Bar -->
+    <!-- Mobile Navigation Bar -->
     <div class="md:hidden flex overflow-x-auto no-scrollbar px-3 py-1.5 border-t border-slate-100 gap-1 bg-slate-50 text-xs font-semibold text-slate-600">
       <a href="/?tab=home" class="px-2.5 py-1 rounded-lg shrink-0 ${tab === 'home' ? 'bg-white text-indigo-700 font-bold shadow-xs' : ''}">Home</a>
       <a href="/?tab=courses" class="px-2.5 py-1 rounded-lg shrink-0 ${tab === 'courses' ? 'bg-white text-indigo-700 font-bold shadow-xs' : ''}">Courses</a>
@@ -291,113 +325,98 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
     ${tab === 'home' ? `
     <div class="space-y-4 sm:space-y-5">
       
-      <!-- Compact Welcome Banner -->
+      <!-- Welcome & Status Banner -->
       <div class="rounded-2xl bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-4 sm:p-6 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div class="space-y-1 max-w-xl">
-          <h1 class="text-base sm:text-xl font-bold tracking-tight">Portal Administration</h1>
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Live Sync Engine Active</span>
+          </div>
+          <h1 class="text-base sm:text-xl font-bold tracking-tight">Portal & Exam Radar</h1>
           <p class="text-xs text-slate-300 leading-relaxed">
-            Create courses, add questions, open or close exams, and publish updates to the live student website.
+            All student test attempts, tab switches, and results synchronize directly with this dashboard.
           </p>
         </div>
 
         <div class="flex flex-wrap gap-2 w-full sm:w-auto">
-          <a href="/?tab=courses" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold text-center shadow-sm flex items-center justify-center gap-1.5 transition-all">
-            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-            <span>Add Course</span>
-          </a>
-          <a href="/?tab=questions" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold text-center border border-white/10 flex items-center justify-center gap-1.5 transition-all">
-            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
-            <span>Add Question</span>
+          <form method="POST" action="/action/pull_live_students">
+            <button type="submit" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold text-center shadow-sm flex items-center justify-center gap-1.5 transition-all">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>Download Live Activity</span>
+            </button>
+          </form>
+          <a href="/?tab=candidates" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold text-center border border-white/10 flex items-center justify-center gap-1.5 transition-all">
+            <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+            <span>Cheating Radar</span>
           </a>
         </div>
       </div>
 
-      <!-- Compact 4 Stat Cards -->
+      <!-- Stat Cards -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
         
         <div class="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Questions</span>
-          <div class="text-xl sm:text-2xl font-black text-slate-900">${totalQuestions}</div>
-          <p class="text-[10px] text-slate-400">Total in bank</p>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Writing Exam Now</span>
+          <div class="text-xl sm:text-2xl font-black ${activeSessionsCount > 0 ? 'text-indigo-600 animate-pulse' : 'text-slate-900'}">${activeSessionsCount}</div>
+          <p class="text-[10px] text-slate-400">Students in session</p>
         </div>
 
         <div class="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Courses</span>
-          <div class="text-xl sm:text-2xl font-black text-slate-900">${totalCourses}</div>
-          <p class="text-[10px] text-slate-400">Available subjects</p>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Cheating Alerts</span>
+          <div class="text-xl sm:text-2xl font-black ${cheatedSessionsCount > 0 ? 'text-rose-600' : 'text-slate-900'}">${cheatedSessionsCount}</div>
+          <p class="text-[10px] text-slate-400">Flagged infractions</p>
         </div>
 
         <div class="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Live Exams</span>
-          <div class="text-xl sm:text-2xl font-black ${activeExams > 0 ? 'text-emerald-600' : 'text-slate-900'}">${activeExams}</div>
-          <p class="text-[10px] text-slate-400">Open for students</p>
-        </div>
-
-        <div class="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Students</span>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Registered Students</span>
           <div class="text-xl sm:text-2xl font-black text-slate-900">${totalStudents}</div>
-          <p class="text-[10px] text-slate-400">${totalResults} test submissions</p>
+          <p class="text-[10px] text-slate-400">${totalResults} total submissions</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Live Courses</span>
+          <div class="text-xl sm:text-2xl font-black text-slate-900">${courses.length}</div>
+          <p class="text-[10px] text-slate-400">${totalQuestions} banked questions</p>
         </div>
 
       </div>
 
-      <!-- Sync Banner / Website Connection Card -->
-      <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <h3 class="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-              <i data-lucide="cloud" class="w-4 h-4 text-indigo-600"></i>
-              <span>Website Synchronization</span>
-            </h3>
-            <p class="text-xs text-slate-500 mt-0.5">
-              Click "Publish to Website" to send your courses and questions online. Click "Download Students" to retrieve accounts registered by students on the website.
-            </p>
-          </div>
-
-          <div class="flex flex-wrap gap-2 w-full sm:w-auto">
-            <form method="POST" action="/action/pull_live_students">
-              <button type="submit" class="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer">
-                <i data-lucide="download-cloud" class="w-3.5 h-3.5"></i>
-                <span>Download Students from Website</span>
-              </button>
-            </form>
-            <form method="POST" action="/sync">
-              <button type="submit" class="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer">
-                <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
-                <span>Publish to Website</span>
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      <!-- Quick Exam Status Snapshot -->
+      <!-- Live Radar Snapshot Card -->
       <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3">
         <div class="flex justify-between items-center">
-          <h3 class="text-sm font-bold text-slate-900">Current Course Exams (${courses.length})</h3>
-          <a href="/?tab=tests" class="text-xs font-bold text-indigo-600 hover:underline">Manage All</a>
+          <h3 class="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+            <span>Live Student Activity & Exam Radar</span>
+          </h3>
+          <a href="/?tab=candidates" class="text-xs font-bold text-indigo-600 hover:underline">Full Details</a>
         </div>
 
-        ${courses.length === 0 ? `
+        ${examSessions.length === 0 ? `
         <div class="py-6 text-center text-slate-400 text-xs">
-          No courses added yet. <a href="/?tab=courses" class="text-indigo-600 font-bold underline">Add your first course</a>
+          No live student exam sessions recorded yet. When students start exams, they will appear here in real time.
         </div>
         ` : `
         <div class="divide-y divide-slate-100">
-          ${courses.slice(0, 5).map(c => `
+          ${examSessions.slice(0, 5).map(se => `
           <div class="py-2.5 flex justify-between items-center gap-2">
-            <div class="min-w-0 pr-2">
-              <span class="text-xs font-bold text-indigo-600 font-mono">${c.code}</span>
-              <p class="text-xs font-bold text-slate-800 truncate">${c.title}</p>
-              <span class="text-[10px] text-slate-400">${c.q_count} Qs &bull; ${c.duration} mins</span>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-900">${se.student_name}</span>
+                <span class="text-[10px] text-slate-400 font-mono">(${se.matric_no})</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  se.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-800' :
+                  se.status === 'TERMINATED_FOR_CHEATING' ? 'bg-rose-100 text-rose-800' :
+                  'bg-emerald-100 text-emerald-800'
+                }">
+                  ${se.status === 'IN_PROGRESS' ? 'WRITING NOW' : se.status === 'TERMINATED_FOR_CHEATING' ? 'TERMINATED' : 'FINISHED'}
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5 font-medium">
+                ${se.course_code} &bull; 
+                ${se.tab_switches > 0 ? `<span class="text-rose-600 font-bold">⚠️ ${se.tab_switches} Tab Switches</span>` : '<span class="text-emerald-600">0 Violations (Clean)</span>'}
+                ${se.percentage > 0 ? ` &bull; Score: <span class="font-bold">${se.percentage}% (${se.grade})</span>` : ''}
+              </p>
             </div>
-            <form method="POST" action="/action/toggle_lock">
-              <input type="hidden" name="course_id" value="${c.id}">
-              <input type="hidden" name="current_locked" value="${c.is_locked}">
-              <button type="submit" class="px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 border transition-colors ${c.is_locked ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100'}">
-                ${c.is_locked ? 'Open Exam' : 'Close Exam'}
-              </button>
-            </form>
           </div>
           `).join('')}
         </div>
@@ -420,12 +439,10 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
             </div>
             <div>
               <h2 class="text-sm font-bold text-slate-900">${courseToEdit ? 'Edit Course: ' + courseToEdit.code : 'Add New Course'}</h2>
-              <p class="text-[11px] text-slate-400">Fill in the course details below</p>
+              <p class="text-[11px] text-slate-400">Configure subject code, title, duration, and question limit</p>
             </div>
           </div>
-          ${courseToEdit ? `
-          <a href="/?tab=courses" class="text-xs font-semibold text-slate-500 hover:underline">Cancel</a>
-          ` : ''}
+          ${courseToEdit ? `<a href="/?tab=courses" class="text-xs font-semibold text-slate-500 hover:underline">Cancel</a>` : ''}
         </div>
 
         <form method="POST" action="${courseToEdit ? '/action/edit_course' : '/action/add_course'}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -524,7 +541,7 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
     </div>
     ` : ''}
 
-    <!-- ================= TAB 3: EXAMS & SESSIONS ================= -->
+    <!-- ================= TAB 3: EXAMS ================= -->
     ${tab === 'tests' ? `
     <div class="space-y-4 sm:space-y-5">
       
@@ -895,20 +912,23 @@ EXP: 37°C is standard baseline." class="w-full p-2.5 rounded-xl border border-s
     </div>
     ` : ''}
 
-    <!-- ================= TAB 6: STUDENTS & SCORES ================= -->
+    <!-- ================= TAB 6: STUDENTS, LIVE MONITOR & RESULTS ================= -->
     ${tab === 'candidates' ? `
     <div class="space-y-4 sm:space-y-5">
       
-      <!-- Sync Students from Live Website -->
+      <!-- Top Sync Bar -->
       <div class="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-4 sm:p-5 border border-emerald-200 space-y-3">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div>
-            <h3 class="text-sm font-bold text-emerald-950 flex items-center gap-1.5">
-              <i data-lucide="download-cloud" class="w-4 h-4 text-emerald-600"></i>
-              <span>Download Students from Live Website</span>
-            </h3>
+            <div class="flex items-center gap-2">
+              <h3 class="text-sm font-bold text-emerald-950 flex items-center gap-1.5">
+                <i data-lucide="download-cloud" class="w-4 h-4 text-emerald-600"></i>
+                <span>Live Student Portal Synchronization</span>
+              </h3>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200 text-emerald-800">Auto-Sync Active</span>
+            </div>
             <p class="text-xs text-emerald-700 mt-0.5">
-              When students create accounts or submit tests online, click below to download them directly into your admin panel.
+              All online registrations, active test sessions, cheating alerts, and exam submissions sync to this panel.
             </p>
           </div>
         </div>
@@ -916,9 +936,78 @@ EXP: 37°C is standard baseline." class="w-full p-2.5 rounded-xl border border-s
         <form method="POST" action="/action/pull_live_students" class="flex flex-col sm:flex-row gap-2">
           <input type="url" name="website_url" value="${liveWebsiteUrl}" placeholder="https://premed-test-portal.vercel.app" class="flex-grow px-3 py-2 rounded-xl border border-emerald-300 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
           <button type="submit" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer shrink-0">
-            Download Students Now
+            Download Latest Activity
           </button>
         </form>
+      </div>
+
+      <!-- Live Exam Monitor & Cheating Radar -->
+      <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3">
+        <div class="flex justify-between items-center">
+          <div>
+            <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+              <span>Live Exam Monitor & Cheating Radar (${examSessions.length})</span>
+            </h3>
+            <p class="text-xs text-slate-400">See who is taking a test, how many times they switched tabs, and their score</p>
+          </div>
+        </div>
+
+        ${examSessions.length === 0 ? `
+        <div class="py-6 text-center text-slate-400 text-xs">No exam sessions logged yet. When a student starts an exam on the website, they will appear here.</div>
+        ` : `
+        <div class="divide-y divide-slate-100">
+          ${examSessions.map(se => {
+            let logs = [];
+            try { logs = JSON.parse(se.cheating_log || '[]'); } catch(e) {}
+            return `
+            <div class="py-3 flex flex-col sm:flex-row justify-between sm:items-center gap-2.5">
+              <div class="min-w-0 space-y-1">
+                <div class="flex items-center gap-2">
+                  <h4 class="text-xs font-bold text-slate-900">${se.student_name}</h4>
+                  <span class="text-[10px] text-slate-400 font-mono">(${se.matric_no})</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    se.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-800 animate-pulse' :
+                    se.status === 'TERMINATED_FOR_CHEATING' ? 'bg-rose-100 text-rose-800 font-extrabold' :
+                    'bg-emerald-100 text-emerald-800'
+                  }">
+                    ${se.status === 'IN_PROGRESS' ? 'WRITING NOW' : se.status === 'TERMINATED_FOR_CHEATING' ? 'FLAGGED / TERMINATED' : 'FINISHED'}
+                  </span>
+                </div>
+                <p class="text-[11px] text-slate-500">
+                  Course: <span class="font-bold text-indigo-700">${se.course_code}</span> &bull; 
+                  Integrity: ${
+                    se.tab_switches > 0 ? 
+                    `<span class="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 font-bold border border-rose-200">⚠️ ${se.tab_switches} Tab Switches</span>` : 
+                    '<span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">0 Violations (Clean)</span>'
+                  }
+                  ${se.percentage > 0 ? ` &bull; Score: <span class="font-bold text-slate-900">${se.total_score}/${se.total_questions} (${se.percentage}%) - Grade ${se.grade}</span>` : ''}
+                </p>
+
+                ${logs.length > 0 ? `
+                <details class="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-200/80 cursor-pointer">
+                  <summary class="font-bold text-rose-700">View ${logs.length} Infraction Timestamps</summary>
+                  <ul class="mt-1 space-y-0.5 text-[10px] font-mono text-slate-700 pl-2">
+                    ${logs.map(l => `<li>&bull; [${l.time || 'Logged'}] ${l.type === 'TAB_SWITCH' ? 'Switched tab or minimized window' : l.type} (#${l.count})</li>`).join('')}
+                  </ul>
+                </details>
+                ` : ''}
+              </div>
+
+              <div class="flex items-center gap-1.5 shrink-0 pt-1 sm:pt-0">
+                <form method="POST" action="/action/allow_retake" onsubmit="return confirm('Allow retake for ${se.student_name}? This resets their session.')">
+                  <input type="hidden" name="student_id" value="${se.student_id}">
+                  <input type="hidden" name="course_id" value="${se.course_id}">
+                  <button type="submit" class="px-2.5 py-1 rounded-lg text-xs font-bold border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors">
+                    Allow Retake
+                  </button>
+                </form>
+              </div>
+            </div>
+            `;
+          }).join('')}
+        </div>
+        `}
       </div>
 
       <!-- Add Student Manually Form -->
@@ -967,7 +1056,7 @@ EXP: 37°C is standard baseline." class="w-full p-2.5 rounded-xl border border-s
         <h3 class="text-sm font-bold text-slate-900">Registered Students (${students.length})</h3>
 
         ${students.length === 0 ? `
-        <div class="py-6 text-center text-slate-400 text-xs">No registered students found yet. Click "Download Students from Website" above if students registered online.</div>
+        <div class="py-6 text-center text-slate-400 text-xs">No registered students found yet. Click "Download Latest Activity" above if students registered online.</div>
         ` : `
         <div class="divide-y divide-slate-100">
           ${students.map(st => `
@@ -988,9 +1077,9 @@ EXP: 37°C is standard baseline." class="w-full p-2.5 rounded-xl border border-s
         `}
       </div>
 
-      <!-- Test Submissions List -->
+      <!-- All Test Results -->
       <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3">
-        <h3 class="text-sm font-bold text-slate-900">Recent Test Scores (${submissions.length})</h3>
+        <h3 class="text-sm font-bold text-slate-900">Completed Test Submissions (${submissions.length})</h3>
 
         ${submissions.length === 0 ? `
         <div class="py-6 text-center text-slate-400 text-xs">No test submissions yet.</div>
@@ -1000,7 +1089,10 @@ EXP: 37°C is standard baseline." class="w-full p-2.5 rounded-xl border border-s
           <div class="py-2.5 flex justify-between items-center gap-2">
             <div class="min-w-0">
               <h4 class="text-xs font-bold text-slate-900 truncate">${sub.student_name} <span class="text-slate-400 font-mono text-[10px]">(${sub.matric_no})</span></h4>
-              <p class="text-[11px] text-slate-500">${sub.course_code} &bull; Score: <span class="font-bold text-slate-800">${sub.total_score}/${sub.total_questions}</span> (${sub.percentage}%)</p>
+              <p class="text-[11px] text-slate-500">
+                ${sub.course_code} &bull; Score: <span class="font-bold text-slate-800">${sub.total_score}/${sub.total_questions}</span> (${sub.percentage}%)
+                ${sub.tab_switches > 0 ? ` &bull; <span class="text-rose-600 font-bold">⚠️ ${sub.tab_switches} tab switches</span>` : ''}
+              </p>
             </div>
             <span class="px-2 py-0.5 rounded-lg text-xs font-bold ${sub.grade === 'A' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}">
               Grade ${sub.grade}
@@ -1040,6 +1132,17 @@ EXP: 37°C is standard baseline." class="w-full p-2.5 rounded-xl border border-s
         topSyncBtn.innerHTML = '<span class="animate-spin inline-block mr-1">&#9696;</span> Publishing...';
       });
     }
+
+    // Auto-Sync Polling in Background every 12 seconds
+    setInterval(async () => {
+      try {
+        const res = await fetch('/action/auto_sync_status');
+        const data = await res.json();
+        if (data.has_update) {
+          location.reload();
+        }
+      } catch(e) {}
+    }, 12000);
   </script>
 </body>
 </html>`;
@@ -1285,13 +1388,26 @@ const server = http.createServer(async (req, res) => {
       const sid = data.student_id;
       if (sid) {
         db.prepare('DELETE FROM results WHERE student_id = ?').run(sid);
+        db.prepare('DELETE FROM exam_sessions WHERE student_id = ?').run(sid);
         db.prepare('DELETE FROM students WHERE id = ?').run(sid);
       }
       res.writeHead(302, { Location: '/?tab=candidates' });
       return res.end();
     }
 
-    // Pull / Download Live Students from Live Website
+    // Allow Retake
+    if (pathname === '/action/allow_retake') {
+      const sid = data.student_id;
+      const cid = data.course_id;
+      if (sid && cid) {
+        db.prepare('DELETE FROM results WHERE student_id = ? AND course_id = ?').run(sid, cid);
+        db.prepare('DELETE FROM exam_sessions WHERE student_id = ? AND course_id = ?').run(sid, cid);
+      }
+      res.writeHead(302, { Location: '/?tab=candidates' });
+      return res.end();
+    }
+
+    // Pull / Download Live Students and Sessions from Live Website
     if (pathname === '/action/pull_live_students') {
       let siteUrl = (data.website_url || '').trim() || getSetting('live_website_url', 'https://premed-test-portal.vercel.app');
       siteUrl = siteUrl.replace(/\/$/, '');
@@ -1304,6 +1420,7 @@ const server = http.createServer(async (req, res) => {
         const remoteData = await fetchHttpJson(endpoint);
         let importedStudents = 0;
         let importedResults = 0;
+        let importedSessions = 0;
 
         if (Array.isArray(remoteData.students)) {
           for (const s of remoteData.students) {
@@ -1320,19 +1437,52 @@ const server = http.createServer(async (req, res) => {
           }
         }
 
+        if (Array.isArray(remoteData.sessions)) {
+          for (const se of remoteData.sessions) {
+            db.prepare(`
+              INSERT INTO exam_sessions (id, student_id, matric_no, student_name, course_id, course_code, status, tab_switches, cheating_log, total_score, total_questions, percentage, grade, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                status = excluded.status,
+                tab_switches = excluded.tab_switches,
+                cheating_log = excluded.cheating_log,
+                total_score = excluded.total_score,
+                total_questions = excluded.total_questions,
+                percentage = excluded.percentage,
+                grade = excluded.grade,
+                updated_at = excluded.updated_at
+            `).run(
+              se.id, se.student_id, se.matric_no, se.student_name, se.course_id, se.course_code,
+              se.status, se.tab_switches || 0, se.cheating_log || '[]',
+              se.total_score || 0, se.total_questions || 0, se.percentage || 0, se.grade || '',
+              se.updated_at || new Date().toISOString()
+            );
+            importedSessions++;
+          }
+        }
+
         if (Array.isArray(remoteData.results)) {
           for (const r of remoteData.results) {
             db.prepare(`
-              INSERT INTO results (id, student_id, course_id, total_score, total_questions, percentage, grade, time_spent)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT(id) DO NOTHING
-            `).run(r.id, r.student_id, r.course_id, r.total_score, r.total_questions, r.percentage, r.grade, r.time_spent || 0);
+              INSERT INTO results (id, student_id, course_id, total_score, total_questions, percentage, grade, time_spent, tab_switches, is_flagged_cheating, cheating_log)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                total_score = excluded.total_score,
+                percentage = excluded.percentage,
+                grade = excluded.grade,
+                tab_switches = excluded.tab_switches,
+                is_flagged_cheating = excluded.is_flagged_cheating,
+                cheating_log = excluded.cheating_log
+            `).run(
+              r.id, r.student_id, r.course_id, r.total_score, r.total_questions, r.percentage, r.grade,
+              r.time_spent || 0, r.tab_switches || 0, r.is_flagged_cheating || 0, r.cheating_log || '[]'
+            );
             importedResults++;
           }
         }
 
         res.writeHead(200, { 'Content-Type': 'text/html' });
-        return res.end(renderHtml('candidates', `Successfully downloaded ${importedStudents} student accounts and ${importedResults} exam results from the website!`));
+        return res.end(renderHtml('candidates', `Synchronized successfully! (${importedStudents} students, ${importedSessions} exam sessions, ${importedResults} results)`));
       } catch (err) {
         res.writeHead(200, { 'Content-Type': 'text/html' });
         return res.end(renderHtml('candidates', `Notice: Could not connect to ${endpoint}. (${err.message})`, 'error'));
@@ -1374,6 +1524,82 @@ const server = http.createServer(async (req, res) => {
   const tab = url.searchParams.get('tab') || 'home';
   const editCourseId = url.searchParams.get('edit_course');
   const editQuestionId = url.searchParams.get('edit_question');
+
+  // Background auto-sync poll
+  if (pathname === '/action/auto_sync_status') {
+    let siteUrl = getSetting('live_website_url', 'https://premed-test-portal.vercel.app').replace(/\/$/, '');
+    if (!siteUrl.startsWith('http')) siteUrl = 'https://' + siteUrl;
+    try {
+      const remoteData = await fetchHttpJson(siteUrl + '/sync_live_data.php');
+      let updated = false;
+
+      if (Array.isArray(remoteData.sessions)) {
+        for (const se of remoteData.sessions) {
+          const existing = db.prepare('SELECT updated_at, status, tab_switches FROM exam_sessions WHERE id = ?').get(se.id);
+          if (!existing || existing.status !== se.status || existing.tab_switches !== se.tab_switches) {
+            updated = true;
+          }
+          db.prepare(`
+            INSERT INTO exam_sessions (id, student_id, matric_no, student_name, course_id, course_code, status, tab_switches, cheating_log, total_score, total_questions, percentage, grade, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              status = excluded.status,
+              tab_switches = excluded.tab_switches,
+              cheating_log = excluded.cheating_log,
+              total_score = excluded.total_score,
+              total_questions = excluded.total_questions,
+              percentage = excluded.percentage,
+              grade = excluded.grade,
+              updated_at = excluded.updated_at
+          `).run(
+            se.id, se.student_id, se.matric_no, se.student_name, se.course_id, se.course_code,
+            se.status, se.tab_switches || 0, se.cheating_log || '[]',
+            se.total_score || 0, se.total_questions || 0, se.percentage || 0, se.grade || '',
+            se.updated_at || new Date().toISOString()
+          );
+        }
+      }
+
+      if (Array.isArray(remoteData.results)) {
+        for (const r of remoteData.results) {
+          db.prepare(`
+            INSERT INTO results (id, student_id, course_id, total_score, total_questions, percentage, grade, time_spent, tab_switches, is_flagged_cheating, cheating_log)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              total_score = excluded.total_score,
+              percentage = excluded.percentage,
+              grade = excluded.grade,
+              tab_switches = excluded.tab_switches,
+              is_flagged_cheating = excluded.is_flagged_cheating,
+              cheating_log = excluded.cheating_log
+          `).run(
+            r.id, r.student_id, r.course_id, r.total_score, r.total_questions, r.percentage, r.grade,
+            r.time_spent || 0, r.tab_switches || 0, r.is_flagged_cheating || 0, r.cheating_log || '[]'
+          );
+        }
+      }
+
+      if (Array.isArray(remoteData.students)) {
+        for (const s of remoteData.students) {
+          db.prepare(`
+            INSERT INTO students (id, name, matric_no, password, department, phone, strength)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(matric_no) DO UPDATE SET
+              name = excluded.name,
+              password = excluded.password,
+              department = excluded.department,
+              phone = excluded.phone
+          `).run(s.id, s.name, s.matric_no, s.password, s.department, s.phone || '', s.strength || 'Clinical Sciences');
+        }
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ status: 'ok', has_update: updated }));
+    } catch(e) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ status: 'offline' }));
+    }
+  }
 
   res.writeHead(200, { 'Content-Type': 'text/html' });
   res.end(renderHtml(tab, null, 'success', editCourseId, editQuestionId));

@@ -74,13 +74,19 @@ elseif ($percentage >= 50) $grade = 'C';
 elseif ($percentage >= 45) $grade = 'D';
 elseif ($percentage >= 40) $grade = 'E';
 
+$sessionId = $_POST['session_id'] ?? '';
+$tabSwitches = isset($_POST['tab_switches']) ? (int)$_POST['tab_switches'] : 0;
+$isFlaggedCheating = isset($_POST['is_flagged_cheating']) ? (int)$_POST['is_flagged_cheating'] : ($tabSwitches >= 3 ? 1 : 0);
+$cheatingLog = $_POST['cheating_log'] ?? '[]';
+
 $resultId = bin2hex(random_bytes(12));
 
 $insert = $db->prepare("
     INSERT INTO results (
         id, student_id, course_id, total_score, total_questions, percentage, grade,
-        question_ids, topic_breakdown, student_answers
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        question_ids, topic_breakdown, student_answers,
+        tab_switches, is_flagged_cheating, cheating_log
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ");
 
 $insert->execute([
@@ -93,8 +99,39 @@ $insert->execute([
     $grade,
     json_encode($questionIds),
     json_encode($topicScores),
-    json_encode($answers)
+    json_encode($answers),
+    $tabSwitches,
+    $isFlaggedCheating,
+    $cheatingLog
 ]);
+
+if (!empty($sessionId)) {
+    try {
+        $sessStatus = $isFlaggedCheating ? 'TERMINATED_FOR_CHEATING' : 'COMPLETED';
+        $uStmt = $db->prepare("
+            UPDATE exam_sessions SET 
+                status = ?, 
+                tab_switches = ?, 
+                cheating_log = ?, 
+                total_score = ?, 
+                total_questions = ?, 
+                percentage = ?, 
+                grade = ?, 
+                updated_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        ");
+        $uStmt->execute([
+            $sessStatus,
+            $tabSwitches,
+            $cheatingLog,
+            $totalScore,
+            $totalQuestions,
+            $percentage,
+            $grade,
+            $sessionId
+        ]);
+    } catch (Exception $e) {}
+}
 
 header("Location: results.php?id=" . urlencode($resultId));
 exit;

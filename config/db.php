@@ -38,6 +38,25 @@ class DB {
                     PDO::ATTR_TIMEOUT => 30
                 ]);
                 self::$pdo->exec("PRAGMA foreign_keys = ON;");
+                self::$pdo->exec("
+                    CREATE TABLE IF NOT EXISTS exam_sessions (
+                        id TEXT PRIMARY KEY,
+                        student_id TEXT NOT NULL,
+                        matric_no TEXT NOT NULL,
+                        student_name TEXT NOT NULL,
+                        course_id TEXT NOT NULL,
+                        course_code TEXT NOT NULL,
+                        status TEXT NOT NULL DEFAULT 'IN_PROGRESS',
+                        tab_switches INTEGER DEFAULT 0,
+                        cheating_log TEXT,
+                        total_score INTEGER DEFAULT 0,
+                        total_questions INTEGER DEFAULT 0,
+                        percentage REAL DEFAULT 0,
+                        grade TEXT DEFAULT '',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    );
+                ");
             } catch (PDOException $e) {
                 die("SQLite Database Connection Error: " . htmlspecialchars($e->getMessage()));
             }

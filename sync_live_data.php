@@ -28,12 +28,18 @@ try {
     ");
     $results = $resultsStmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // 3. Fetch Live & Recent Exam Sessions
+    $sessionsStmt = $db->query("SELECT * FROM exam_sessions ORDER BY updated_at DESC LIMIT 60");
+    $sessions = $sessionsStmt ? $sessionsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
     echo json_encode([
         'status' => 'success',
         'count_students' => count($students),
         'count_results' => count($results),
+        'count_sessions' => count($sessions),
         'students' => $students,
         'results' => $results,
+        'sessions' => $sessions,
         'server_time' => date('c')
     ], JSON_PRETTY_PRINT);
 } catch (Exception $e) {

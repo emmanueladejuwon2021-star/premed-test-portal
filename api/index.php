@@ -49,6 +49,7 @@ $allowedScripts = [
     'active_study',
     'question_search',
     'sync_live_data',
+    'log_cheating',
     'logout'
 ];
 
