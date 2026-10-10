@@ -8,8 +8,16 @@ $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
 $path = parse_url($requestUri, PHP_URL_PATH);
 $path = trim($path, '/');
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // Default route
 if (empty($path)) {
+    if (empty($_SESSION['student'])) {
+        require __DIR__ . '/../login.php';
+        exit;
+    }
     require __DIR__ . '/../index.php';
     exit;
 }

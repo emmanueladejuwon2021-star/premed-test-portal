@@ -4,8 +4,14 @@
  * Premed Test Portal (PHP Edition)
  */
 
-$pageTitle = 'Home Hub';
 require_once __DIR__ . '/config/db.php';
+
+if (empty($_SESSION['student'])) {
+    header('Location: login.php');
+    exit;
+}
+
+$pageTitle = 'Home Hub';
 require_once __DIR__ . '/includes/header.php';
 
 $db = DB::connect();

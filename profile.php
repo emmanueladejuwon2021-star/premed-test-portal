@@ -78,10 +78,12 @@ require_once __DIR__ . '/includes/header.php';
             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Department / Faculty</label>
             <select name="department" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                 <option value="Medicine & Surgery" <?= $student['department'] === 'Medicine & Surgery' ? 'selected' : '' ?>>Medicine & Surgery</option>
+                <option value="Dentistry" <?= $student['department'] === 'Dentistry' ? 'selected' : '' ?>>Dentistry</option>
+                <option value="Physiotherapy" <?= $student['department'] === 'Physiotherapy' ? 'selected' : '' ?>>Physiotherapy</option>
                 <option value="Physiology" <?= $student['department'] === 'Physiology' ? 'selected' : '' ?>>Physiology</option>
                 <option value="Anatomy" <?= $student['department'] === 'Anatomy' ? 'selected' : '' ?>>Anatomy</option>
                 <option value="Nursing Science" <?= $student['department'] === 'Nursing Science' ? 'selected' : '' ?>>Nursing Science</option>
-                <option value="Medical Laboratory" <?= $student['department'] === 'Medical Laboratory' ? 'selected' : '' ?>>Medical Laboratory</option>
+                <option value="Medical Laboratory" <?= $student['department'] === 'Medical Laboratory' ? 'selected' : '' ?>>Medical Laboratory Science</option>
                 <option value="Pharmacy" <?= $student['department'] === 'Pharmacy' ? 'selected' : '' ?>>Pharmacy</option>
             </select>
         </div>
