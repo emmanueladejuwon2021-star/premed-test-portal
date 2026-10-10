@@ -1,28 +1,14 @@
 {
   "functions": {
-    "api/**/*.php": {
-      "runtime": "vercel-php@0.7.3"
-    },
-    "*.php": {
-      "runtime": "vercel-php@0.7.3"
+    "api/index.php": {
+      "runtime": "vercel-php@0.7.3",
+      "includeFiles": "**"
     }
   },
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(login|admin_login|admin|admin_dashboard|courses|practice|exam|submit_exam|results|history|leaderboard|profile|combat|active_study|question_search|readiness|countdown|chill|logout)",
-      "dest": "/$1.php"
-    },
-    {
-      "src": "/$",
-      "dest": "/index.php"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "/api/index.php"
     }
   ]
 }
