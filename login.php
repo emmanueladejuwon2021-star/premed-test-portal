@@ -15,7 +15,7 @@ if (!empty($_SESSION['student'])) {
 
 $error = null;
 $success = null;
-$activeTab = $_GET['tab'] ?? 'login'; // 'login', 'register', 'admin'
+$activeTab = $_GET['tab'] ?? 'login'; // 'login', 'register'
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'student_login';
@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit;
                 }
             } else {
-                $error = 'Matric number "' . htmlspecialchars($matricNo) . '" not found. Please click the "Register Account" tab to create your student profile.';
+                $error = 'Matric number "' . htmlspecialchars($matricNo) . '" not found. Please click the "Register" tab to create your student account.';
                 $activeTab = 'register';
             }
         }
@@ -82,21 +82,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
         }
-    } elseif ($action === 'admin_login') {
-        $activeTab = 'admin';
-        $adminId = strtolower(trim($_POST['admin_id'] ?? ''));
-        $adminKey = trim($_POST['admin_key'] ?? '');
-
-        $validIds = ['default-admin-key-first-class', 'emmanuel', 'admin', 'manuel'];
-        $validKeys = ['20252026', 'polymath-master-key', 'default-admin-key-first-class'];
-
-        if (in_array($adminId, $validIds, true) && in_array($adminKey, $validKeys, true)) {
-            $_SESSION['admin'] = true;
-            header('Location: admin_dashboard.php');
-            exit;
-        } else {
-            $error = 'Invalid administrative credentials.';
-        }
     }
 }
 
@@ -115,16 +100,13 @@ require_once __DIR__ . '/includes/header.php';
             <p class="text-xs text-slate-500 mt-1">Computer Based Testing & Academic Simulation Engine</p>
         </div>
 
-        <!-- 3-Way Mode Switch Tabs -->
+        <!-- 2-Way Mode Switch Tabs (Sign In / Register) -->
         <div class="flex bg-slate-100 p-1 rounded-2xl mb-6 text-xs font-bold text-slate-600">
             <button type="button" id="tabLoginBtn" onclick="showTab('login')" class="flex-1 py-2.5 rounded-xl transition-all <?= $activeTab === 'login' ? 'bg-white shadow-sm text-indigo-700' : 'hover:text-slate-900' ?>">
                 Sign In
             </button>
             <button type="button" id="tabRegisterBtn" onclick="showTab('register')" class="flex-1 py-2.5 rounded-xl transition-all <?= $activeTab === 'register' ? 'bg-white shadow-sm text-indigo-700' : 'hover:text-slate-900' ?>">
                 Register
-            </button>
-            <button type="button" id="tabAdminBtn" onclick="showTab('admin')" class="flex-1 py-2.5 rounded-xl transition-all <?= $activeTab === 'admin' ? 'bg-white shadow-sm text-slate-900' : 'hover:text-slate-900' ?>">
-                Instructor
             </button>
         </div>
 
@@ -213,13 +195,11 @@ require_once __DIR__ . '/includes/header.php';
                         <option value="Medicine & Surgery">Medicine & Surgery</option>
                         <option value="Dentistry">Dentistry</option>
                         <option value="Physiotherapy">Physiotherapy</option>
-                        <option value="Nursing Science">Nursing Science</option>
+                        <option value="NACON Nursing">NACON Nursing</option>
                         <option value="Medical Laboratory Science">Medical Laboratory Science</option>
                         <option value="Pharmacy">Pharmacy</option>
                         <option value="Physiology">Physiology</option>
                         <option value="Anatomy">Anatomy</option>
-                        <option value="Human Nutrition & Dietetics">Human Nutrition & Dietetics</option>
-                        <option value="Public Health">Public Health</option>
                     </select>
                 </div>
             </div>
@@ -257,35 +237,6 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         </form>
 
-        <!-- 3. INSTRUCTOR / ADMIN FORM -->
-        <form id="adminSection" method="POST" action="login.php" class="space-y-4 <?= $activeTab === 'admin' ? '' : 'hidden' ?>">
-            <input type="hidden" name="action" value="admin_login">
-
-            <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Admin ID</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="shield" class="w-4 h-4"></i>
-                    </span>
-                    <input type="text" name="admin_id" placeholder="admin or emmanuel" required class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Security Master Key</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="lock" class="w-4 h-4"></i>
-                    </span>
-                    <input type="password" name="admin_key" placeholder="••••••••" required class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                </div>
-            </div>
-
-            <button type="submit" class="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2">
-                <span>Access Instructor Console</span>
-                <i data-lucide="shield-check" class="w-4 h-4"></i>
-            </button>
-        </form>
     </div>
 </div>
 
@@ -293,19 +244,15 @@ require_once __DIR__ . '/includes/header.php';
 function showTab(type) {
     const loginSec = document.getElementById('loginSection');
     const registerSec = document.getElementById('registerSection');
-    const adminSec = document.getElementById('adminSection');
 
     const tabLogin = document.getElementById('tabLoginBtn');
     const tabRegister = document.getElementById('tabRegisterBtn');
-    const tabAdmin = document.getElementById('tabAdminBtn');
 
     loginSec.classList.add('hidden');
     registerSec.classList.add('hidden');
-    adminSec.classList.add('hidden');
 
     tabLogin.className = "flex-1 py-2.5 rounded-xl transition-all hover:text-slate-900";
     tabRegister.className = "flex-1 py-2.5 rounded-xl transition-all hover:text-slate-900";
-    tabAdmin.className = "flex-1 py-2.5 rounded-xl transition-all hover:text-slate-900";
 
     if (type === 'login') {
         loginSec.classList.remove('hidden');
@@ -313,9 +260,6 @@ function showTab(type) {
     } else if (type === 'register') {
         registerSec.classList.remove('hidden');
         tabRegister.className = "flex-1 py-2.5 rounded-xl bg-white shadow-sm text-indigo-700 font-bold transition-all";
-    } else if (type === 'admin') {
-        adminSec.classList.remove('hidden');
-        tabAdmin.className = "flex-1 py-2.5 rounded-xl bg-white shadow-sm text-slate-900 font-bold transition-all";
     }
 
     if (window.lucide) {
