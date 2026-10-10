@@ -1,8 +1,6 @@
 @echo off
 title Premed Local Admin Control Center
 color 0b
-
-:: Move to this script's directory
 cd /d "%~dp0"
 
 echo ========================================================
@@ -10,6 +8,12 @@ echo   PREMED CBT PORTAL - LOCAL ADMIN CONTROL CENTER
 echo   Operating strictly on Localhost (Offline & Isolated)
 echo ========================================================
 echo.
+
+:: Automatically kill any lingering node process on port 8899
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8899 ^| findstr LISTENING') do (
+    echo Terminating previous instance on port 8899 (PID %%a)...
+    taskkill /f /pid %%a >nul 2>&1
+)
 
 echo Starting Local Admin Server on http://localhost:8899 ...
 start "" node local_admin_server.js
