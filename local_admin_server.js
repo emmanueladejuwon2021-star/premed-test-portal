@@ -1153,7 +1153,7 @@ const server = http.createServer(async (req, res) => {
         const cid = 'course_' + code.toLowerCase().replace(/[^a-z0-9]/g, '') + '_' + Date.now();
         db.prepare('INSERT INTO courses (id, code, title, duration, question_limit, attempts_allowed, is_mock, is_locked) VALUES (?, ?, ?, ?, ?, ?, 1, ?)').run(cid, code, title, duration, questionLimit, attemptsAllowed, isLocked);
         const tid = 'topic_' + Math.random().toString(36).substring(2, 10);
-        db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, "General Curriculum")').run(tid, cid);
+        db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)').run(tid, cid, 'General Curriculum');
       }
       res.writeHead(302, { Location: '/?tab=courses' });
       return res.end();
@@ -1231,7 +1231,7 @@ const server = http.createServer(async (req, res) => {
         let topicId = topic ? topic.id : null;
         if (!topicId) {
           topicId = 'topic_' + Math.random().toString(36).substring(2, 10);
-          db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, "General Curriculum")').run(topicId, courseId);
+          db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)').run(topicId, courseId, 'General Curriculum');
         }
         const qid = 'q_' + Math.random().toString(36).substring(2, 12);
         db.prepare('INSERT INTO questions (id, topic_id, text, a, b, c, d, correct_option, explanation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(qid, topicId, text, optA, optB, optC, optD, correct, explanation);
@@ -1257,7 +1257,7 @@ const server = http.createServer(async (req, res) => {
         let topicId = topic ? topic.id : null;
         if (!topicId) {
           topicId = 'topic_' + Math.random().toString(36).substring(2, 10);
-          db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, "General Curriculum")').run(topicId, courseId);
+          db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)').run(topicId, courseId, 'General Curriculum');
         }
         db.prepare('UPDATE questions SET topic_id = ?, text = ?, a = ?, b = ?, c = ?, d = ?, correct_option = ?, explanation = ? WHERE id = ?').run(topicId, text, optA, optB, optC, optD, correct, explanation, qid);
       }
@@ -1275,7 +1275,7 @@ const server = http.createServer(async (req, res) => {
         let topicId = topic ? topic.id : null;
         if (!topicId) {
           topicId = 'topic_' + Math.random().toString(36).substring(2, 10);
-          db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, "General Curriculum")').run(topicId, courseId);
+          db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)').run(topicId, courseId, 'General Curriculum');
         }
 
         const blocks = rawText.split(/\n\s*---\s*\n/);
