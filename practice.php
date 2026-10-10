@@ -10,14 +10,13 @@ require_once __DIR__ . '/includes/header.php';
 
 $db = DB::connect();
 
-// Fetch master courses and courses with questions
+// Fetch all courses and their question count
 $stmt = $db->query("
     SELECT c.*, COUNT(q.id) as q_count 
     FROM courses c
     LEFT JOIN topics t ON c.id = t.course_id
     LEFT JOIN questions q ON t.id = q.topic_id
     GROUP BY c.id
-    HAVING q_count > 0
     ORDER BY c.code ASC
 ");
 $courses = $stmt->fetchAll();

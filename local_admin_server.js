@@ -138,22 +138,32 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
   const activeSessionsCount = db.prepare("SELECT COUNT(*) as c FROM exam_sessions WHERE status = 'IN_PROGRESS'").get().c;
   const cheatedSessionsCount = db.prepare("SELECT COUNT(*) as c FROM exam_sessions WHERE status = 'TERMINATED_FOR_CHEATING' OR tab_switches >= 3").get().c;
 
+  const allTopics = db.prepare(`
+    SELECT t.*, c.code as course_code, c.title as course_title,
+           (SELECT COUNT(*) FROM questions q WHERE q.topic_id = t.id) as q_count
+    FROM topics t
+    JOIN courses c ON t.course_id = c.id
+    ORDER BY c.code ASC, t.id ASC
+  `).all();
+
   const courses = db.prepare(`
-    SELECT c.*, COUNT(q.id) as q_count 
+    SELECT c.*, 
+           COUNT(DISTINCT t.id) as topic_count,
+           COUNT(q.id) as q_count 
     FROM courses c
     LEFT JOIN topics t ON c.id = t.course_id
     LEFT JOIN questions q ON t.id = q.topic_id
     GROUP BY c.id
-    ORDER BY c.created_at DESC
+    ORDER BY c.code ASC
   `).all();
 
   const questions = db.prepare(`
-    SELECT q.*, c.id as course_id, c.code as course_code, c.title as course_title 
+    SELECT q.*, t.name as topic_name, c.id as course_id, c.code as course_code, c.title as course_title 
     FROM questions q
     JOIN topics t ON q.topic_id = t.id
     JOIN courses c ON t.course_id = c.id
     ORDER BY q.created_at DESC
-    LIMIT 150
+    LIMIT 250
   `).all();
 
   const examSessions = db.prepare(`
@@ -188,7 +198,7 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
   let questionToEdit = null;
   if (editQuestionId) {
     questionToEdit = db.prepare(`
-      SELECT q.*, c.id as course_id 
+      SELECT q.*, q.topic_id, t.name as topic_name, c.id as course_id, c.code as course_code 
       FROM questions q 
       JOIN topics t ON q.topic_id = t.id 
       JOIN courses c ON t.course_id = c.id 
@@ -501,39 +511,82 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
         <div class="py-8 text-center text-slate-400 text-xs">No courses registered yet.</div>
         ` : `
         <div class="divide-y divide-slate-100">
-          ${courses.map(c => `
-          <div class="py-3 flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-            <div class="min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="font-mono font-bold text-xs text-indigo-600">${c.code}</span>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${c.is_locked ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}">
-                  ${c.is_locked ? 'Closed' : 'Open'}
-                </span>
+          ${courses.map(c => {
+            const courseTopics = allTopics.filter(t => t.course_id === c.id);
+            return `
+          <div class="py-3 flex flex-col gap-2">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono font-bold text-xs text-indigo-600">${c.code}</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${c.is_locked ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}">
+                    ${c.is_locked ? 'Closed' : 'Open'}
+                  </span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                    ${c.topic_count} Topics
+                  </span>
+                </div>
+                <h4 class="text-xs font-bold text-slate-900 mt-0.5 truncate">${c.title}</h4>
+                <p class="text-[11px] text-slate-400">${c.q_count} questions &bull; ${c.duration} mins timer &bull; ${c.question_limit} Qs served</p>
               </div>
-              <h4 class="text-xs font-bold text-slate-900 mt-0.5 truncate">${c.title}</h4>
-              <p class="text-[11px] text-slate-400">${c.q_count} questions &bull; ${c.duration} mins timer &bull; ${c.question_limit} Qs served</p>
+
+              <div class="flex flex-wrap items-center gap-1.5 shrink-0 pt-1 sm:pt-0">
+                <button type="button" onclick="toggleTopicsList('${c.id}')" class="px-2.5 py-1 rounded-lg text-xs font-bold border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors flex items-center gap-1">
+                  <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                  <span>Topics (${c.topic_count})</span>
+                </button>
+                <a href="/?tab=questions&target_course=${c.id}" class="px-2.5 py-1 rounded-lg text-xs font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors">
+                  Add Qs
+                </a>
+                <a href="/?tab=courses&edit_course=${c.id}" class="px-2.5 py-1 rounded-lg text-xs font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors">
+                  Edit
+                </a>
+                <form method="POST" action="/action/toggle_lock">
+                  <input type="hidden" name="course_id" value="${c.id}">
+                  <input type="hidden" name="current_locked" value="${c.is_locked}">
+                  <button type="submit" class="px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${c.is_locked ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-rose-300 bg-rose-50 text-rose-700'}">
+                    ${c.is_locked ? 'Open' : 'Close'}
+                  </button>
+                </form>
+                <form method="POST" action="/action/delete_course" onsubmit="return confirm('Delete ${c.code}?')">
+                  <input type="hidden" name="course_id" value="${c.id}">
+                  <button type="submit" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </form>
+              </div>
             </div>
 
-            <div class="flex items-center gap-2 shrink-0 pt-1 sm:pt-0">
-              <a href="/?tab=courses&edit_course=${c.id}" class="px-2.5 py-1 rounded-lg text-xs font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors">
-                Edit
-              </a>
-              <form method="POST" action="/action/toggle_lock">
-                <input type="hidden" name="course_id" value="${c.id}">
-                <input type="hidden" name="current_locked" value="${c.is_locked}">
-                <button type="submit" class="px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${c.is_locked ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-rose-300 bg-rose-50 text-rose-700'}">
-                  ${c.is_locked ? 'Open' : 'Close'}
-                </button>
-              </form>
-              <form method="POST" action="/action/delete_course" onsubmit="return confirm('Delete ${c.code}?')">
-                <input type="hidden" name="course_id" value="${c.id}">
-                <button type="submit" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors">
-                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                </button>
-              </form>
+            <!-- Collapsible Topics List for this course -->
+            <div id="topics_list_${c.id}" class="hidden mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Curriculum Topics (${c.topic_count})</span>
+                <form method="POST" action="/action/add_topic" class="flex items-center gap-1.5 w-full sm:w-auto">
+                  <input type="hidden" name="course_id" value="${c.id}">
+                  <input type="text" name="name" required placeholder="New topic name..." class="px-2.5 py-1 rounded-lg border border-slate-200 text-[11px] bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full sm:w-44">
+                  <button type="submit" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] shrink-0">Add Topic</button>
+                </form>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                ${courseTopics.map((t, idx) => `
+                <div class="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 text-xs">
+                  <span class="truncate pr-2 font-medium text-slate-800" title="${t.name}"><span class="text-slate-400 font-mono text-[10px] mr-1">${idx + 1}.</span>${t.name}</span>
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${t.q_count > 0 ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-400'}">${t.q_count} Qs</span>
+                    <form method="POST" action="/action/delete_topic" onsubmit="return confirm('Remove topic \"${t.name}\"?')">
+                      <input type="hidden" name="topic_id" value="${t.id}">
+                      <button type="submit" class="text-slate-300 hover:text-rose-600 transition-colors p-0.5" title="Delete Topic">
+                        <i data-lucide="trash" class="w-3 h-3"></i>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+                `).join('')}
+              </div>
             </div>
           </div>
-          `).join('')}
+          `;
+          }).join('')}
         </div>
         `}
       </div>
@@ -673,11 +726,19 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
         <form method="POST" action="${questionToEdit ? '/action/edit_question' : '/action/add_question'}" class="space-y-3">
           ${questionToEdit ? `<input type="hidden" name="question_id" value="${questionToEdit.id}">` : ''}
 
-          <div>
-            <label class="block text-[11px] font-bold text-slate-600 mb-1">Select Course *</label>
-            <select name="course_id" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              ${courses.map(c => `<option value="${c.id}" ${questionToEdit && questionToEdit.course_id === c.id ? 'selected' : ''}>${c.code} - ${c.title}</option>`).join('')}
-            </select>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Select Course *</label>
+              <select name="course_id" id="singleCourseSelect" onchange="syncTopicDropdown('singleCourseSelect', 'singleTopicSelect')" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                ${courses.map(c => `<option value="${c.id}" ${questionToEdit && questionToEdit.course_id === c.id ? 'selected' : ''}>${c.code} - ${c.title}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Select Topic *</label>
+              <select name="topic_id" id="singleTopicSelect" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
           </div>
 
           <div>
@@ -729,63 +790,102 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
         `}
       </div>
 
-      <!-- Quick Paste Bulk Add -->
+      <!-- Quick Paste Bulk Add (Topic by Topic) -->
       ${courses.length > 0 ? `
       <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3">
-        <h3 class="text-sm font-bold text-slate-900">Add Multiple Questions at Once</h3>
-        <p class="text-[11px] text-slate-400">Paste questions in standard format (separated by ---) to import them all in one click.</p>
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+            <i data-lucide="file-text" class="w-4 h-4 text-emerald-600"></i>
+            <span>Parse Questions Topic by Topic</span>
+          </h3>
+          <p class="text-[11px] text-slate-400 mt-0.5">Select a target topic to parse all questions into that topic, or leave as Auto-Detect and include <code>TOPIC: Name</code> headers.</p>
+        </div>
 
         <form method="POST" action="/action/bulk_add_questions" class="space-y-3">
-          <div>
-            <label class="block text-[11px] font-bold text-slate-600 mb-1">Target Course *</label>
-            <select name="course_id" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              ${courses.map(c => `<option value="${c.id}">${c.code} - ${c.title}</option>`).join('')}
-            </select>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Target Course *</label>
+              <select name="course_id" id="bulkCourseSelect" onchange="syncTopicDropdown('bulkCourseSelect', 'bulkTopicSelect', null, true)" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                ${courses.map(c => `<option value="${c.id}">${c.code} - ${c.title}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">Target Topic *</label>
+              <select name="topic_id" id="bulkTopicSelect" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+          </div>
+
+          <div class="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100 text-[11px] text-indigo-900 flex items-start gap-2">
+            <i data-lucide="sparkles" class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5"></i>
+            <span>
+              <strong>Topic Parsing Tip:</strong> When you select a specific topic above, all pasted questions automatically attach to that topic.
+              You can also paste questions for multiple topics at once by adding <code>TOPIC: Topic Name</code> above each set of questions!
+            </span>
           </div>
 
           <div>
-            <textarea name="bulk_text" rows="5" placeholder="Q: What organ filters blood in the body?
-A: Heart
+            <textarea name="bulk_text" rows="6" placeholder="TOPIC: Kidney and Homeostasis
+Q: What organ filters waste and excess water from human blood?
+A: Liver
 B: Kidney
-C: Stomach
-D: Lungs
+C: Spleen
+D: Gallbladder
 ANS: B
-EXP: Kidneys filter waste from blood.
+EXP: The mammalian kidneys filter waste products from circulation.
 ---
-Q: What is the normal human body temperature?
-A: 37°C
-B: 39°C
-C: 35°C
-D: 40°C
-ANS: A
-EXP: 37°C is standard baseline." class="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+Q: What is the microscopic functional filtration unit of the kidney?
+A: Neuron
+B: Nephron
+C: Alveolus
+D: Osteocyte
+ANS: B
+EXP: Each kidney contains approximately 1 million nephrons." class="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
           </div>
 
           <div class="flex justify-end">
-            <button type="submit" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-colors cursor-pointer">
-              Import Questions
+            <button type="submit" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-colors cursor-pointer flex items-center gap-1.5">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i>
+              <span>Parse & Import Questions</span>
             </button>
           </div>
         </form>
       </div>
       ` : ''}
 
-      <!-- Questions List -->
+      <!-- Questions List with Course & Topic Filters -->
       <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-          <h3 class="text-sm font-bold text-slate-900">Saved Questions (${questions.length})</h3>
-          <input type="text" id="qFilterInput" onkeyup="filterQuestions()" placeholder="Search questions..." class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs w-full sm:w-60 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <h3 class="text-sm font-bold text-slate-900">Saved Questions (<span id="visibleQuestionsCount">${questions.length}</span>)</h3>
+          
+          <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <select id="filterCourse" onchange="onCourseFilterChange()" class="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="ALL">All Courses (${courses.length})</option>
+              ${courses.map(c => `<option value="${c.id}">${c.code} (${c.q_count} Qs)</option>`).join('')}
+            </select>
+
+            <select id="filterTopic" onchange="filterQuestions()" class="px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[200px] truncate">
+              <option value="ALL">All Topics</option>
+            </select>
+
+            <input type="text" id="qFilterInput" onkeyup="filterQuestions()" placeholder="Search questions..." class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs w-full sm:w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
         </div>
 
         ${questions.length === 0 ? `
-        <div class="py-8 text-center text-slate-400 text-xs">No questions saved yet.</div>
+        <div class="py-8 text-center text-slate-400 text-xs">No questions saved yet. Use the form above to add or parse questions.</div>
         ` : `
         <div class="divide-y divide-slate-100" id="questionsContainer">
           ${questions.map((q, idx) => `
-          <div class="py-3 flex justify-between items-start gap-2 question-item" data-search="${(q.text + ' ' + q.course_code + ' ' + (q.explanation || '')).toLowerCase()}">
+          <div class="py-3 flex justify-between items-start gap-2 question-item" 
+               data-course="${q.course_id}" 
+               data-topic="${q.topic_id}" 
+               data-search="${(q.text + ' ' + q.course_code + ' ' + (q.topic_name || '') + ' ' + (q.explanation || '')).toLowerCase()}">
             <div class="space-y-1 min-w-0 pr-2">
-              <div class="flex items-center gap-1.5">
+              <div class="flex flex-wrap items-center gap-1.5">
                 <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-mono text-[10px] font-bold">${q.course_code}</span>
+                <span class="px-2 py-0.5 rounded-md bg-violet-50 text-violet-700 text-[10px] font-semibold">${q.topic_name || 'General'}</span>
                 <span class="text-[10px] text-slate-400">#${idx + 1}</span>
               </div>
               <p class="text-xs font-semibold text-slate-900 leading-snug break-words">${q.text}</p>
@@ -1115,14 +1215,125 @@ EXP: 37°C is standard baseline." class="w-full p-2.5 rounded-xl border border-s
   <script>
     lucide.createIcons();
 
-    function filterQuestions() {
-      const q = (document.getElementById('qFilterInput').value || '').toLowerCase();
-      const items = document.querySelectorAll('.question-item');
-      items.forEach(el => {
-        const text = el.getAttribute('data-search') || '';
-        el.style.display = text.includes(q) ? 'flex' : 'none';
+    const TOPICS_DATA = ${JSON.stringify(allTopics)};
+
+    function syncTopicDropdown(courseSelectId, topicSelectId, selectedTopicId, includeAuto = false) {
+      const courseEl = document.getElementById(courseSelectId);
+      const topicEl = document.getElementById(topicSelectId);
+      if (!courseEl || !topicEl) return;
+      const courseId = courseEl.value;
+      const courseTopics = TOPICS_DATA.filter(t => t.course_id === courseId);
+
+      topicEl.innerHTML = '';
+      if (includeAuto) {
+        const autoOpt = document.createElement('option');
+        autoOpt.value = 'AUTO';
+        autoOpt.textContent = '✨ Auto-Detect Topic from Text (or use 1st topic)';
+        topicEl.appendChild(autoOpt);
+      }
+
+      if (courseTopics.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No topics registered yet (General)';
+        topicEl.appendChild(opt);
+        return;
+      }
+
+      courseTopics.forEach((t, idx) => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = (idx + 1) + '. ' + t.name + ' (' + t.q_count + ' Qs)';
+        if (selectedTopicId && selectedTopicId === t.id) {
+          opt.selected = true;
+        }
+        topicEl.appendChild(opt);
       });
     }
+
+    function toggleTopicsList(courseId) {
+      const el = document.getElementById('topics_list_' + courseId);
+      if (el) el.classList.toggle('hidden');
+    }
+
+    function onCourseFilterChange() {
+      const courseFilter = document.getElementById('filterCourse');
+      const topicFilter = document.getElementById('filterTopic');
+      if (!courseFilter || !topicFilter) return;
+      const courseId = courseFilter.value;
+
+      topicFilter.innerHTML = '<option value="ALL">All Topics in Course</option>';
+      if (courseId !== 'ALL') {
+        const courseTopics = TOPICS_DATA.filter(t => t.course_id === courseId);
+        courseTopics.forEach((t, idx) => {
+          const opt = document.createElement('option');
+          opt.value = t.id;
+          opt.textContent = (idx + 1) + '. ' + t.name + ' (' + t.q_count + ' Qs)';
+          topicFilter.appendChild(opt);
+        });
+      }
+      filterQuestions();
+    }
+
+    function filterQuestions() {
+      const q = (document.getElementById('qFilterInput')?.value || '').toLowerCase();
+      const courseVal = document.getElementById('filterCourse')?.value || 'ALL';
+      const topicVal = document.getElementById('filterTopic')?.value || 'ALL';
+
+      const items = document.querySelectorAll('.question-item');
+      let visible = 0;
+      items.forEach(el => {
+        const text = el.getAttribute('data-search') || '';
+        const itemCourse = el.getAttribute('data-course') || '';
+        const itemTopic = el.getAttribute('data-topic') || '';
+
+        const matchesSearch = !q || text.includes(q);
+        const matchesCourse = (courseVal === 'ALL') || (itemCourse === courseVal);
+        const matchesTopic = (topicVal === 'ALL') || (itemTopic === topicVal);
+
+        if (matchesSearch && matchesCourse && matchesTopic) {
+          el.style.display = 'flex';
+          visible++;
+        } else {
+          el.style.display = 'none';
+        }
+      });
+
+      const countBadge = document.getElementById('visibleQuestionsCount');
+      if (countBadge) countBadge.textContent = visible;
+    }
+
+    // Initialize dropdowns on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetCourse = urlParams.get('target_course') || '${questionToEdit ? questionToEdit.course_id : ''}';
+      const targetTopic = urlParams.get('target_topic') || '${questionToEdit ? (questionToEdit.topic_id || '') : ''}';
+
+      if (document.getElementById('singleCourseSelect')) {
+        if (targetCourse) document.getElementById('singleCourseSelect').value = targetCourse;
+        syncTopicDropdown('singleCourseSelect', 'singleTopicSelect', targetTopic);
+      }
+      if (document.getElementById('bulkCourseSelect')) {
+        if (targetCourse) document.getElementById('bulkCourseSelect').value = targetCourse;
+        syncTopicDropdown('bulkCourseSelect', 'bulkTopicSelect', targetTopic, true);
+      }
+    });
+
+    // Also trigger immediately in case script runs after DOM
+    setTimeout(() => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetCourse = urlParams.get('target_course') || '${questionToEdit ? questionToEdit.course_id : ''}';
+      const targetTopic = urlParams.get('target_topic') || '${questionToEdit ? (questionToEdit.topic_id || '') : ''}';
+
+      if (document.getElementById('singleCourseSelect')) {
+        if (targetCourse) document.getElementById('singleCourseSelect').value = targetCourse;
+        syncTopicDropdown('singleCourseSelect', 'singleTopicSelect', targetTopic);
+      }
+      if (document.getElementById('bulkCourseSelect')) {
+        if (targetCourse) document.getElementById('bulkCourseSelect').value = targetCourse;
+        syncTopicDropdown('bulkCourseSelect', 'bulkTopicSelect', targetTopic, true);
+      }
+    }, 100);
 
     const topSyncForm = document.getElementById('topSyncForm');
     const topSyncBtn = document.getElementById('topSyncBtn');
@@ -1251,9 +1462,33 @@ const server = http.createServer(async (req, res) => {
       return res.end(renderHtml('security', 'Anti-cheating rules saved successfully!'));
     }
 
+    // Add Topic to Course
+    if (pathname === '/action/add_topic') {
+      const cid = data.course_id;
+      const name = (data.name || '').trim();
+      if (cid && name) {
+        const tid = 'topic_' + Math.random().toString(36).substring(2, 10);
+        db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)').run(tid, cid, name);
+      }
+      res.writeHead(302, { Location: '/?tab=courses' });
+      return res.end();
+    }
+
+    // Delete Topic
+    if (pathname === '/action/delete_topic') {
+      const tid = data.topic_id;
+      if (tid) {
+        db.prepare('DELETE FROM questions WHERE topic_id = ?').run(tid);
+        db.prepare('DELETE FROM topics WHERE id = ?').run(tid);
+      }
+      res.writeHead(302, { Location: '/?tab=courses' });
+      return res.end();
+    }
+
     // Add Question
     if (pathname === '/action/add_question') {
       const courseId = data.course_id;
+      let topicId = data.topic_id;
       const text = (data.text || '').trim();
       const optA = (data.a || '').trim();
       const optB = (data.b || '').trim();
@@ -1263,11 +1498,13 @@ const server = http.createServer(async (req, res) => {
       const explanation = (data.explanation || '').trim();
 
       if (text && optA && optB) {
-        let topic = db.prepare('SELECT id FROM topics WHERE course_id = ? LIMIT 1').get(courseId);
-        let topicId = topic ? topic.id : null;
-        if (!topicId) {
-          topicId = 'topic_' + Math.random().toString(36).substring(2, 10);
-          db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)').run(topicId, courseId, 'General Curriculum');
+        if (!topicId || topicId === 'AUTO') {
+          let topic = db.prepare('SELECT id FROM topics WHERE course_id = ? LIMIT 1').get(courseId);
+          topicId = topic ? topic.id : null;
+          if (!topicId) {
+            topicId = 'topic_' + Math.random().toString(36).substring(2, 10);
+            db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)').run(topicId, courseId, 'General Curriculum');
+          }
         }
         const qid = 'q_' + Math.random().toString(36).substring(2, 12);
         db.prepare('INSERT INTO questions (id, topic_id, text, a, b, c, d, correct_option, explanation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(qid, topicId, text, optA, optB, optC, optD, correct, explanation);
@@ -1280,6 +1517,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/action/edit_question') {
       const qid = data.question_id;
       const courseId = data.course_id;
+      let topicId = data.topic_id;
       const text = (data.text || '').trim();
       const optA = (data.a || '').trim();
       const optB = (data.b || '').trim();
@@ -1289,11 +1527,9 @@ const server = http.createServer(async (req, res) => {
       const explanation = (data.explanation || '').trim();
 
       if (qid && text && optA && optB) {
-        let topic = db.prepare('SELECT id FROM topics WHERE course_id = ? LIMIT 1').get(courseId);
-        let topicId = topic ? topic.id : null;
-        if (!topicId) {
-          topicId = 'topic_' + Math.random().toString(36).substring(2, 10);
-          db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)').run(topicId, courseId, 'General Curriculum');
+        if (!topicId || topicId === 'AUTO') {
+          let topic = db.prepare('SELECT id FROM topics WHERE course_id = ? LIMIT 1').get(courseId);
+          topicId = topic ? topic.id : null;
         }
         db.prepare('UPDATE questions SET topic_id = ?, text = ?, a = ?, b = ?, c = ?, d = ?, correct_option = ?, explanation = ? WHERE id = ?').run(topicId, text, optA, optB, optC, optD, correct, explanation, qid);
       }
@@ -1301,49 +1537,106 @@ const server = http.createServer(async (req, res) => {
       return res.end();
     }
 
-    // Bulk Add Questions
+    // Bulk Add Questions (Topic by Topic Parsing)
     if (pathname === '/action/bulk_add_questions') {
       const courseId = data.course_id;
+      let defaultTopicId = data.topic_id;
       const rawText = (data.bulk_text || '').trim();
 
       if (courseId && rawText) {
-        let topic = db.prepare('SELECT id FROM topics WHERE course_id = ? LIMIT 1').get(courseId);
-        let topicId = topic ? topic.id : null;
-        if (!topicId) {
-          topicId = 'topic_' + Math.random().toString(36).substring(2, 10);
-          db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)').run(topicId, courseId, 'General Curriculum');
+        const courseTopics = db.prepare('SELECT * FROM topics WHERE course_id = ?').all();
+        let currentTopicId = (defaultTopicId && defaultTopicId !== 'AUTO') ? defaultTopicId : (courseTopics[0]?.id || null);
+
+        if (!currentTopicId) {
+          currentTopicId = 'topic_' + Math.random().toString(36).substring(2, 10);
+          db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)').run(currentTopicId, courseId, 'General Curriculum');
+          courseTopics.push({ id: currentTopicId, course_id: courseId, name: 'General Curriculum' });
         }
 
-        const blocks = rawText.split(/\n\s*---\s*\n/);
+        const rawLines = rawText.split('\n').map(l => l.trim());
+        let currentBlock = [];
+        let blocks = [];
+
+        for (let i = 0; i < rawLines.length; i++) {
+          const line = rawLines[i];
+          if (/^---+$/.test(line)) {
+            if (currentBlock.length > 0) {
+              blocks.push(currentBlock);
+              currentBlock = [];
+            }
+          } else {
+            currentBlock.push(line);
+          }
+        }
+        if (currentBlock.length > 0) blocks.push(currentBlock);
+
         let imported = 0;
+        const insertQ = db.prepare(`
+          INSERT INTO questions (id, topic_id, text, a, b, c, d, correct_option, explanation)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
 
-        for (const block of blocks) {
-          const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+        for (const blockLines of blocks) {
           let qText = '', optA = '', optB = '', optC = '', optD = '', ans = 'A', exp = '';
+          let blockTopicId = currentTopicId;
 
-          for (const line of lines) {
-            if (/^Q:\s*/i.test(line)) qText = line.replace(/^Q:\s*/i, '');
-            else if (/^A:\s*/i.test(line)) optA = line.replace(/^A:\s*/i, '');
-            else if (/^B:\s*/i.test(line)) optB = line.replace(/^B:\s*/i, '');
-            else if (/^C:\s*/i.test(line)) optC = line.replace(/^C:\s*/i, '');
-            else if (/^D:\s*/i.test(line)) optD = line.replace(/^D:\s*/i, '');
-            else if (/^ANS:\s*/i.test(line)) ans = line.replace(/^ANS:\s*/i, '').toUpperCase().trim();
-            else if (/^EXP:\s*/i.test(line)) exp = line.replace(/^EXP:\s*/i, '');
+          for (const line of blockLines) {
+            if (!line) continue;
+
+            // Detect inline topic header: e.g. "TOPIC: Kidney and Homeostasis"
+            const topicMatch = line.match(/^(?:TOPIC|Topic|TOPIC NAME)[\.:\s]\s*(.+)$/i);
+            if (topicMatch) {
+              const specifiedName = topicMatch[1].trim();
+              const matched = courseTopics.find(t => 
+                t.name.toLowerCase() === specifiedName.toLowerCase() ||
+                t.name.toLowerCase().includes(specifiedName.toLowerCase()) ||
+                specifiedName.toLowerCase().includes(t.name.toLowerCase())
+              );
+              if (matched) {
+                currentTopicId = matched.id;
+                blockTopicId = matched.id;
+              } else {
+                const newTid = 'topic_' + Math.random().toString(36).substring(2, 10);
+                db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)').run(newTid, courseId, specifiedName);
+                courseTopics.push({ id: newTid, course_id: courseId, name: specifiedName });
+                currentTopicId = newTid;
+                blockTopicId = newTid;
+              }
+              continue;
+            }
+
+            if (/^(?:Q|Question|\d+)[\.:\)]?\s*/i.test(line) && !/^(?:ANS|Answer|EXP|Option)/i.test(line)) {
+              qText = line.replace(/^(?:Q|Question|\d+)[\.:\)]?\s*/i, '').trim();
+            } else if (/^(?:A[\.:\)]|\(A\))\s*/i.test(line)) {
+              optA = line.replace(/^(?:A[\.:\)]|\(A\))\s*/i, '').trim();
+            } else if (/^(?:B[\.:\)]|\(B\))\s*/i.test(line)) {
+              optB = line.replace(/^(?:B[\.:\)]|\(B\))\s*/i, '').trim();
+            } else if (/^(?:C[\.:\)]|\(C\))\s*/i.test(line)) {
+              optC = line.replace(/^(?:C[\.:\)]|\(C\))\s*/i, '').trim();
+            } else if (/^(?:D[\.:\)]|\(D\))\s*/i.test(line)) {
+              optD = line.replace(/^(?:D[\.:\)]|\(D\))\s*/i, '').trim();
+            } else if (/^(?:ANS|ANSWER|Correct|Key)[\.:\s]\s*([A-D])/i.test(line)) {
+              const m = line.match(/^(?:ANS|ANSWER|Correct|Key)[\.:\s]\s*([A-D])/i);
+              if (m) ans = m[1].toUpperCase();
+            } else if (/^(?:EXP|Explanation|Reason)[\.:\s]\s*/i.test(line)) {
+              exp = line.replace(/^(?:EXP|Explanation|Reason)[\.:\s]\s*/i, '').trim();
+            } else if (!qText && !/^[A-D][\.:\)]/i.test(line)) {
+              qText = line;
+            }
           }
 
           if (qText && optA && optB) {
             const qid = 'q_' + Math.random().toString(36).substring(2, 12);
-            db.prepare('INSERT INTO questions (id, topic_id, text, a, b, c, d, correct_option, explanation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(qid, topicId, qText, optA, optB, optC, optD, ans, exp);
+            insertQ.run(qid, blockTopicId, qText, optA, optB, optC, optD, ans, exp);
             imported++;
           }
         }
 
         res.writeHead(200, { 'Content-Type': 'text/html' });
-        return res.end(renderHtml('questions', `Imported ${imported} questions successfully!`));
+        return res.end(renderHtml('questions', `Parsed and saved ${imported} questions topic-by-topic successfully!`));
       }
 
       res.writeHead(302, { Location: '/?tab=questions' });
-      return res.end();
     }
 
     // Delete Question
