@@ -321,7 +321,7 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
         <img id="enlargeVideoFeed" src="" alt="Enlarged Live Feed" class="w-full h-full object-cover">
         <div class="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-black uppercase bg-rose-600 text-white flex items-center gap-1.5 shadow-md">
           <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
-          LIVE 1.2S STREAM
+          LIVE 1.0S STREAM
         </div>
         <div class="absolute bottom-3 right-3 px-3 py-1 rounded-lg text-xs font-bold bg-black/80 text-white backdrop-blur-xs border border-white/10" id="enlargeTabSwitches">
           0 tab switches
@@ -476,7 +476,7 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
       }
     }
 
-    // Real-Time 1.2s Proctor Video & Telemetry Poller
+    // Real-Time 1.0s Proctor Video & Telemetry Poller
     function pollProctorStreams(isManual = false) {
       fetch('/api/live_sessions')
         .then(r => r.json())
@@ -521,7 +521,7 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
     }
 
     ${activeTab === 'home' ? `
-      setInterval(pollProctorStreams, 1200);
+      setInterval(pollProctorStreams, 1000);
     ` : ''}
 
     // Dynamic Course Topic Filter for Test Creator
@@ -643,7 +643,7 @@ function renderRadarTab(ctx) {
             <h2 class="text-base font-black text-slate-900 dark:text-white">Live Video Proctoring Station</h2>
             <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
               <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
-              Live CCTV Stream &bull; 1.2s Poll
+              Live CCTV Stream &bull; 1.0s Real-Time
             </span>
           </div>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Real-time candidate webcams, automated eye-contact focus, and direct proctor warnings.</p>
@@ -669,7 +669,7 @@ function renderRadarTab(ctx) {
           <div class="space-y-1">
             <h4 class="text-sm font-bold text-white">Live Proctoring Feeds Standby</h4>
             <p class="text-xs text-slate-400 max-w-md mx-auto">
-              Camera feeds will automatically stream here when candidates start their exams. Snapshots are captured and updated every 1.2 seconds.
+              Camera feeds will automatically stream here when candidates start their exams. Snapshots are captured and updated every 1.0 second.
             </p>
           </div>
         </div>

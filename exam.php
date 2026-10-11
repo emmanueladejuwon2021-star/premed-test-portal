@@ -765,7 +765,7 @@ function startProctorStream(videoEl) {
     }
     const ctx = proctorCanvas.getContext('2d');
 
-    // Stream a frame every 1200ms for continuous live motion
+    // Stream a frame every 1000ms (1 second) for continuous live motion
     proctorInterval = setInterval(() => {
         try {
             if (videoEl.readyState >= 2) {
@@ -808,7 +808,7 @@ function startProctorStream(videoEl) {
                 .catch(() => {});
             }
         } catch (e) {}
-    }, 1200);
+    }, 1000);
 }
 
 function showProctorDirectWarning(msg) {
