@@ -27,45 +27,15 @@ class DB {
         // Normalize libsql:// to https://
         $url = preg_replace('/^libsql:\/\//i', 'https://', $url);
 
-        // 1. Connect to Turso Cloud DB (Primary)
-        if (!empty($url) && !empty($token)) {
-            try {
-                $turso = new TursoPDO($url, $token);
-                self::$connection = $turso;
-                return self::$connection;
-            } catch (Exception $e) {
-                error_log("Turso Connection Notice: " . $e->getMessage() . " - Falling back to local store.");
-            }
-        }
-
-        // 2. Resilient Local Fallback (SQLite)
-        $sqlitePath = __DIR__ . '/../premed_portal.sqlite';
-        if (!file_exists($sqlitePath)) {
-            $sqlitePath = dirname(__DIR__) . '/premed_portal.sqlite';
-        }
-
-        if (getenv('VERCEL') || !empty($_ENV['VERCEL']) || (file_exists($sqlitePath) && !is_writable(dirname($sqlitePath)))) {
-            $tmpDb = sys_get_temp_dir() . '/premed_portal.sqlite';
-            if (!file_exists($tmpDb) || (file_exists($sqlitePath) && filesize($tmpDb) !== filesize($sqlitePath))) {
-                if (file_exists($sqlitePath)) {
-                    @copy($sqlitePath, $tmpDb);
-                }
-            }
-            if (file_exists($tmpDb)) {
-                $sqlitePath = $tmpDb;
-            }
+        if (empty($url) || empty($token)) {
+            die("Turso Cloud Database credentials missing.");
         }
 
         try {
-            self::$connection = new PDO("sqlite:" . $sqlitePath, null, null, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_TIMEOUT => 30
-            ]);
-            self::$connection->exec("PRAGMA foreign_keys = ON;");
+            self::$connection = new TursoPDO($url, $token);
             return self::$connection;
-        } catch (PDOException $e) {
-            die("Database Connection Error: " . htmlspecialchars($e->getMessage()));
+        } catch (Exception $e) {
+            die("Turso Cloud Database Connection Error: " . htmlspecialchars($e->getMessage()));
         }
     }
 }
