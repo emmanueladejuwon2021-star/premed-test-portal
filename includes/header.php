@@ -1,7 +1,7 @@
 <?php
 /**
- * Global Header Component
- * Premed Test Portal (Pure PHP Edition)
+ * Global Institutional Header Component - Enterprise Production Edition
+ * Apex Pre-Medical Sciences Examination Council (PMSEC)
  */
 
 require_once __DIR__ . '/../config/db.php';
@@ -16,14 +16,14 @@ if (!$isPublicPage && empty($_SESSION['student']) && empty($_SESSION['admin'])) 
 
 $student = $_SESSION['student'] ?? null;
 $isAdmin = !empty($_SESSION['admin']);
-$pageTitle = $pageTitle ?? 'Premed Test Portal';
+$pageTitle = $pageTitle ?? 'Pre-Medical Sciences Examination Council';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($pageTitle) ?> | Premed Portal</title>
+    <title><?= htmlspecialchars($pageTitle) ?> | PMSEC Board Examination Portal</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -32,11 +32,15 @@ $pageTitle = $pageTitle ?? 'Premed Test Portal';
             theme: {
                 extend: {
                     colors: {
-                        brand: {
-                            50: '#eff6ff',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
+                        slate: {
+                            850: '#151f33',
+                            950: '#0a0f1d'
+                        },
+                        institutional: {
+                            50: '#f0fdfa',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            900: '#134e4a'
                         }
                     }
                 }
@@ -50,77 +54,100 @@ $pageTitle = $pageTitle ?? 'Premed Test Portal';
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-        body { font-family: 'Inter', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+        body { font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .proctor-scanline {
+            background: linear-gradient(180deg, rgba(16, 185, 129, 0) 0%, rgba(16, 185, 129, 0.05) 50%, rgba(16, 185, 129, 0) 100%);
+        }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased selection:bg-teal-600 selection:text-white">
 
 <?php if (!$isPublicPage): ?>
-<header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center h-16">
-            <!-- Brand -->
+<!-- Enterprise Institutional Header -->
+<header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40 shadow-sm">
+    <!-- Top Security & Proctor Protocol Strip -->
+    <div class="bg-slate-950 border-b border-slate-800/80 px-4 sm:px-6 py-1 text-[11px] font-mono text-slate-400 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                PROCTOR PROTOCOL ENFORCED
+            </span>
+            <span class="hidden md:inline text-slate-500">&bull;</span>
+            <span class="hidden md:inline">Apex Pre-Medical Sciences Examination Council (PMSEC)</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <span class="text-slate-400">Turso Cloud Cluster: <span class="text-emerald-400 font-bold">AWS-US-EAST-1</span></span>
+            <span class="text-slate-600">&bull;</span>
+            <span class="text-slate-400">Lockdown: <span class="text-teal-300 font-bold">Active</span></span>
+        </div>
+    </div>
+
+    <!-- Main Navigation Bar -->
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+        <div class="flex justify-between items-center h-14 py-2">
+            <!-- Institutional Emblem & Brand -->
             <div class="flex items-center space-x-3">
-                <a href="index.php" class="flex items-center space-x-2.5">
-                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-100">
-                        <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+                <a href="index.php" class="flex items-center space-x-2.5 group">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-teal-900/30 group-hover:scale-105 transition-transform">
+                        <i data-lucide="shield-plus" class="w-5 h-5"></i>
                     </div>
                     <div>
-                        <span class="font-black text-slate-900 tracking-tight text-lg">Premed<span class="text-indigo-600">Portal</span></span>
-                        <span class="hidden sm:inline-block text-[10px] uppercase font-bold tracking-widest text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200 ml-1.5">PHP CBT</span>
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-extrabold tracking-tight text-base text-white">PMSEC<span class="text-teal-400 font-normal">.portal</span></span>
+                            <span class="text-[9px] uppercase font-bold tracking-widest text-teal-300 bg-teal-950/90 px-1.5 py-0.5 rounded border border-teal-800">BOARD CBT</span>
+                        </div>
+                        <span class="hidden sm:block text-[10px] text-slate-400 font-medium tracking-wide">Pre-Medical Sciences Examination Portal</span>
                     </div>
                 </a>
             </div>
 
-            <!-- Navigation Links -->
-            <nav class="hidden md:flex items-center space-x-1 font-medium text-xs text-slate-600">
-                <a href="index.php" class="px-3 py-2 rounded-xl hover:text-slate-900 hover:bg-slate-100 transition-colors <?= $currentPage === 'index.php' ? 'text-indigo-600 bg-indigo-50 font-bold' : '' ?>">
-                    <span class="flex items-center gap-1.5"><i data-lucide="layout-grid" class="w-4 h-4"></i> Home</span>
+            <!-- Executive Navigation Links -->
+            <nav class="hidden lg:flex items-center space-x-1 text-xs font-semibold text-slate-300">
+                <a href="index.php" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-slate-800 transition-colors <?= $currentPage === 'index.php' ? 'text-teal-300 bg-slate-800/90 font-bold border border-slate-700' : '' ?>">
+                    <span class="flex items-center gap-1.5"><i data-lucide="layout-dashboard" class="w-3.5 h-3.5 text-teal-400"></i> Command Center</span>
                 </a>
-                <a href="practice.php" class="px-3 py-2 rounded-xl hover:text-slate-900 hover:bg-slate-100 transition-colors <?= $currentPage === 'practice.php' ? 'text-indigo-600 bg-indigo-50 font-bold' : '' ?>">
-                    <span class="flex items-center gap-1.5"><i data-lucide="rocket" class="w-4 h-4"></i> Practice</span>
+                <a href="practice.php" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-slate-800 transition-colors <?= $currentPage === 'practice.php' ? 'text-teal-300 bg-slate-800/90 font-bold border border-slate-700' : '' ?>">
+                    <span class="flex items-center gap-1.5"><i data-lucide="file-check-2" class="w-3.5 h-3.5 text-teal-400"></i> Formative Assessments</span>
                 </a>
-                <a href="courses.php" class="px-3 py-2 rounded-xl hover:text-slate-900 hover:bg-slate-100 transition-colors <?= $currentPage === 'courses.php' ? 'text-indigo-600 bg-indigo-50 font-bold' : '' ?>">
-                    <span class="flex items-center gap-1.5"><i data-lucide="book-open" class="w-4 h-4"></i> Classroom</span>
+                <a href="courses.php" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-slate-800 transition-colors <?= $currentPage === 'courses.php' ? 'text-teal-300 bg-slate-800/90 font-bold border border-slate-700' : '' ?>">
+                    <span class="flex items-center gap-1.5"><i data-lucide="graduation-cap" class="w-3.5 h-3.5 text-teal-400"></i> Curricula & Banks</span>
                 </a>
-                <a href="active_study.php" class="px-3 py-2 rounded-xl hover:text-slate-900 hover:bg-slate-100 transition-colors <?= $currentPage === 'active_study.php' ? 'text-indigo-600 bg-indigo-50 font-bold' : '' ?>">
-                    <span class="flex items-center gap-1.5"><i data-lucide="brain" class="w-4 h-4"></i> Active Study</span>
+                <a href="active_study.php" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-slate-800 transition-colors <?= $currentPage === 'active_study.php' ? 'text-teal-300 bg-slate-800/90 font-bold border border-slate-700' : '' ?>">
+                    <span class="flex items-center gap-1.5"><i data-lucide="book-marked" class="w-3.5 h-3.5 text-teal-400"></i> Clinical Notes</span>
                 </a>
-                <a href="question_search.php" class="px-3 py-2 rounded-xl hover:text-slate-900 hover:bg-slate-100 transition-colors <?= $currentPage === 'question_search.php' ? 'text-indigo-600 bg-indigo-50 font-bold' : '' ?>">
-                    <span class="flex items-center gap-1.5"><i data-lucide="search" class="w-4 h-4"></i> Search</span>
+                <a href="question_search.php" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-slate-800 transition-colors <?= $currentPage === 'question_search.php' ? 'text-teal-300 bg-slate-800/90 font-bold border border-slate-700' : '' ?>">
+                    <span class="flex items-center gap-1.5"><i data-lucide="search" class="w-3.5 h-3.5 text-teal-400"></i> Item Search</span>
                 </a>
-                <a href="history.php" class="px-3 py-2 rounded-xl hover:text-slate-900 hover:bg-slate-100 transition-colors <?= $currentPage === 'history.php' ? 'text-indigo-600 bg-indigo-50 font-bold' : '' ?>">
-                    <span class="flex items-center gap-1.5"><i data-lucide="clipboard-check" class="w-4 h-4"></i> History</span>
+                <a href="history.php" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-slate-800 transition-colors <?= $currentPage === 'history.php' ? 'text-teal-300 bg-slate-800/90 font-bold border border-slate-700' : '' ?>">
+                    <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5 text-teal-400"></i> Transcripts</span>
                 </a>
-                <a href="leaderboard.php" class="px-3 py-2 rounded-xl hover:text-slate-900 hover:bg-slate-100 transition-colors <?= $currentPage === 'leaderboard.php' ? 'text-indigo-600 bg-indigo-50 font-bold' : '' ?>">
-                    <span class="flex items-center gap-1.5"><i data-lucide="trophy" class="w-4 h-4"></i> Rankings</span>
-                </a>
-                <a href="combat.php" class="px-3 py-2 rounded-xl hover:text-slate-900 hover:bg-slate-100 transition-colors <?= $currentPage === 'combat.php' ? 'text-indigo-600 bg-indigo-50 font-bold' : '' ?>">
-                    <span class="flex items-center gap-1.5"><i data-lucide="swords" class="w-4 h-4 text-rose-500"></i> Combat</span>
+                <a href="leaderboard.php" class="px-2.5 py-1.5 rounded-lg hover:text-white hover:bg-slate-800 transition-colors <?= $currentPage === 'leaderboard.php' ? 'text-teal-300 bg-slate-800/90 font-bold border border-slate-700' : '' ?>">
+                    <span class="flex items-center gap-1.5"><i data-lucide="award" class="w-3.5 h-3.5 text-teal-400"></i> Cohort Ranks</span>
                 </a>
                 <?php if ($isAdmin): ?>
-                <a href="admin_dashboard.php" class="px-3 py-2 rounded-xl text-rose-600 bg-rose-50 font-bold hover:bg-rose-100 transition-colors">
-                    <span class="flex items-center gap-1.5"><i data-lucide="shield" class="w-4 h-4"></i> Console</span>
+                <a href="admin_dashboard.php" class="px-2.5 py-1.5 rounded-lg text-rose-300 bg-rose-950/80 border border-rose-800 font-bold hover:bg-rose-900 transition-colors">
+                    <span class="flex items-center gap-1.5"><i data-lucide="lock" class="w-3.5 h-3.5"></i> Admin Console</span>
                 </a>
                 <?php endif; ?>
             </nav>
 
-            <!-- User Menu -->
-            <div class="flex items-center space-x-3">
+            <!-- Verified Candidate Identity Badge -->
+            <div class="flex items-center space-x-2.5">
                 <?php if ($student): ?>
-                <a href="profile.php" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                    <div class="hidden sm:flex flex-col text-right">
-                        <span class="text-xs font-bold text-slate-800 leading-tight"><?= htmlspecialchars($student['name']) ?></span>
-                        <span class="text-[11px] font-medium text-slate-500"><?= htmlspecialchars($student['matric_no']) ?></span>
+                <a href="profile.php" class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 hover:border-teal-500/50 transition-all">
+                    <div class="w-7 h-7 rounded-lg bg-teal-500/20 text-teal-300 font-bold flex items-center justify-center text-xs border border-teal-500/30">
+                        <?= strtoupper(substr($student['name'] ?? 'C', 0, 1)) ?>
                     </div>
-                    <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-extrabold flex items-center justify-center text-xs border border-indigo-200">
-                        <?= strtoupper(substr($student['name'], 0, 1)) ?>
+                    <div class="hidden sm:flex flex-col text-left">
+                        <span class="text-xs font-bold text-white leading-none truncate max-w-[130px]"><?= htmlspecialchars($student['name'] ?? 'Candidate') ?></span>
+                        <span class="text-[10px] font-mono text-teal-400 leading-none mt-1"><?= htmlspecialchars($student['matric_no'] ?? '') ?></span>
                     </div>
                 </a>
                 <?php endif; ?>
 
-                <a href="logout.php" title="Sign Out" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors">
+                <a href="logout.php" title="Terminate Candidate Session" class="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-xl transition-colors">
                     <i data-lucide="log-out" class="w-4 h-4"></i>
                 </a>
             </div>

@@ -1,21 +1,40 @@
 <?php
 /**
- * Active CBT Examination Engine
- * Premed Test Portal (PHP Edition)
+ * Prometric / Board Examination CBT Simulation Environment - Enterprise Production Edition
+ * Apex Pre-Medical Sciences Examination Council (PMSEC)
  */
 
-$pageTitle = 'Examination In Progress';
+$pageTitle = 'Proctored Examination Administration';
 require_once __DIR__ . '/config/db.php';
 
 $db = DB::connect();
+
+$testId = $_GET['test_id'] ?? '';
+$test = null;
 
 $courseId = $_GET['course_id'] ?? '';
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
 $duration = isset($_GET['duration']) ? (int)$_GET['duration'] : 30;
 $topicFilters = $_GET['topics'] ?? [];
 
+// If test_id is provided, load specific test settings & course
+if (!empty($testId)) {
+    $tStmt = $db->prepare("SELECT * FROM tests WHERE id = ? LIMIT 1");
+    $tStmt->execute([$testId]);
+    $test = $tStmt->fetch();
+    if ($test) {
+        $courseId = $test['course_id'];
+        $limit = (int)$test['question_limit'];
+        $duration = (int)$test['duration'];
+        $rawTopics = json_decode($test['topic_ids'] ?? '[]', true);
+        if (!empty($rawTopics) && is_array($rawTopics) && !in_array('ALL', $rawTopics)) {
+            $topicFilters = $rawTopics;
+        }
+    }
+}
+
 if (empty($courseId)) {
-    header('Location: index.php');
+    header('Location: courses.php');
     exit;
 }
 
@@ -25,10 +44,10 @@ $cStmt->execute([$courseId]);
 $course = $cStmt->fetch();
 
 if (!$course) {
-    die("Assessment Course not found.");
+    die("Accredited Examination Course not found.");
 }
 
-// 2. Fetch Questions
+// 2. Fetch Questions from Turso DB
 if (!empty($topicFilters) && is_array($topicFilters)) {
     $placeholders = implode(',', array_fill(0, count($topicFilters), '?'));
     $qStmt = $db->prepare("SELECT * FROM questions WHERE topic_id IN ($placeholders)");
@@ -46,16 +65,16 @@ if (!empty($topicFilters) && is_array($topicFilters)) {
 }
 
 if (empty($questions)) {
-    die("No questions found for this assessment.");
+    die("No validated examination items found for this assessment administration.");
 }
 
-// Shuffle and limit
+// Randomize and constrain to item volume limit
 shuffle($questions);
 if (count($questions) > $limit) {
     $questions = array_slice($questions, 0, $limit);
 }
 
-// Strip correct_option for student-facing JSON payload to prevent devtools inspection cheating
+// Strip ground-truth key for client-side security
 $clientQuestions = [];
 foreach ($questions as $idx => $q) {
     $clientQuestions[] = [
@@ -79,21 +98,24 @@ if (!$student) {
 $sessionId = bin2hex(random_bytes(12));
 $totalQuestions = count($clientQuestions);
 
-// Fetch Security Settings
+// Security Settings
 $antiCheatBlur = 1;
 $enforceFullscreen = 1;
 $maxTabSwitches = 3;
 $watermarkEnabled = 1;
 
 try {
-    $sRows = $db->query("SELECT key_name, value FROM settings")->fetchAll(PDO::FETCH_KEY_PAIR);
-    if (isset($sRows['anti_cheat_blur'])) $antiCheatBlur = (int)$sRows['anti_cheat_blur'];
-    if (isset($sRows['enforce_fullscreen'])) $enforceFullscreen = (int)$sRows['enforce_fullscreen'];
-    if (isset($sRows['max_tab_switches'])) $maxTabSwitches = (int)$sRows['max_tab_switches'];
-    if (isset($sRows['watermark_enabled'])) $watermarkEnabled = (int)$sRows['watermark_enabled'];
+    $sStmt = $db->query("SELECT key_name, value FROM settings");
+    $sRows = $sStmt ? $sStmt->fetchAll() : [];
+    $sMap = [];
+    foreach ($sRows as $row) $sMap[$row['key_name']] = $row['value'];
+    if (isset($sMap['anti_cheat_blur'])) $antiCheatBlur = (int)$sMap['anti_cheat_blur'];
+    if (isset($sMap['enforce_fullscreen'])) $enforceFullscreen = (int)$sMap['enforce_fullscreen'];
+    if (isset($sMap['max_tab_switches'])) $maxTabSwitches = (int)$sMap['max_tab_switches'];
+    if (isset($sMap['watermark_enabled'])) $watermarkEnabled = (int)$sMap['watermark_enabled'];
 } catch (Exception $e) {}
 
-// Register active session in exam_sessions table
+// Register active session in Turso cloud DB
 try {
     $sessStmt = $db->prepare("
         INSERT OR REPLACE INTO exam_sessions (
@@ -113,130 +135,187 @@ try {
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<div class="max-w-5xl mx-auto px-4 sm:px-6 py-6" id="examApp">
-    <!-- Top Bar: Course Title, Question Tracker, and Countdown Timer -->
-    <div class="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div>
-            <div class="flex items-center gap-2 mb-1">
-                <span class="text-xs font-black uppercase text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200"><?= htmlspecialchars($course['code']) ?></span>
-                <span class="text-xs font-semibold text-slate-500">Academic CBT Simulator</span>
+<div class="max-w-5xl mx-auto px-3 sm:px-4 py-4 space-y-3.5" id="examApp">
+
+    <!-- 1. Institutional Proctor HUD & Clock Strip -->
+    <div class="bg-slate-900 text-white rounded-2xl p-3 sm:p-3.5 border border-slate-800 shadow-md flex flex-wrap items-center justify-between gap-3 sticky top-14 z-30">
+        <!-- Left: Course Code & Question Tracking -->
+        <div class="flex items-center gap-2.5 min-w-0">
+            <span class="text-xs font-black uppercase text-teal-300 bg-teal-950/80 px-2 py-0.5 rounded border border-teal-800 font-mono shrink-0">
+                <?= htmlspecialchars($course['code']) ?>
+            </span>
+            <span class="text-xs font-bold text-slate-200 truncate hidden sm:inline max-w-[170px]">
+                <?= htmlspecialchars($course['title']) ?>
+            </span>
+            <span class="text-xs text-slate-500 font-semibold">&bull;</span>
+            <span class="text-xs font-extrabold text-teal-400 bg-slate-800 px-2.5 py-0.5 rounded-lg font-mono" id="progressIndicator">
+                Item 1 of <?= $totalQuestions ?>
+            </span>
+        </div>
+
+        <!-- Center: Countdown Clock Pill -->
+        <div id="timerContainer" class="px-3.5 py-1.5 rounded-xl bg-slate-950 text-white font-mono font-bold text-xs flex items-center gap-2 border border-slate-800 shadow-inner">
+            <i data-lucide="timer" class="w-3.5 h-3.5 text-teal-400"></i>
+            <span id="timerDisplay">--:--</span>
+        </div>
+
+        <!-- Right: Utility Tools & Finalize -->
+        <div class="flex items-center gap-1.5">
+            <button type="button" onclick="speakCurrentQuestion()" title="Audio Item Reader" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors">
+                <i data-lucide="volume-2" class="w-4 h-4"></i>
+            </button>
+            <button type="button" onclick="toggleCalculator()" title="Clinical Scientific Calculator" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors">
+                <i data-lucide="calculator" class="w-4 h-4"></i>
+            </button>
+            <button type="button" onclick="toggleFontSize()" title="Adjust Item Font Size" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors font-bold text-xs">
+                A<span class="text-[10px]">±</span>
+            </button>
+            <button type="button" onclick="confirmSubmit()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-xs transition-colors flex items-center gap-1.5 ml-1">
+                <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+                <span>Finalize & Submit</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 2. Prometric Split CBT Workspace -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+
+        <!-- LEFT STAGE: Examination Item & Response Choices (8 cols on lg) -->
+        <div class="lg:col-span-8 space-y-3">
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col justify-between min-h-[460px]">
+                <div>
+                    <!-- Item Subheader & Flag Review Button -->
+                    <div class="flex justify-between items-center pb-3 mb-3 border-b border-slate-100">
+                        <span class="text-xs font-black uppercase tracking-wider text-teal-700 font-mono" id="questionHeaderNumber">
+                            Item 1 of <?= $totalQuestions ?>
+                        </span>
+                        <div class="flex items-center gap-3">
+                            <button type="button" onclick="clearCurrentSelection()" class="text-[11px] font-semibold text-slate-400 hover:text-rose-600 transition-colors">
+                                Clear Selection
+                            </button>
+                            <button type="button" onclick="toggleFlag()" id="flagBtn" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-amber-500 transition-colors">
+                                <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
+                                <span id="flagLabel">Mark for Review</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Question Stem -->
+                    <div id="questionStem" class="text-sm sm:text-base font-medium text-slate-900 leading-relaxed mb-4 select-none">
+                        <!-- Stem inserted by JS -->
+                    </div>
+
+                    <!-- Clinical Imaging / Diagram (if present) -->
+                    <div id="diagramContainer" class="mb-4 hidden text-center">
+                        <img id="questionDiagram" src="" alt="Clinical Imaging Specimen" class="max-h-52 rounded-xl mx-auto border border-slate-200 shadow-xs cursor-zoom-in" onclick="zoomDiagram(this.src)">
+                    </div>
+
+                    <!-- Response Choices (A, B, C, D) -->
+                    <div class="space-y-2 select-none" id="optionsContainer">
+                        <!-- Options generated by JS -->
+                    </div>
+                </div>
+
+                <!-- Bottom Tactical Navigation Deck -->
+                <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
+                    <button type="button" id="prevBtn" onclick="prevQuestion()" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                        <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+                        <span>Previous Item</span>
+                    </button>
+
+                    <span class="text-[11px] text-slate-400 font-mono hidden sm:inline">Accelerators: [A-D] or [1-4] &bull; Arrows</span>
+
+                    <button type="button" id="nextBtn" onclick="nextQuestion()" class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-colors">
+                        <span>Next Item</span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
             </div>
-            <h2 class="text-lg font-black text-slate-900"><?= htmlspecialchars($course['title']) ?></h2>
         </div>
 
-        <div class="flex items-center gap-3">
-            <!-- Audio text-to-speech button -->
-            <button type="button" onclick="speakCurrentQuestion()" title="Read Question" class="p-2.5 rounded-2xl border border-slate-200 text-slate-600 hover:text-indigo-600 hover:bg-slate-50 transition-colors">
-                <i data-lucide="volume-2" class="w-5 h-5"></i>
-            </button>
+        <!-- RIGHT STAGE: Item Review Palette Matrix (4 cols on lg) -->
+        <div class="lg:col-span-4">
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3.5 sticky top-28">
+                <!-- Palette Header & Progress -->
+                <div class="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                    <span class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                        <i data-lucide="grid" class="w-3.5 h-3.5 text-teal-600"></i>
+                        <span>Item Review Matrix</span>
+                    </span>
+                    <span class="text-[11px] font-mono text-slate-500 font-bold" id="statsPill">
+                        <span id="answeredCount" class="text-teal-600">0</span>/<?= $totalQuestions ?> Recorded
+                    </span>
+                </div>
 
-            <!-- Calculator trigger -->
-            <button type="button" onclick="toggleCalculator()" title="Calculator" class="p-2.5 rounded-2xl border border-slate-200 text-slate-600 hover:text-indigo-600 hover:bg-slate-50 transition-colors">
-                <i data-lucide="calculator" class="w-5 h-5"></i>
-            </button>
+                <!-- Status Telemetry Badges -->
+                <div class="grid grid-cols-3 gap-1.5 text-center text-[10px] font-semibold">
+                    <div class="p-1.5 rounded-lg bg-teal-50 text-teal-800 border border-teal-100">
+                        <span class="block font-black text-xs font-mono" id="answeredBadge">0</span> Recorded
+                    </div>
+                    <div class="p-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-100">
+                        <span class="block font-black text-xs font-mono" id="flaggedBadge">0</span> Flagged
+                    </div>
+                    <div class="p-1.5 rounded-lg bg-slate-50 text-slate-600 border border-slate-200">
+                        <span class="block font-black text-xs font-mono" id="remainingBadge"><?= $totalQuestions ?></span> Left
+                    </div>
+                </div>
 
-            <!-- Question Grid Drawer toggle -->
-            <button type="button" onclick="toggleGridModal()" class="px-3 py-2 rounded-2xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5">
-                <i data-lucide="grid" class="w-4 h-4"></i>
-                <span id="progressIndicator">1 / <?= $totalQuestions ?></span>
-            </button>
+                <!-- Numerical Item Matrix -->
+                <div class="grid grid-cols-5 gap-1.5 max-h-[290px] overflow-y-auto pr-0.5" id="paletteGrid">
+                    <!-- Numbers inserted by JS -->
+                </div>
 
-            <!-- Countdown Timer Pill -->
-            <div id="timerContainer" class="px-4 py-2 rounded-2xl bg-slate-900 text-white font-mono font-bold text-sm flex items-center gap-2 shadow-inner">
-                <i data-lucide="timer" class="w-4 h-4 text-emerald-400"></i>
-                <span id="timerDisplay">--:--</span>
+                <!-- Emergency / Finalize CTA -->
+                <button type="button" onclick="confirmSubmit()" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5">
+                    <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                    <span>Execute Official Submission</span>
+                </button>
             </div>
         </div>
+
     </div>
 
-    <!-- Active Question Card -->
-    <div class="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200 shadow-sm relative">
-        <!-- Question Header & Flag -->
-        <div class="flex justify-between items-center pb-4 mb-6 border-b border-slate-100">
-            <span class="text-xs font-black uppercase tracking-widest text-indigo-600" id="questionHeaderNumber">Question 1 of <?= $totalQuestions ?></span>
-            <button type="button" onclick="toggleFlag()" id="flagBtn" class="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-amber-500 transition-colors">
-                <i data-lucide="bookmark" class="w-4 h-4"></i>
-                <span id="flagLabel">Bookmark for Review</span>
-            </button>
-        </div>
+</div>
 
-        <!-- Question Stem Text -->
-        <div id="questionStem" class="text-base sm:text-lg font-medium text-slate-900 leading-relaxed mb-8 select-none">
-            <!-- Rendered by JS with KaTeX -->
-        </div>
-
-        <!-- Diagram if exists -->
-        <div id="diagramContainer" class="mb-6 hidden text-center">
-            <img id="questionDiagram" src="" alt="Question Diagram" class="max-h-72 rounded-2xl mx-auto border border-slate-200 shadow-sm">
-        </div>
-
-        <!-- Options Container -->
-        <div class="space-y-3" id="optionsContainer">
-            <!-- Options A, B, C, D generated by JS -->
-        </div>
-
-        <!-- Bottom Navigation & Action Buttons -->
-        <div class="flex items-center justify-between pt-8 mt-8 border-t border-slate-100">
-            <button type="button" id="prevBtn" onclick="prevQuestion()" class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
-                <i data-lucide="chevron-left" class="w-4 h-4"></i>
-                <span>Previous</span>
-            </button>
-
-            <button type="button" onclick="confirmSubmit()" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-100 transition-colors flex items-center gap-2">
-                <i data-lucide="check-circle" class="w-4 h-4"></i>
-                <span>Submit Exam</span>
-            </button>
-
-            <button type="button" id="nextBtn" onclick="nextQuestion()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-100 flex items-center gap-2 transition-colors">
-                <span>Next</span>
-                <i data-lucide="chevron-right" class="w-4 h-4"></i>
-            </button>
-        </div>
+<!-- Diagram Zoom Modal -->
+<div id="zoomModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
+    <div class="bg-white p-2.5 rounded-2xl max-w-2xl max-h-[90vh] overflow-auto shadow-2xl" onclick="event.stopPropagation()">
+        <img id="zoomedImg" src="" alt="High-Resolution Clinical Imaging" class="w-full rounded-xl">
     </div>
 </div>
 
-<!-- Question Palette Modal -->
-<div id="gridModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-base font-bold text-slate-900">Question Palette</h3>
-            <button type="button" onclick="toggleGridModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
-        </div>
-        <div class="grid grid-cols-5 sm:grid-cols-6 gap-2.5 max-h-72 overflow-y-auto p-1" id="paletteGrid">
-            <!-- Question numbers -->
-        </div>
+<!-- On-Screen Clinical Scientific Calculator -->
+<div id="calcModal" class="fixed bottom-4 right-4 bg-slate-900 text-white p-3.5 rounded-2xl shadow-2xl z-50 hidden w-60 border border-slate-800">
+    <div class="flex justify-between items-center mb-2.5">
+        <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5 font-mono">
+            <i data-lucide="calculator" class="w-3.5 h-3.5 text-teal-400"></i>
+            <span>Scientific Calculator</span>
+        </span>
+        <button type="button" onclick="toggleCalculator()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+    </div>
+    <input type="text" id="calcDisplay" readonly class="w-full bg-slate-800 text-right px-2.5 py-1.5 rounded-lg text-base font-mono mb-2 text-white border border-slate-700" value="0">
+    <div class="grid grid-cols-4 gap-1 text-xs font-bold font-mono">
+        <button onclick="calcClear()" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750 text-rose-400">C</button>
+        <button onclick="calcInput('/')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750 text-teal-400">&divide;</button>
+        <button onclick="calcInput('*')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750 text-teal-400">&times;</button>
+        <button onclick="calcInput('-')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750 text-teal-400">-</button>
+        <button onclick="calcInput('7')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">7</button>
+        <button onclick="calcInput('8')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">8</button>
+        <button onclick="calcInput('9')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">9</button>
+        <button onclick="calcInput('+')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750 text-teal-400">+</button>
+        <button onclick="calcInput('4')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">4</button>
+        <button onclick="calcInput('5')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">5</button>
+        <button onclick="calcInput('6')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">6</button>
+        <button onclick="calcEqual()" class="row-span-2 p-1.5 bg-teal-600 text-white rounded hover:bg-teal-700 flex items-center justify-center">=</button>
+        <button onclick="calcInput('1')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">1</button>
+        <button onclick="calcInput('2')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">2</button>
+        <button onclick="calcInput('3')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">3</button>
+        <button onclick="calcInput('0')" class="col-span-2 p-1.5 bg-slate-800 rounded hover:bg-slate-750">0</button>
+        <button onclick="calcInput('.')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">.</button>
     </div>
 </div>
 
-<!-- On-Screen Calculator -->
-<div id="calcModal" class="fixed bottom-6 right-6 bg-slate-900 text-white p-4 rounded-3xl shadow-2xl z-50 hidden w-64 border border-slate-800">
-    <div class="flex justify-between items-center mb-3">
-        <span class="text-xs font-bold text-slate-400">Calculator</span>
-        <button type="button" onclick="toggleCalculator()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
-    </div>
-    <input type="text" id="calcDisplay" readonly class="w-full bg-slate-800 text-right px-3 py-2 rounded-xl text-lg font-mono mb-3 text-white border border-slate-700" value="0">
-    <div class="grid grid-cols-4 gap-1.5 text-xs font-bold font-mono">
-        <button onclick="calcClear()" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 text-rose-400">C</button>
-        <button onclick="calcInput('/')" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 text-indigo-400">&divide;</button>
-        <button onclick="calcInput('*')" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 text-indigo-400">&times;</button>
-        <button onclick="calcInput('-')" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 text-indigo-400">-</button>
-        <button onclick="calcInput('7')" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700">7</button>
-        <button onclick="calcInput('8')" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700">8</button>
-        <button onclick="calcInput('9')" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700">9</button>
-        <button onclick="calcInput('+')" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 text-indigo-400">+</button>
-        <button onclick="calcInput('4')" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700">4</button>
-        <button onclick="calcInput('5')" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700">5</button>
-        <button onclick="calcInput('6')" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700">6</button>
-        <button onclick="calcEqual()" class="row-span-2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center justify-center">=</button>
-        <button onclick="calcInput('1')" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700">1</button>
-        <button onclick="calcInput('2')" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700">2</button>
-        <button onclick="calcInput('3')" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700">3</button>
-        <button onclick="calcInput('0')" class="col-span-2 p-2 bg-slate-800 rounded-lg hover:bg-slate-700">0</button>
-        <button onclick="calcInput('.')" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700">.</button>
-    </div>
-</div>
-
-<!-- Hidden submission form -->
+<!-- Hidden submission form to submit_exam.php -->
 <form id="submissionForm" method="POST" action="submit_exam.php">
     <input type="hidden" name="course_id" value="<?= htmlspecialchars($courseId) ?>">
     <input type="hidden" name="session_id" value="<?= htmlspecialchars($sessionId) ?>">
@@ -247,32 +326,32 @@ require_once __DIR__ . '/includes/header.php';
     <input type="hidden" name="cheating_log" id="cheatingLogInput" value="[]">
 </form>
 
-<!-- Cheating Warning Modal -->
-<div id="cheatingModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl border-2 border-rose-500">
-        <div class="w-14 h-14 mx-auto rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center">
-            <i data-lucide="shield-alert" class="w-7 h-7"></i>
+<!-- Security & Cheating Infraction Warning Modal -->
+<div id="cheatingModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 text-center space-y-3.5 shadow-2xl border-2 border-rose-500">
+        <div class="w-12 h-12 mx-auto rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+            <i data-lucide="shield-alert" class="w-6 h-6"></i>
         </div>
         <div class="space-y-1">
-            <h3 class="text-base font-black text-rose-600" id="cheatModalTitle">Security Alert: Tab Switch Detected!</h3>
-            <p class="text-xs text-slate-600 leading-relaxed font-medium" id="cheatModalMsg">
-                You have navigated away from the exam viewport. This infraction has been logged and reported in real time to the exam administrator.
+            <h3 class="text-sm font-black text-rose-600 uppercase tracking-wider" id="cheatModalTitle">Examination Integrity Breach Detected!</h3>
+            <p class="text-xs text-slate-600 leading-snug font-medium" id="cheatModalMsg">
+                You navigated away from the proctored examination viewport. This infraction has been logged in real-time to the examination council.
             </p>
         </div>
-        <div class="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold">
-            <span id="cheatModalCount">Violation 1 of 3</span>
+        <div class="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-mono font-bold">
+            <span id="cheatModalCount">Infraction 1 of 3</span>
         </div>
-        <button type="button" onclick="dismissCheatingModal()" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md">
-            I Understand & Return to Exam
+        <button type="button" onclick="dismissCheatingModal()" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs">
+            I Acknowledge & Return to Examination
         </button>
     </div>
 </div>
 
 <?php if ($watermarkEnabled): ?>
 <!-- Candidate Translucent Watermark Overlay -->
-<div class="pointer-events-none fixed inset-0 z-30 select-none overflow-hidden opacity-[0.05] flex flex-wrap gap-12 p-8 text-lg font-black text-slate-900 font-mono rotate-[-12deg]">
+<div class="pointer-events-none fixed inset-0 z-20 select-none overflow-hidden opacity-[0.035] flex flex-wrap gap-12 p-6 text-base font-black text-slate-900 font-mono rotate-[-12deg]">
     <?php for ($i = 0; $i < 24; $i++): ?>
-    <span><?= htmlspecialchars($student['matric_no']) ?> &bull; <?= htmlspecialchars($student['name']) ?></span>
+    <span><?= htmlspecialchars($student['matric_no']) ?> &bull; <?= htmlspecialchars($student['name']) ?> &bull; PMSEC CBT</span>
     <?php endfor; ?>
 </div>
 <?php endif; ?>
@@ -285,6 +364,7 @@ let userAnswers = {};
 let flaggedQuestions = new Set();
 let secondsRemaining = DURATION_MINUTES > 0 ? DURATION_MINUTES * 60 : null;
 let timerInterval = null;
+let isLargeFont = false;
 
 // Initialize examination state
 function initExam() {
@@ -299,15 +379,16 @@ function initExam() {
             updateTimerDisplay();
             if (secondsRemaining <= 0) {
                 clearInterval(timerInterval);
-                alert("Examination time has expired! Your responses will now be submitted automatically.");
+                alert("Examination time has elapsed! Your responses will now be submitted automatically.");
                 executeSubmit();
             }
         }, 1000);
     } else {
-        document.getElementById('timerDisplay').innerText = "Untimed";
+        document.getElementById('timerDisplay').innerText = "Self-Paced";
     }
 
-    // Security listeners
+    // Keyboard shortcuts & security
+    setupKeyboardShortcuts();
     setupAntiCheatingListeners();
 }
 
@@ -315,20 +396,31 @@ function updateTimerDisplay() {
     const mins = Math.floor(secondsRemaining / 60);
     const secs = secondsRemaining % 60;
     const str = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    document.getElementById('timerDisplay').innerText = str;
-    if (secondsRemaining < 300) {
-        document.getElementById('timerContainer').className = "px-4 py-2 rounded-2xl bg-rose-600 text-white font-mono font-bold text-sm flex items-center gap-2 animate-pulse";
+    const display = document.getElementById('timerDisplay');
+    const container = document.getElementById('timerContainer');
+    if (display) display.innerText = str;
+    if (container) {
+        if (secondsRemaining < 180) {
+            container.className = "px-3.5 py-1.5 rounded-xl bg-rose-600 text-white font-mono font-bold text-xs flex items-center gap-2 shadow-xs animate-pulse";
+        } else if (secondsRemaining < 600) {
+            container.className = "px-3.5 py-1.5 rounded-xl bg-amber-600 text-white font-mono font-bold text-xs flex items-center gap-2 shadow-xs";
+        }
     }
 }
 
 function renderCurrentQuestion() {
     const q = QUESTIONS[currentIndex];
-    document.getElementById('questionHeaderNumber').innerText = `Question ${currentIndex + 1} of ${QUESTIONS.length}`;
-    document.getElementById('progressIndicator').innerText = `${currentIndex + 1} / ${QUESTIONS.length}`;
+    const headEl = document.getElementById('questionHeaderNumber');
+    const progEl = document.getElementById('progressIndicator');
+    if (headEl) headEl.innerText = `Item ${currentIndex + 1} of ${QUESTIONS.length}`;
+    if (progEl) progEl.innerText = `Item ${currentIndex + 1} of ${QUESTIONS.length}`;
 
     // Render stem text
     const stemEl = document.getElementById('questionStem');
     stemEl.innerHTML = q.text;
+    stemEl.className = isLargeFont 
+        ? "text-base sm:text-lg font-medium text-slate-900 leading-relaxed mb-4 select-none"
+        : "text-sm sm:text-base font-medium text-slate-900 leading-relaxed mb-4 select-none";
 
     // Render diagram
     const diagContainer = document.getElementById('diagramContainer');
@@ -351,34 +443,36 @@ function renderCurrentQuestion() {
         const isSelected = (currentPick === opt);
 
         const btn = document.createElement('div');
-        btn.className = `p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3.5 select-none ${
+        btn.className = `p-3 sm:p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 select-none ${
             isSelected 
-            ? 'border-indigo-600 bg-indigo-50/70 text-indigo-950 font-semibold ring-2 ring-indigo-500/20' 
-            : 'border-slate-200/90 hover:border-slate-300 hover:bg-slate-50 text-slate-800'
+            ? 'border-teal-600 bg-teal-50/80 text-teal-950 font-semibold ring-2 ring-teal-500/20' 
+            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-800'
         }`;
         btn.onclick = () => selectOption(opt);
 
         btn.innerHTML = `
-            <div class="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold uppercase shrink-0 transition-colors ${
-                isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'
+            <div class="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold uppercase shrink-0 transition-colors font-mono ${
+                isSelected ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600'
             }">
                 ${opt}
             </div>
-            <div class="text-sm pt-0.5 leading-relaxed flex-1">${q[opt]}</div>
+            <div class="text-xs sm:text-sm pt-0.5 leading-snug flex-1">${q[opt]}</div>
         `;
         optContainer.appendChild(btn);
     });
 
-    // Update flag label
     updateFlagButton();
 
     // Prev / Next button states
-    document.getElementById('prevBtn').disabled = (currentIndex === 0);
+    const prevBtn = document.getElementById('prevBtn');
+    if (prevBtn) prevBtn.disabled = (currentIndex === 0);
     const nextBtn = document.getElementById('nextBtn');
-    if (currentIndex === QUESTIONS.length - 1) {
-        nextBtn.innerHTML = `<span>Review Finish</span><i data-lucide="check" class="w-4 h-4"></i>`;
-    } else {
-        nextBtn.innerHTML = `<span>Next</span><i data-lucide="chevron-right" class="w-4 h-4"></i>`;
+    if (nextBtn) {
+        if (currentIndex === QUESTIONS.length - 1) {
+            nextBtn.innerHTML = `<span>Review & Finalize</span><i data-lucide="check" class="w-3.5 h-3.5"></i>`;
+        } else {
+            nextBtn.innerHTML = `<span>Next Item</span><i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>`;
+        }
     }
 
     // Auto-render KaTeX math formulas in stem and options
@@ -392,7 +486,7 @@ function renderCurrentQuestion() {
         });
     }
 
-    lucide.createIcons();
+    if (window.lucide) lucide.createIcons();
 }
 
 function selectOption(opt) {
@@ -402,10 +496,20 @@ function selectOption(opt) {
     renderPalette();
 }
 
+function clearCurrentSelection() {
+    const q = QUESTIONS[currentIndex];
+    if (userAnswers[q.id]) {
+        delete userAnswers[q.id];
+        renderCurrentQuestion();
+        renderPalette();
+    }
+}
+
 function prevQuestion() {
     if (currentIndex > 0) {
         currentIndex--;
         renderCurrentQuestion();
+        renderPalette();
     }
 }
 
@@ -413,15 +517,16 @@ function nextQuestion() {
     if (currentIndex < QUESTIONS.length - 1) {
         currentIndex++;
         renderCurrentQuestion();
+        renderPalette();
     } else {
-        toggleGridModal();
+        confirmSubmit();
     }
 }
 
 function jumpToQuestion(idx) {
     currentIndex = idx;
     renderCurrentQuestion();
-    toggleGridModal();
+    renderPalette();
 }
 
 function toggleFlag() {
@@ -442,58 +547,77 @@ function updateFlagButton() {
     const label = document.getElementById('flagLabel');
 
     if (isFlagged) {
-        btn.className = "flex items-center gap-1.5 text-xs font-bold text-amber-500 transition-colors";
-        label.innerText = "Bookmarked (Flagged)";
+        btn.className = "flex items-center gap-1 text-xs font-bold text-amber-500 transition-colors";
+        label.innerText = "Marked for Review";
     } else {
-        btn.className = "flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-amber-500 transition-colors";
-        label.innerText = "Bookmark for Review";
+        btn.className = "flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-amber-500 transition-colors";
+        label.innerText = "Mark for Review";
     }
 }
 
 function renderPalette() {
     const grid = document.getElementById('paletteGrid');
+    if (!grid) return;
     grid.innerHTML = '';
+
+    let answeredCount = 0;
+    let flaggedCount = 0;
 
     QUESTIONS.forEach((q, idx) => {
         const isAnswered = !!userAnswers[q.id];
         const isFlagged = flaggedQuestions.has(q.id);
         const isCurrent = (idx === currentIndex);
 
+        if (isAnswered) answeredCount++;
+        if (isFlagged) flaggedCount++;
+
         const item = document.createElement('button');
         item.type = 'button';
         item.onclick = () => jumpToQuestion(idx);
-        item.className = `h-10 rounded-xl text-xs font-bold transition-all flex items-center justify-center relative ${
-            isCurrent ? 'ring-2 ring-indigo-600 ring-offset-2 ' : ''
+        item.className = `h-8 w-full rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center relative ${
+            isCurrent ? 'ring-2 ring-teal-600 ring-offset-1 ' : ''
         } ${
-            isAnswered ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            isAnswered 
+            ? 'bg-teal-600 text-white shadow-xs' 
+            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
         }`;
 
         item.innerText = idx + 1;
 
         if (isFlagged) {
             const dot = document.createElement('span');
-            dot.className = "absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400";
+            dot.className = "absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400";
             item.appendChild(dot);
         }
 
         grid.appendChild(item);
     });
+
+    const remaining = QUESTIONS.length - answeredCount;
+    document.getElementById('answeredCount').innerText = answeredCount;
+    document.getElementById('answeredBadge').innerText = answeredCount;
+    document.getElementById('flaggedBadge').innerText = flaggedCount;
+    document.getElementById('remainingBadge').innerText = remaining;
 }
 
-function toggleGridModal() {
-    const modal = document.getElementById('gridModal');
-    modal.classList.toggle('hidden');
-    lucide.createIcons();
+function toggleFontSize() {
+    isLargeFont = !isLargeFont;
+    renderCurrentQuestion();
+}
+
+function zoomDiagram(src) {
+    document.getElementById('zoomedImg').src = src;
+    document.getElementById('zoomModal').classList.remove('hidden');
 }
 
 function confirmSubmit() {
     const answeredCount = Object.keys(userAnswers).length;
     const unanswered = QUESTIONS.length - answeredCount;
-    let msg = `You have answered ${answeredCount} of ${QUESTIONS.length} questions.`;
+    let msg = `You have recorded responses for ${answeredCount} of ${QUESTIONS.length} items.`;
     if (unanswered > 0) {
-        msg += `\nWarning: ${unanswered} question(s) remain unanswered!`;
+        msg += `\nWarning: ${unanswered} item(s) remain unattempted!`;
     }
-    msg += "\n\nAre you sure you want to finalize and submit your assessment?";
+    msg += "\n\nAre you sure you want to execute your official examination submission?";
 
     if (confirm(msg)) {
         executeSubmit();
@@ -516,6 +640,27 @@ function speakCurrentQuestion() {
     }
 }
 
+// Keyboard accelerators
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', e => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        const key = e.key.toLowerCase();
+        if (['a', 'b', 'c', 'd'].includes(key)) {
+            selectOption(key);
+        } else if (['1', '2', '3', '4'].includes(key)) {
+            const map = { '1': 'a', '2': 'b', '3': 'c', '4': 'd' };
+            selectOption(map[key]);
+        } else if (key === 'f') {
+            toggleFlag();
+        } else if (key === 'arrowleft' || key === 'p') {
+            prevQuestion();
+        } else if (key === 'arrowright' || key === 'n') {
+            nextQuestion();
+        }
+    });
+}
+
+// Anti Cheating Telemetry
 let tabSwitchCount = 0;
 let cheatingLogs = [];
 const MAX_TAB_SWITCHES = <?= (int)$maxTabSwitches ?>;
@@ -535,7 +680,6 @@ function recordCheatingEvent(type, details) {
     if (inputSwitches) inputSwitches.value = tabSwitchCount;
     if (inputLog) inputLog.value = JSON.stringify(cheatingLogs);
 
-    // Send real-time beacon/fetch to log_cheating.php
     try {
         const payload = JSON.stringify({
             session_id: SESSION_ID,
@@ -556,7 +700,7 @@ function recordCheatingEvent(type, details) {
         const flagInput = document.getElementById('isFlaggedCheatingInput');
         if (flagInput) flagInput.value = '1';
         setTimeout(() => {
-            alert(`🚨 EXAM TERMINATED: You exceeded the allowed limit of ${MAX_TAB_SWITCHES} violations. Your test is being automatically submitted and marked as FLAGGED FOR CHEATING.`);
+            alert(`🚨 PROCTOR LOCKDOWN: Maximum allowed security infractions (${MAX_TAB_SWITCHES}) exceeded. Examination terminated and submitted for board review.`);
             executeSubmit();
         }, 400);
     }
@@ -569,9 +713,9 @@ function showCheatingWarningModal(count, max, type) {
     const msg = document.getElementById('cheatModalMsg');
     const badge = document.getElementById('cheatModalCount');
 
-    if (title) title.innerText = type === 'FULLSCREEN_EXIT' ? 'Security Alert: Fullscreen Exited!' : 'Security Alert: Tab Switch Detected!';
-    if (msg) msg.innerText = `You navigated away from the exam viewport. This infraction has been logged and reported in real time to the exam administrator.`;
-    if (badge) badge.innerText = max > 0 ? `Violation ${count} of ${max} allowed` : `Violation #${count} logged`;
+    if (title) title.innerText = type === 'FULLSCREEN_EXIT' ? 'Proctor Alert: Fullscreen Mode Exited' : 'Proctor Alert: Viewport Navigation Detected';
+    if (msg) msg.innerText = `You navigated away from the active examination viewport. This infraction has been logged in real-time to the examination council.`;
+    if (badge) badge.innerText = max > 0 ? `Infraction ${count} of ${max} allowed` : `Infraction #${count} logged`;
 
     modal.classList.remove('hidden');
     if (window.lucide) lucide.createIcons();
@@ -585,7 +729,6 @@ function dismissCheatingModal() {
     }
 }
 
-// Anti cheating listeners
 function setupAntiCheatingListeners() {
     document.addEventListener('contextmenu', e => e.preventDefault());
     document.addEventListener('copy', e => e.preventDefault());
@@ -606,7 +749,7 @@ function setupAntiCheatingListeners() {
     if (ENFORCE_FULLSCREEN) {
         document.addEventListener('fullscreenchange', () => {
             if (!document.fullscreenElement) {
-                recordCheatingEvent('FULLSCREEN_EXIT', 'Exited fullscreen mode');
+                recordCheatingEvent('FULLSCREEN_EXIT', 'Exited proctored fullscreen mode');
             }
         });
     }

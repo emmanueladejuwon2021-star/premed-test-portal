@@ -47,7 +47,40 @@ try {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS tests (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      course_id TEXT NOT NULL,
+      topic_ids TEXT DEFAULT '["ALL"]',
+      duration INTEGER DEFAULT 30,
+      question_limit INTEGER DEFAULT 20,
+      attempts_allowed INTEGER DEFAULT 1,
+      is_live INTEGER DEFAULT 1,
+      auto_submit INTEGER DEFAULT 1,
+      enforce_fullscreen INTEGER DEFAULT 1,
+      max_tab_switches INTEGER DEFAULT 3,
+      shuffle_questions INTEGER DEFAULT 1,
+      shuffle_options INTEGER DEFAULT 1,
+      calculator_allowed INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
+
+  try {
+    const testCount = db.prepare('SELECT COUNT(*) as c FROM tests').get().c;
+    if (testCount === 0) {
+      const phyCourse = db.prepare("SELECT id FROM courses WHERE code = 'PHY 101' LIMIT 1").get();
+      if (phyCourse) {
+        db.prepare(`
+          INSERT INTO tests (id, title, course_id, topic_ids, duration, question_limit, attempts_allowed, is_live, auto_submit, enforce_fullscreen, max_tab_switches, shuffle_questions, shuffle_options, calculator_allowed)
+          VALUES ('test_phy101_general', 'PHY 101 - General Physics Comprehensive Mock Exam', ?, '["ALL"]', 30, 20, 1, 1, 1, 1, 3, 1, 1, 1)
+        `).run(phyCourse.id);
+      }
+    }
+  } catch (seedErr) {
+    console.error('[TEST SEED NOTICE]', seedErr.message);
+  }
 
   const cols = db.prepare('PRAGMA table_info(results)').all().map(c => c.name);
   if (!cols.includes('tab_switches')) db.exec('ALTER TABLE results ADD COLUMN tab_switches INTEGER DEFAULT 0;');
@@ -96,7 +129,10 @@ function parseBody(req) {
       try {
         const params = new URLSearchParams(body);
         const data = {};
-        for (const [k, v] of params.entries()) { data[k] = v; }
+        for (const k of params.keys()) {
+          const vals = params.getAll(k);
+          data[k] = vals.length > 1 ? vals : vals[0];
+        }
         resolve(data);
       } catch {
         resolve({});
@@ -129,7 +165,13 @@ function fetchHttpJson(urlStr) {
   });
 }
 
+const { renderHtml: renderTemplate } = require('./admin_ui_template.js');
+
 function renderHtml(tab = 'home', alert = null, alertType = 'success', editCourseId = null, editQuestionId = null) {
+  return renderTemplate(tab, alert, alertType, editCourseId, editQuestionId, db, DEPARTMENTS, getSetting);
+}
+
+function old_renderHtml(tab = 'home', alert = null, alertType = 'success', editCourseId = null, editQuestionId = null) {
   const totalQuestions = db.prepare('SELECT COUNT(*) as c FROM questions').get().c;
   const totalStudents = db.prepare('SELECT COUNT(*) as c FROM students').get().c;
   const totalResults = db.prepare('SELECT COUNT(*) as c FROM results').get().c;
@@ -1387,6 +1429,79 @@ const server = http.createServer(async (req, res) => {
       return res.end();
     }
 
+    // Create Test (Explicit Manual Test Deployment)
+    if (pathname === '/action/create_test') {
+      const courseId = data.course_id;
+      const title = (data.title || '').trim();
+      const topicMode = data.topic_mode || 'ALL';
+      let topicIds = '["ALL"]';
+
+      if (topicMode === 'SPECIFIC') {
+        const rawSelected = data.topic_ids;
+        if (Array.isArray(rawSelected)) {
+          topicIds = JSON.stringify(rawSelected.filter(Boolean));
+        } else if (typeof rawSelected === 'string' && rawSelected.trim()) {
+          const list = rawSelected.split(',').map(s => s.trim()).filter(Boolean);
+          topicIds = JSON.stringify(list.length ? list : ['ALL']);
+        }
+      }
+
+      const duration = parseInt(data.duration, 10) || 30;
+      const questionLimit = parseInt(data.question_limit, 10) || 20;
+      const attemptsAllowed = parseInt(data.attempts_allowed, 10) || 1;
+      const isLive = data.is_live ? 1 : 0;
+      const autoSubmit = data.auto_submit ? 1 : 0;
+      const enforceFullscreen = data.enforce_fullscreen ? 1 : 0;
+      const maxTabSwitches = parseInt(data.max_tab_switches, 10) || 3;
+      const shuffleQuestions = data.shuffle_questions ? 1 : 0;
+      const shuffleOptions = data.shuffle_options ? 1 : 0;
+      const calculatorAllowed = data.calculator_allowed ? 1 : 0;
+
+      if (courseId && title) {
+        const testId = 'test_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+        db.prepare(`
+          INSERT INTO tests (id, title, course_id, topic_ids, duration, question_limit, attempts_allowed, is_live, auto_submit, enforce_fullscreen, max_tab_switches, shuffle_questions, shuffle_options, calculator_allowed)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(testId, title, courseId, topicIds, duration, questionLimit, attemptsAllowed, isLive, autoSubmit, enforceFullscreen, maxTabSwitches, shuffleQuestions, shuffleOptions, calculatorAllowed);
+
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        return res.end(renderHtml('tests', `Examination "${title}" successfully created and ${isLive ? 'made LIVE on student portal' : 'saved as draft'}!`));
+      }
+
+      res.writeHead(302, { Location: '/?tab=tests' });
+      return res.end();
+    }
+
+    // Toggle Test Live Status
+    if (pathname === '/action/toggle_test_live') {
+      const testId = data.test_id;
+      const currentLive = parseInt(data.current_live, 10) || 0;
+      const nextLive = currentLive ? 0 : 1;
+      if (testId) {
+        db.prepare('UPDATE tests SET is_live = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(nextLive, testId);
+      }
+      res.writeHead(302, { Location: '/?tab=tests' });
+      return res.end();
+    }
+
+    // Delete Test
+    if (pathname === '/action/delete_test') {
+      const testId = data.test_id;
+      if (testId) {
+        db.prepare('DELETE FROM tests WHERE id = ?').run(testId);
+      }
+      res.writeHead(302, { Location: '/?tab=tests' });
+      return res.end();
+    }
+
+    // Master Tests Live Toggle
+    if (pathname === '/action/master_tests_live_toggle') {
+      const targetLive = parseInt(data.target_live, 10) || 0;
+      db.prepare('UPDATE tests SET is_live = ?, updated_at = CURRENT_TIMESTAMP').run(targetLive);
+      res.writeHead(302, { Location: '/?tab=tests' });
+      return res.end();
+    }
+
     // Add Course
     if (pathname === '/action/add_course') {
       const code = (data.code || '').trim().toUpperCase();
@@ -1702,83 +1817,13 @@ const server = http.createServer(async (req, res) => {
 
     // Pull / Download Live Students and Sessions from Live Website
     if (pathname === '/action/pull_live_students') {
-      let siteUrl = (data.website_url || '').trim() || getSetting('live_website_url', 'https://premed-test-portal.vercel.app');
-      siteUrl = siteUrl.replace(/\/$/, '');
-      if (!siteUrl.startsWith('http')) siteUrl = 'https://' + siteUrl;
-      setSetting('live_website_url', siteUrl);
-
-      const endpoint = siteUrl + '/sync_live_data.php';
-
       try {
-        const remoteData = await fetchHttpJson(endpoint);
-        let importedStudents = 0;
-        let importedResults = 0;
-        let importedSessions = 0;
-
-        if (Array.isArray(remoteData.students)) {
-          for (const s of remoteData.students) {
-            db.prepare(`
-              INSERT INTO students (id, name, matric_no, password, department, phone, strength)
-              VALUES (?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT(matric_no) DO UPDATE SET
-                name = excluded.name,
-                password = excluded.password,
-                department = excluded.department,
-                phone = excluded.phone
-            `).run(s.id, s.name, s.matric_no, s.password, s.department, s.phone || '', s.strength || 'Clinical Sciences');
-            importedStudents++;
-          }
-        }
-
-        if (Array.isArray(remoteData.sessions)) {
-          for (const se of remoteData.sessions) {
-            db.prepare(`
-              INSERT INTO exam_sessions (id, student_id, matric_no, student_name, course_id, course_code, status, tab_switches, cheating_log, total_score, total_questions, percentage, grade, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT(id) DO UPDATE SET
-                status = excluded.status,
-                tab_switches = excluded.tab_switches,
-                cheating_log = excluded.cheating_log,
-                total_score = excluded.total_score,
-                total_questions = excluded.total_questions,
-                percentage = excluded.percentage,
-                grade = excluded.grade,
-                updated_at = excluded.updated_at
-            `).run(
-              se.id, se.student_id, se.matric_no, se.student_name, se.course_id, se.course_code,
-              se.status, se.tab_switches || 0, se.cheating_log || '[]',
-              se.total_score || 0, se.total_questions || 0, se.percentage || 0, se.grade || '',
-              se.updated_at || new Date().toISOString()
-            );
-            importedSessions++;
-          }
-        }
-
-        if (Array.isArray(remoteData.results)) {
-          for (const r of remoteData.results) {
-            db.prepare(`
-              INSERT INTO results (id, student_id, course_id, total_score, total_questions, percentage, grade, time_spent, tab_switches, is_flagged_cheating, cheating_log)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT(id) DO UPDATE SET
-                total_score = excluded.total_score,
-                percentage = excluded.percentage,
-                grade = excluded.grade,
-                tab_switches = excluded.tab_switches,
-                is_flagged_cheating = excluded.is_flagged_cheating,
-                cheating_log = excluded.cheating_log
-            `).run(
-              r.id, r.student_id, r.course_id, r.total_score, r.total_questions, r.percentage, r.grade,
-              r.time_spent || 0, r.tab_switches || 0, r.is_flagged_cheating || 0, r.cheating_log || '[]'
-            );
-            importedResults++;
-          }
-        }
-
+        const resSync = await syncWithLivePortal(data.website_url);
         res.writeHead(200, { 'Content-Type': 'text/html' });
-        return res.end(renderHtml('candidates', `Synchronized successfully! (${importedStudents} students, ${importedSessions} exam sessions, ${importedResults} results)`));
+        return res.end(renderHtml('candidates', `Synchronized successfully! (${resSync.importedStudents} students, ${resSync.importedSessions} exam sessions, ${resSync.importedResults} results)`));
       } catch (err) {
         res.writeHead(200, { 'Content-Type': 'text/html' });
-        return res.end(renderHtml('candidates', `Notice: Could not connect to ${endpoint}. (${err.message})`, 'error'));
+        return res.end(renderHtml('candidates', `Notice: Could not connect to live portal (${err.message})`, 'error'));
       }
     }
 
@@ -1872,6 +1917,41 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
+      if (Array.isArray(remoteData.tests)) {
+        for (const t of remoteData.tests) {
+          db.prepare(`
+            INSERT INTO tests (id, title, course_id, topic_ids, duration, question_limit, attempts_allowed, is_live, auto_submit, enforce_fullscreen, max_tab_switches, shuffle_questions, shuffle_options, calculator_allowed, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              title = excluded.title,
+              course_id = excluded.course_id,
+              topic_ids = excluded.topic_ids,
+              duration = excluded.duration,
+              question_limit = excluded.question_limit,
+              attempts_allowed = excluded.attempts_allowed,
+              is_live = excluded.is_live,
+              auto_submit = excluded.auto_submit,
+              enforce_fullscreen = excluded.enforce_fullscreen,
+              max_tab_switches = excluded.max_tab_switches,
+              shuffle_questions = excluded.shuffle_questions,
+              shuffle_options = excluded.shuffle_options,
+              calculator_allowed = excluded.calculator_allowed,
+              updated_at = excluded.updated_at
+          `).run(
+            t.id, t.title, t.course_id, t.topic_ids || '["ALL"]',
+            t.duration || 30, t.question_limit || 20, t.attempts_allowed || 1,
+            t.is_live !== undefined ? t.is_live : 1,
+            t.auto_submit !== undefined ? t.auto_submit : 1,
+            t.enforce_fullscreen !== undefined ? t.enforce_fullscreen : 1,
+            t.max_tab_switches || 3,
+            t.shuffle_questions !== undefined ? t.shuffle_questions : 1,
+            t.shuffle_options !== undefined ? t.shuffle_options : 1,
+            t.calculator_allowed !== undefined ? t.calculator_allowed : 1,
+            t.updated_at || new Date().toISOString()
+          );
+        }
+      }
+
       if (Array.isArray(remoteData.students)) {
         for (const s of remoteData.students) {
           db.prepare(`
@@ -1902,6 +1982,133 @@ function bin2hexId() {
   return 'st_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
 }
 
+async function syncWithLivePortal(overrideUrl = null) {
+  let siteUrl = (overrideUrl || getSetting('live_website_url', 'https://premed-test-portal.vercel.app')).trim();
+  siteUrl = siteUrl.replace(/\/$/, '');
+  if (!siteUrl.startsWith('http')) siteUrl = 'https://' + siteUrl;
+  setSetting('live_website_url', siteUrl);
+
+  const endpoint = siteUrl + '/sync_live_data.php';
+  const remoteData = await fetchHttpJson(endpoint);
+  let importedStudents = 0;
+  let importedResults = 0;
+  let importedSessions = 0;
+
+  if (Array.isArray(remoteData.students)) {
+    for (const s of remoteData.students) {
+      db.prepare(`
+        INSERT INTO students (id, name, matric_no, password, department, phone, strength)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(matric_no) DO UPDATE SET
+          name = excluded.name,
+          password = excluded.password,
+          department = excluded.department,
+          phone = excluded.phone
+      `).run(s.id, s.name, s.matric_no, s.password, s.department, s.phone || '', s.strength || 'Clinical Sciences');
+      importedStudents++;
+    }
+  }
+
+  if (Array.isArray(remoteData.sessions)) {
+    for (const se of remoteData.sessions) {
+      db.prepare(`
+        INSERT INTO exam_sessions (id, student_id, matric_no, student_name, course_id, course_code, status, tab_switches, cheating_log, total_score, total_questions, percentage, grade, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          status = excluded.status,
+          tab_switches = excluded.tab_switches,
+          cheating_log = excluded.cheating_log,
+          total_score = excluded.total_score,
+          total_questions = excluded.total_questions,
+          percentage = excluded.percentage,
+          grade = excluded.grade,
+          updated_at = excluded.updated_at
+      `).run(
+        se.id, se.student_id, se.matric_no, se.student_name, se.course_id, se.course_code,
+        se.status, se.tab_switches || 0, se.cheating_log || '[]',
+        se.total_score || 0, se.total_questions || 0, se.percentage || 0, se.grade || '',
+        se.updated_at || new Date().toISOString()
+      );
+      importedSessions++;
+    }
+  }
+
+  if (Array.isArray(remoteData.results)) {
+    for (const r of remoteData.results) {
+      db.prepare(`
+        INSERT INTO results (id, student_id, course_id, total_score, total_questions, percentage, grade, time_spent, tab_switches, is_flagged_cheating, cheating_log)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          total_score = excluded.total_score,
+          percentage = excluded.percentage,
+          grade = excluded.grade,
+          tab_switches = excluded.tab_switches,
+          is_flagged_cheating = excluded.is_flagged_cheating,
+          cheating_log = excluded.cheating_log
+      `).run(
+        r.id, r.student_id, r.course_id, r.total_score, r.total_questions, r.percentage, r.grade,
+        r.time_spent || 0, r.tab_switches || 0, r.is_flagged_cheating || 0, r.cheating_log || '[]'
+      );
+      importedResults++;
+    }
+  }
+
+  let importedTests = 0;
+  if (Array.isArray(remoteData.tests)) {
+    for (const t of remoteData.tests) {
+      db.prepare(`
+        INSERT INTO tests (id, title, course_id, topic_ids, duration, question_limit, attempts_allowed, is_live, auto_submit, enforce_fullscreen, max_tab_switches, shuffle_questions, shuffle_options, calculator_allowed, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          title = excluded.title,
+          course_id = excluded.course_id,
+          topic_ids = excluded.topic_ids,
+          duration = excluded.duration,
+          question_limit = excluded.question_limit,
+          attempts_allowed = excluded.attempts_allowed,
+          is_live = excluded.is_live,
+          auto_submit = excluded.auto_submit,
+          enforce_fullscreen = excluded.enforce_fullscreen,
+          max_tab_switches = excluded.max_tab_switches,
+          shuffle_questions = excluded.shuffle_questions,
+          shuffle_options = excluded.shuffle_options,
+          calculator_allowed = excluded.calculator_allowed,
+          updated_at = excluded.updated_at
+      `).run(
+        t.id, t.title, t.course_id, t.topic_ids || '["ALL"]',
+        t.duration || 30, t.question_limit || 20, t.attempts_allowed || 1,
+        t.is_live !== undefined ? t.is_live : 1,
+        t.auto_submit !== undefined ? t.auto_submit : 1,
+        t.enforce_fullscreen !== undefined ? t.enforce_fullscreen : 1,
+        t.max_tab_switches || 3,
+        t.shuffle_questions !== undefined ? t.shuffle_questions : 1,
+        t.shuffle_options !== undefined ? t.shuffle_options : 1,
+        t.calculator_allowed !== undefined ? t.calculator_allowed : 1,
+        t.updated_at || new Date().toISOString()
+      );
+      importedTests++;
+    }
+  }
+
+  return { importedStudents, importedSessions, importedResults, importedTests };
+}
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use by another process.`);
+  } else {
+    console.error('[Server Error]', err);
+  }
+});
+
 server.listen(PORT, '127.0.0.1', () => {
   console.log('Premed Admin Server running on http://localhost:' + PORT);
+  setImmediate(async () => {
+    try {
+      const res = await syncWithLivePortal();
+      console.log(`[Startup Live Sync] Synced ${res.importedStudents} students, ${res.importedSessions} sessions, ${res.importedResults} results from live website.`);
+    } catch (err) {
+      console.log('[Startup Live Sync] Notice:', err.message);
+    }
+  });
 });

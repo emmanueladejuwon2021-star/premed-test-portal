@@ -32,14 +32,20 @@ try {
     $sessionsStmt = $db->query("SELECT * FROM exam_sessions ORDER BY updated_at DESC LIMIT 60");
     $sessions = $sessionsStmt ? $sessionsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
 
+    // 4. Fetch Configured Tests / Exams
+    $testsStmt = $db->query("SELECT * FROM tests ORDER BY created_at DESC");
+    $tests = $testsStmt ? $testsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
     echo json_encode([
         'status' => 'success',
         'count_students' => count($students),
         'count_results' => count($results),
         'count_sessions' => count($sessions),
+        'count_tests' => count($tests),
         'students' => $students,
         'results' => $results,
         'sessions' => $sessions,
+        'tests' => $tests,
         'server_time' => date('c')
     ], JSON_PRETTY_PRINT);
 } catch (Exception $e) {

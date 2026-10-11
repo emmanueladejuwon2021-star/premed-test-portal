@@ -142,37 +142,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<div class="min-h-[85vh] flex items-center justify-center px-4 py-10">
-    <div class="max-w-md w-full bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xl shadow-slate-100">
+<div class="min-h-[85vh] flex items-center justify-center px-4 py-8">
+    <div class="max-w-md w-full bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-md">
         
-        <!-- Brand Header -->
+        <!-- Institutional Brand Header -->
         <div class="text-center mb-6">
-            <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-100 mb-3">
-                <i data-lucide="graduation-cap" class="w-7 h-7"></i>
+            <div class="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-teal-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-teal-900/20 mb-3">
+                <i data-lucide="shield-plus" class="w-6 h-6"></i>
             </div>
-            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Premed Test Portal</h1>
-            <p class="text-xs text-slate-500 mt-1">Computer Based Testing & Academic Simulation Engine</p>
+            <span class="inline-block text-[10px] uppercase font-bold tracking-widest text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200 mb-1 font-mono">PMSEC Examination Council</span>
+            <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Candidate Admission Portal</h1>
+            <p class="text-xs text-slate-500 mt-0.5">Accredited Proctored Board & Preclinical CBT Gateway</p>
         </div>
 
         <!-- 2-Way Mode Switch Tabs (Sign In / Register) -->
-        <div class="flex bg-slate-100 p-1 rounded-2xl mb-6 text-xs font-bold text-slate-600">
-            <button type="button" id="tabLoginBtn" onclick="showTab('login')" class="flex-1 py-2.5 rounded-xl transition-all <?= $activeTab === 'login' ? 'bg-white shadow-sm text-indigo-700' : 'hover:text-slate-900' ?>">
-                Sign In
+        <div class="flex bg-slate-100 p-1 rounded-xl mb-6 text-xs font-bold text-slate-600">
+            <button type="button" id="tabLoginBtn" onclick="showTab('login')" class="flex-1 py-2 rounded-lg transition-all <?= $activeTab === 'login' ? 'bg-white shadow-xs text-teal-800 font-extrabold' : 'hover:text-slate-900' ?>">
+                Candidate Sign In
             </button>
-            <button type="button" id="tabRegisterBtn" onclick="showTab('register')" class="flex-1 py-2.5 rounded-xl transition-all <?= $activeTab === 'register' ? 'bg-white shadow-sm text-indigo-700' : 'hover:text-slate-900' ?>">
-                Register
+            <button type="button" id="tabRegisterBtn" onclick="showTab('register')" class="flex-1 py-2 rounded-lg transition-all <?= $activeTab === 'register' ? 'bg-white shadow-xs text-teal-800 font-extrabold' : 'hover:text-slate-900' ?>">
+                Candidate Registration
             </button>
         </div>
 
         <?php if ($error): ?>
-        <div class="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5">
+        <div class="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5">
             <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 text-rose-500 mt-0.5"></i>
             <span class="font-semibold leading-relaxed"><?= htmlspecialchars($error) ?></span>
         </div>
         <?php endif; ?>
 
         <?php if ($success): ?>
-        <div class="mb-5 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2.5">
+        <div class="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2.5">
             <i data-lucide="check-circle" class="w-4 h-4 shrink-0 text-emerald-500"></i>
             <span class="font-semibold leading-relaxed"><?= htmlspecialchars($success) ?></span>
         </div>
@@ -183,34 +184,34 @@ require_once __DIR__ . '/includes/header.php';
             <input type="hidden" name="action" value="student_login">
 
             <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Matriculation Number</label>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Matriculation Identifier</label>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="user" class="w-4 h-4"></i>
+                        <i data-lucide="user-check" class="w-4 h-4"></i>
                     </span>
-                    <input type="text" name="matric_no" required placeholder="e.g. 230911024, MED/2024/001" minlength="4" maxlength="20" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono uppercase">
+                    <input type="text" name="matric_no" required placeholder="e.g. 230911024, MED/2024/001" minlength="4" maxlength="20" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono uppercase bg-slate-50/50">
                 </div>
             </div>
 
             <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password</label>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Access Password</label>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                         <i data-lucide="lock" class="w-4 h-4"></i>
                     </span>
-                    <input type="password" name="password" required placeholder="Enter your password" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="password" name="password" required placeholder="Enter your candidate password" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-slate-50/50">
                 </div>
             </div>
 
-            <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold text-sm shadow-md shadow-indigo-100 transition-all flex items-center justify-center gap-2">
-                <span>Sign In to Terminal</span>
+            <button type="submit" class="w-full py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm shadow-xs transition-all flex items-center justify-center gap-2">
+                <span>Authorize & Enter Session</span>
                 <i data-lucide="arrow-right" class="w-4 h-4"></i>
             </button>
 
             <div class="pt-2 text-center">
                 <p class="text-xs text-slate-500">
-                    New student? 
-                    <button type="button" onclick="showTab('register')" class="text-indigo-600 font-bold hover:underline">Register your account</button>
+                    Unregistered candidate? 
+                    <button type="button" onclick="showTab('register')" class="text-teal-700 font-bold hover:underline">Enroll Candidate Profile</button>
                 </p>
             </div>
         </form>
