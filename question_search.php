@@ -4,7 +4,7 @@
  * Premed Test Portal (PHP Edition)
  */
 
-$pageTitle = 'Question Bank Search';
+$pageTitle = 'Academic Resources';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/header.php';
 
@@ -43,8 +43,8 @@ if (!empty($query)) {
         <div class="w-12 h-12 mx-auto rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
             <i data-lucide="search" class="w-6 h-6"></i>
         </div>
-        <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Question Bank Search</h1>
-        <p class="text-xs text-slate-500 mt-1">Search through all 5,630 questions by keywords, formulas, anatomical structures, or chemical reactions.</p>
+        <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Academic Resources</h1>
+        <p class="text-xs text-slate-500 mt-1">Search the question bank by keywords, topic names, or explanations.</p>
     </div>
 
     <!-- Search Box Form -->

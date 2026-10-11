@@ -65,7 +65,15 @@ if (!empty($topicFilters) && is_array($topicFilters)) {
 }
 
 if (empty($questions)) {
-    die("No validated examination items found for this assessment administration.");
+    require_once __DIR__ . '/includes/header.php';
+    echo "<div class='max-w-md mx-auto p-8 my-12 bg-white rounded-3xl border border-slate-200 text-center space-y-3 shadow-xs'>
+        <div class='w-12 h-12 mx-auto rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center'><i data-lucide='help-circle' class='w-6 h-6'></i></div>
+        <h2 class='text-base font-bold text-slate-800'>No Questions Available Yet</h2>
+        <p class='text-xs text-slate-500'>There are currently no questions added to this test. Please check back later or contact your instructor.</p>
+        <a href='courses.php' class='inline-block px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition-colors'>Return to Tests</a>
+    </div>";
+    require_once __DIR__ . '/includes/footer.php';
+    exit;
 }
 
 // Randomize and constrain to item volume limit
@@ -137,7 +145,7 @@ require_once __DIR__ . '/includes/header.php';
 
 <div class="max-w-5xl mx-auto px-3 sm:px-4 py-4 space-y-3.5" id="examApp">
 
-    <!-- 1. Institutional Proctor HUD & Clock Strip -->
+    <!-- 1. Test Header & Timer -->
     <div class="bg-slate-900 text-white rounded-2xl p-3 sm:p-3.5 border border-slate-800 shadow-md flex flex-wrap items-center justify-between gap-3 sticky top-14 z-30">
         <!-- Left: Course Code & Question Tracking -->
         <div class="flex items-center gap-2.5 min-w-0">
@@ -149,7 +157,7 @@ require_once __DIR__ . '/includes/header.php';
             </span>
             <span class="text-xs text-slate-500 font-semibold">&bull;</span>
             <span class="text-xs font-extrabold text-teal-400 bg-slate-800 px-2.5 py-0.5 rounded-lg font-mono" id="progressIndicator">
-                Item 1 of <?= $totalQuestions ?>
+                Question 1 of <?= $totalQuestions ?>
             </span>
         </div>
 
@@ -159,43 +167,43 @@ require_once __DIR__ . '/includes/header.php';
             <span id="timerDisplay">--:--</span>
         </div>
 
-        <!-- Right: Utility Tools & Finalize -->
+        <!-- Right: Tools & Submit -->
         <div class="flex items-center gap-1.5">
-            <button type="button" onclick="speakCurrentQuestion()" title="Audio Item Reader" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors">
+            <button type="button" onclick="speakCurrentQuestion()" title="Read question out loud" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors">
                 <i data-lucide="volume-2" class="w-4 h-4"></i>
             </button>
-            <button type="button" onclick="toggleCalculator()" title="Clinical Scientific Calculator" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors">
+            <button type="button" onclick="toggleCalculator()" title="Calculator" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors">
                 <i data-lucide="calculator" class="w-4 h-4"></i>
             </button>
-            <button type="button" onclick="toggleFontSize()" title="Adjust Item Font Size" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors font-bold text-xs">
+            <button type="button" onclick="toggleFontSize()" title="Text size" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors font-bold text-xs">
                 A<span class="text-[10px]">±</span>
             </button>
             <button type="button" onclick="confirmSubmit()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-xs transition-colors flex items-center gap-1.5 ml-1">
                 <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
-                <span>Finalize & Submit</span>
+                <span>Submit Test</span>
             </button>
         </div>
     </div>
 
-    <!-- 2. Prometric Split CBT Workspace -->
+    <!-- 2. Test Workspace -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
 
-        <!-- LEFT STAGE: Examination Item & Response Choices (8 cols on lg) -->
+        <!-- LEFT STAGE: Question & Choices (8 cols on lg) -->
         <div class="lg:col-span-8 space-y-3">
             <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col justify-between min-h-[460px]">
                 <div>
-                    <!-- Item Subheader & Flag Review Button -->
+                    <!-- Question Header & Flag Button -->
                     <div class="flex justify-between items-center pb-3 mb-3 border-b border-slate-100">
                         <span class="text-xs font-black uppercase tracking-wider text-teal-700 font-mono" id="questionHeaderNumber">
-                            Item 1 of <?= $totalQuestions ?>
+                            Question 1 of <?= $totalQuestions ?>
                         </span>
                         <div class="flex items-center gap-3">
                             <button type="button" onclick="clearCurrentSelection()" class="text-[11px] font-semibold text-slate-400 hover:text-rose-600 transition-colors">
-                                Clear Selection
+                                Clear Choice
                             </button>
                             <button type="button" onclick="toggleFlag()" id="flagBtn" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-amber-500 transition-colors">
                                 <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
-                                <span id="flagLabel">Mark for Review</span>
+                                <span id="flagLabel">Flag for Review</span>
                             </button>
                         </div>
                     </div>
@@ -205,9 +213,9 @@ require_once __DIR__ . '/includes/header.php';
                         <!-- Stem inserted by JS -->
                     </div>
 
-                    <!-- Clinical Imaging / Diagram (if present) -->
+                    <!-- Diagram (if present) -->
                     <div id="diagramContainer" class="mb-4 hidden text-center">
-                        <img id="questionDiagram" src="" alt="Clinical Imaging Specimen" class="max-h-52 rounded-xl mx-auto border border-slate-200 shadow-xs cursor-zoom-in" onclick="zoomDiagram(this.src)">
+                        <img id="questionDiagram" src="" alt="Question diagram" class="max-h-52 rounded-xl mx-auto border border-slate-200 shadow-xs cursor-zoom-in" onclick="zoomDiagram(this.src)">
                     </div>
 
                     <!-- Response Choices (A, B, C, D) -->
@@ -216,41 +224,41 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
 
-                <!-- Bottom Tactical Navigation Deck -->
+                <!-- Bottom Navigation Buttons -->
                 <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
                     <button type="button" id="prevBtn" onclick="prevQuestion()" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
                         <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
-                        <span>Previous Item</span>
+                        <span>Previous</span>
                     </button>
 
-                    <span class="text-[11px] text-slate-400 font-mono hidden sm:inline">Accelerators: [A-D] or [1-4] &bull; Arrows</span>
+                    <span class="text-[11px] text-slate-400 font-mono hidden sm:inline">Keys: [A-D] or [1-4] &bull; Arrows</span>
 
                     <button type="button" id="nextBtn" onclick="nextQuestion()" class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-colors">
-                        <span>Next Item</span>
+                        <span>Next</span>
                         <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- RIGHT STAGE: Item Review Palette Matrix (4 cols on lg) -->
+        <!-- RIGHT STAGE: Question List Palette (4 cols on lg) -->
         <div class="lg:col-span-4">
             <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3.5 sticky top-28">
                 <!-- Palette Header & Progress -->
                 <div class="flex items-center justify-between pb-2.5 border-b border-slate-100">
                     <span class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                         <i data-lucide="grid" class="w-3.5 h-3.5 text-teal-600"></i>
-                        <span>Item Review Matrix</span>
+                        <span>Question List</span>
                     </span>
                     <span class="text-[11px] font-mono text-slate-500 font-bold" id="statsPill">
-                        <span id="answeredCount" class="text-teal-600">0</span>/<?= $totalQuestions ?> Recorded
+                        <span id="answeredCount" class="text-teal-600">0</span>/<?= $totalQuestions ?> Answered
                     </span>
                 </div>
 
-                <!-- Status Telemetry Badges -->
+                <!-- Status Badges -->
                 <div class="grid grid-cols-3 gap-1.5 text-center text-[10px] font-semibold">
                     <div class="p-1.5 rounded-lg bg-teal-50 text-teal-800 border border-teal-100">
-                        <span class="block font-black text-xs font-mono" id="answeredBadge">0</span> Recorded
+                        <span class="block font-black text-xs font-mono" id="answeredBadge">0</span> Answered
                     </div>
                     <div class="p-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-100">
                         <span class="block font-black text-xs font-mono" id="flaggedBadge">0</span> Flagged
@@ -265,13 +273,15 @@ require_once __DIR__ . '/includes/header.php';
                     <!-- Numbers inserted by JS -->
                 </div>
 
-                <!-- Emergency / Finalize CTA -->
+                <!-- Submit CTA -->
                 <button type="button" onclick="confirmSubmit()" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5">
                     <i data-lucide="send" class="w-3.5 h-3.5"></i>
-                    <span>Execute Official Submission</span>
+                    <span>Submit Test</span>
                 </button>
             </div>
         </div>
+
+    </div>
 
     </div>
 
@@ -280,16 +290,16 @@ require_once __DIR__ . '/includes/header.php';
 <!-- Diagram Zoom Modal -->
 <div id="zoomModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
     <div class="bg-white p-2.5 rounded-2xl max-w-2xl max-h-[90vh] overflow-auto shadow-2xl" onclick="event.stopPropagation()">
-        <img id="zoomedImg" src="" alt="High-Resolution Clinical Imaging" class="w-full rounded-xl">
+        <img id="zoomedImg" src="" alt="Zoomed Diagram" class="w-full rounded-xl">
     </div>
 </div>
 
-<!-- On-Screen Clinical Scientific Calculator -->
+<!-- On-Screen Calculator -->
 <div id="calcModal" class="fixed bottom-4 right-4 bg-slate-900 text-white p-3.5 rounded-2xl shadow-2xl z-50 hidden w-60 border border-slate-800">
     <div class="flex justify-between items-center mb-2.5">
         <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5 font-mono">
             <i data-lucide="calculator" class="w-3.5 h-3.5 text-teal-400"></i>
-            <span>Scientific Calculator</span>
+            <span>Calculator</span>
         </span>
         <button type="button" onclick="toggleCalculator()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
     </div>
@@ -326,23 +336,23 @@ require_once __DIR__ . '/includes/header.php';
     <input type="hidden" name="cheating_log" id="cheatingLogInput" value="[]">
 </form>
 
-<!-- Security & Cheating Infraction Warning Modal -->
+<!-- Warning Modal -->
 <div id="cheatingModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-sm w-full p-5 text-center space-y-3.5 shadow-2xl border-2 border-rose-500">
         <div class="w-12 h-12 mx-auto rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
             <i data-lucide="shield-alert" class="w-6 h-6"></i>
         </div>
         <div class="space-y-1">
-            <h3 class="text-sm font-black text-rose-600 uppercase tracking-wider" id="cheatModalTitle">Examination Integrity Breach Detected!</h3>
+            <h3 class="text-sm font-black text-rose-600 uppercase tracking-wider" id="cheatModalTitle">Warning: Switched Tabs</h3>
             <p class="text-xs text-slate-600 leading-snug font-medium" id="cheatModalMsg">
-                You navigated away from the proctored examination viewport. This infraction has been logged in real-time to the examination council.
+                You clicked away from this test window. Please stay on this page until you finish your test.
             </p>
         </div>
         <div class="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-mono font-bold">
-            <span id="cheatModalCount">Infraction 1 of 3</span>
+            <span id="cheatModalCount">Warning 1 of 3</span>
         </div>
         <button type="button" onclick="dismissCheatingModal()" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs">
-            I Acknowledge & Return to Examination
+            Return to Test
         </button>
     </div>
 </div>
@@ -379,7 +389,7 @@ function initExam() {
             updateTimerDisplay();
             if (secondsRemaining <= 0) {
                 clearInterval(timerInterval);
-                alert("Examination time has elapsed! Your responses will now be submitted automatically.");
+                alert("Time is up! Your answers are being submitted now.");
                 executeSubmit();
             }
         }, 1000);
@@ -412,8 +422,8 @@ function renderCurrentQuestion() {
     const q = QUESTIONS[currentIndex];
     const headEl = document.getElementById('questionHeaderNumber');
     const progEl = document.getElementById('progressIndicator');
-    if (headEl) headEl.innerText = `Item ${currentIndex + 1} of ${QUESTIONS.length}`;
-    if (progEl) progEl.innerText = `Item ${currentIndex + 1} of ${QUESTIONS.length}`;
+    if (headEl) headEl.innerText = `Question ${currentIndex + 1} of ${QUESTIONS.length}`;
+    if (progEl) progEl.innerText = `Question ${currentIndex + 1} of ${QUESTIONS.length}`;
 
     // Render stem text
     const stemEl = document.getElementById('questionStem');
@@ -613,11 +623,11 @@ function zoomDiagram(src) {
 function confirmSubmit() {
     const answeredCount = Object.keys(userAnswers).length;
     const unanswered = QUESTIONS.length - answeredCount;
-    let msg = `You have recorded responses for ${answeredCount} of ${QUESTIONS.length} items.`;
+    let msg = `You have answered ${answeredCount} of ${QUESTIONS.length} questions.`;
     if (unanswered > 0) {
-        msg += `\nWarning: ${unanswered} item(s) remain unattempted!`;
+        msg += `\n\nNotice: You still have ${unanswered} unanswered question(s).`;
     }
-    msg += "\n\nAre you sure you want to execute your official examination submission?";
+    msg += "\n\nAre you sure you want to submit your test now?";
 
     if (confirm(msg)) {
         executeSubmit();
@@ -700,7 +710,7 @@ function recordCheatingEvent(type, details) {
         const flagInput = document.getElementById('isFlaggedCheatingInput');
         if (flagInput) flagInput.value = '1';
         setTimeout(() => {
-            alert(`🚨 PROCTOR LOCKDOWN: Maximum allowed security infractions (${MAX_TAB_SWITCHES}) exceeded. Examination terminated and submitted for board review.`);
+            alert(`Notice: Maximum allowed warnings (${MAX_TAB_SWITCHES}) reached. Your test is now being submitted.`);
             executeSubmit();
         }, 400);
     }
@@ -713,9 +723,9 @@ function showCheatingWarningModal(count, max, type) {
     const msg = document.getElementById('cheatModalMsg');
     const badge = document.getElementById('cheatModalCount');
 
-    if (title) title.innerText = type === 'FULLSCREEN_EXIT' ? 'Proctor Alert: Fullscreen Mode Exited' : 'Proctor Alert: Viewport Navigation Detected';
-    if (msg) msg.innerText = `You navigated away from the active examination viewport. This infraction has been logged in real-time to the examination council.`;
-    if (badge) badge.innerText = max > 0 ? `Infraction ${count} of ${max} allowed` : `Infraction #${count} logged`;
+    if (title) title.innerText = type === 'FULLSCREEN_EXIT' ? 'Warning: Fullscreen Exited' : 'Warning: Switched Away from Test';
+    if (msg) msg.innerText = `You clicked outside the test window. Please stay on this screen until your test is complete.`;
+    if (badge) badge.innerText = max > 0 ? `Warning ${count} of ${max} allowed` : `Warning #${count}`;
 
     modal.classList.remove('hidden');
     if (window.lucide) lucide.createIcons();

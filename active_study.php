@@ -4,7 +4,7 @@
  * Premed Test Portal (PHP Edition)
  */
 
-$pageTitle = 'AI Active Study Lab';
+$pageTitle = 'Study Room';
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/header.php';
 ?>
@@ -14,24 +14,24 @@ require_once __DIR__ . '/includes/header.php';
         <div>
             <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-50 text-cyan-800 text-xs font-bold border border-cyan-200 mb-2">
                 <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-600"></i>
-                <span>Active Document AI Digitizer</span>
+                <span>AI Study Buddy</span>
             </div>
-            <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">AI Active Study Lab</h1>
-            <p class="text-xs text-slate-500 mt-1">Paste your lecture notes or upload a document to interactively chat, test yourself, and generate summary guides.</p>
+            <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Study Room</h1>
+            <p class="text-xs text-slate-500 mt-1">Paste your lecture notes to chat with AI, test yourself, and generate quick summaries.</p>
         </div>
     </div>
 
     <!-- Step 1: Note Ingestion Box -->
     <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
         <div class="flex justify-between items-center">
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Paste Lecture Notes / Syllabus Text</label>
-            <button type="button" onclick="loadSampleNote()" class="text-xs text-indigo-600 hover:text-indigo-800 font-bold">Load Medical Physiology Sample</button>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Paste Your Study Notes</label>
+            <button type="button" onclick="loadSampleNote()" class="text-xs text-indigo-600 hover:text-indigo-800 font-bold">Load Medical Sample</button>
         </div>
-        <textarea id="studyNoteInput" rows="5" placeholder="Paste your study notes, biochemistry pathways, anatomical descriptors, or pharmacology lectures here..." class="w-full p-4 rounded-2xl border border-slate-200 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"></textarea>
+        <textarea id="studyNoteInput" rows="5" placeholder="Paste your study notes or lecture slides here..." class="w-full p-4 rounded-2xl border border-slate-200 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"></textarea>
         <div class="flex justify-end">
             <button type="button" onclick="activateNotes()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-100 flex items-center gap-2">
-                <i data-lucide="cpu" class="w-4 h-4"></i>
-                <span>Process & Activate Study Lab</span>
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                <span>Start Studying</span>
             </button>
         </div>
     </div>
@@ -41,15 +41,15 @@ require_once __DIR__ . '/includes/header.php';
         <div class="flex bg-slate-100 p-1 rounded-2xl text-xs font-bold text-slate-600 max-w-md">
             <button type="button" onclick="switchStudyTab('chat')" id="tabBtnChat" class="flex-1 py-2.5 rounded-xl bg-white shadow-sm text-indigo-700 transition-all flex items-center justify-center gap-1.5">
                 <i data-lucide="message-square" class="w-4 h-4"></i>
-                <span>AI Tutor Chat</span>
+                <span>Chat & Ask</span>
             </button>
             <button type="button" onclick="switchStudyTab('quiz')" id="tabBtnQuiz" class="flex-1 py-2.5 rounded-xl hover:text-slate-900 transition-all flex items-center justify-center gap-1.5">
                 <i data-lucide="help-circle" class="w-4 h-4"></i>
-                <span>Generated Quiz</span>
+                <span>Practice Quiz</span>
             </button>
             <button type="button" onclick="switchStudyTab('guide')" id="tabBtnGuide" class="flex-1 py-2.5 rounded-xl hover:text-slate-900 transition-all flex items-center justify-center gap-1.5">
                 <i data-lucide="book-open" class="w-4 h-4"></i>
-                <span>Summary Guide</span>
+                <span>Summary Notes</span>
             </button>
         </div>
 

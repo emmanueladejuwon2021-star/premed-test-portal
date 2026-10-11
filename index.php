@@ -1,7 +1,7 @@
 <?php
 /**
- * Candidate Examination Command Center - Enterprise Production Edition
- * Apex Pre-Medical Sciences Examination Council (PMSEC)
+ * Student Home Dashboard
+ * Premed Test Portal
  */
 
 require_once __DIR__ . '/config/db.php';
@@ -11,13 +11,13 @@ if (empty($_SESSION['student'])) {
     exit;
 }
 
-$pageTitle = 'Examination Command Center';
+$pageTitle = 'Home';
 require_once __DIR__ . '/includes/header.php';
 
 $db = DB::connect();
 $studentId = $student['id'] ?? '';
 
-// Fetch candidate longitudinal performance analytics
+// Student test stats
 $statsStmt = $db->prepare("
     SELECT 
         COUNT(id) as total_tests,
@@ -27,9 +27,9 @@ $statsStmt = $db->prepare("
     WHERE student_id = ?
 ");
 $statsStmt->execute([$studentId]);
-$stats = $statsStmt->fetch();
+$stats = $statsStmt->fetch() ?: ['total_tests' => 0, 'avg_score' => 0, 'max_score' => 0];
 
-// Fetch scheduled official proctored examinations
+// Check if any test is currently live
 $examStmt = $db->query("
     SELECT t.*, c.code AS course_code, c.title AS course_title 
     FROM tests t
@@ -38,191 +38,224 @@ $examStmt = $db->query("
     ORDER BY t.created_at DESC 
     LIMIT 1
 ");
-$newestExam = $examStmt ? $examStmt->fetch() : null;
+$liveTest = $examStmt ? $examStmt->fetch() : null;
 
-// Fetch recent 3 official assessment transcripts
+// Recent 5 test results
 $recentStmt = $db->prepare("
     SELECT r.*, c.code AS course_code, c.title AS course_title 
     FROM results r
     LEFT JOIN courses c ON r.course_id = c.id
     WHERE r.student_id = ?
     ORDER BY r.created_at DESC 
-    LIMIT 3
+    LIMIT 5
 ");
 $recentStmt->execute([$studentId]);
 $recentTests = $recentStmt->fetchAll();
+
+$firstName = htmlspecialchars(explode(' ', $student['name'] ?? 'Student')[0]);
 ?>
 
-<div class="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-    <!-- 1. Candidate Identity & Psychometric Command Ribbon -->
-    <div class="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
-        <div class="absolute right-0 top-0 w-96 h-96 bg-gradient-to-bl from-teal-500/10 via-transparent to-transparent pointer-events-none"></div>
-        <div>
-            <div class="flex items-center gap-2 mb-1.5">
-                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Candidate Verified &bull; Active Session
-                </span>
-                <span class="text-xs text-slate-400 font-mono"><?= htmlspecialchars($student['matric_no'] ?? '') ?></span>
+    <!-- 1. Friendly Welcome Banner & Simple Stats -->
+    <div class="bg-gradient-to-r from-indigo-700 via-indigo-600 to-indigo-800 rounded-3xl p-6 sm:p-8 text-white shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div class="space-y-1.5 max-w-lg">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-indigo-100 text-xs font-semibold backdrop-blur-xs">
+                <span>Matric No: <?= htmlspecialchars($student['matric_no'] ?? '') ?></span>
+                <span>&bull;</span>
+                <span><?= htmlspecialchars($student['department'] ?? 'Pre-Med') ?></span>
             </div>
-            <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white">
-                <?= htmlspecialchars($student['name'] ?? 'Candidate') ?>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                Welcome back, <?= $firstName ?>! 👋
             </h1>
-            <p class="text-xs text-slate-400 mt-0.5">Faculty of Basic Medical Sciences &bull; Department of <?= htmlspecialchars($student['department'] ?? 'Clinical Medicine') ?></p>
+            <p class="text-indigo-100 text-xs sm:text-sm leading-relaxed">
+                Ready to study today? Take an active test, practice past questions, or use the study room to review your notes.
+            </p>
         </div>
 
-        <!-- Psychometric Proficiency Metrics Bar -->
-        <div class="flex items-center gap-2 w-full md:w-auto">
-            <div class="flex-1 md:flex-none px-4 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-center min-w-[90px]">
-                <span class="block text-lg font-black text-white"><?= (int)$stats['total_tests'] ?></span>
-                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Completed</span>
+        <!-- 3 Simple Stat Cards -->
+        <div class="grid grid-cols-3 gap-2 sm:gap-3 w-full md:w-auto">
+            <div class="px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-center">
+                <span class="block text-xl sm:text-2xl font-black text-white"><?= (int)$stats['total_tests'] ?></span>
+                <span class="text-[11px] text-indigo-200 font-semibold">Tests Taken</span>
             </div>
-            <div class="flex-1 md:flex-none px-4 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-center min-w-[90px]">
-                <span class="block text-lg font-black text-teal-300 font-mono"><?= round((float)$stats['avg_score'], 1) ?>%</span>
-                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Mean Proficiency</span>
+            <div class="px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-center">
+                <span class="block text-xl sm:text-2xl font-black text-white"><?= round((float)$stats['avg_score']) ?>%</span>
+                <span class="text-[11px] text-indigo-200 font-semibold">Average</span>
             </div>
-            <div class="flex-1 md:flex-none px-4 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-center min-w-[90px]">
-                <span class="block text-lg font-black text-emerald-400 font-mono"><?= round((float)$stats['max_score'], 1) ?>%</span>
-                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Peak Score</span>
+            <div class="px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-center">
+                <span class="block text-xl sm:text-2xl font-black text-emerald-300"><?= round((float)$stats['max_score']) ?>%</span>
+                <span class="text-[11px] text-indigo-200 font-semibold">Highest</span>
             </div>
         </div>
     </div>
 
-    <!-- 2. High-Stakes Proctored Examination Dispatcher Banner (Conditional) -->
-    <?php if ($newestExam): ?>
-    <div class="bg-white rounded-2xl p-4 sm:p-5 border-2 border-rose-200/90 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden">
-        <div class="flex items-center gap-3.5">
-            <div class="w-12 h-12 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-rose-200">
-                <i data-lucide="shield-alert" class="w-6 h-6"></i>
+    <!-- 2. Active Test Alert (If Live Test Exists) -->
+    <?php if ($liveTest): ?>
+    <div class="bg-amber-50 border-2 border-amber-300/80 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="flex items-start sm:items-center gap-3.5">
+            <div class="w-11 h-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <i data-lucide="bell-ring" class="w-5 h-5"></i>
             </div>
             <div>
                 <div class="flex items-center gap-2 mb-0.5">
-                    <span class="text-[10px] font-black uppercase tracking-wider text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 font-mono">Official Proctored Board Exam</span>
-                    <span class="text-xs font-black font-mono text-slate-700"><?= htmlspecialchars($newestExam['course_code']) ?></span>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100 px-2 py-0.5 rounded">Active Test Available</span>
+                    <span class="text-xs font-bold text-slate-700"><?= htmlspecialchars($liveTest['course_code']) ?></span>
                 </div>
-                <h3 class="text-base font-extrabold text-slate-900"><?= htmlspecialchars($newestExam['title']) ?></h3>
-                <p class="text-xs text-slate-500 mt-0.5">Time Limit: <?= (int)$newestExam['duration'] ?> mins &bull; <?= (int)$newestExam['question_limit'] ?> Standardized Items &bull; Strict Proctor Lockdown</p>
+                <h3 class="text-base font-extrabold text-slate-900"><?= htmlspecialchars($liveTest['title']) ?></h3>
+                <p class="text-xs text-slate-600 mt-0.5">
+                    <?= (int)$liveTest['duration'] ?> minutes &bull; <?= (int)$liveTest['question_limit'] ?> questions
+                </p>
             </div>
         </div>
 
-        <a href="exam.php?test_id=<?= urlencode($newestExam['id']) ?>" class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-md shadow-rose-200 transition-all flex items-center justify-center gap-2 shrink-0">
-            <span>Authorize & Enter Examination Room</span>
+        <a href="exam.php?test_id=<?= urlencode($liveTest['id']) ?>" class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-2 shrink-0">
+            <span>Start Test Now</span>
             <i data-lucide="arrow-right" class="w-4 h-4"></i>
         </a>
     </div>
     <?php endif; ?>
 
-    <!-- 3. Enterprise Assessment & Disciplinary Modules (6-Tile Matrix) -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-        <!-- 1: Formative Assessment Studio -->
-        <a href="practice.php" class="group bg-white hover:bg-teal-50/30 border border-slate-200 hover:border-teal-400 p-4 rounded-2xl transition-all shadow-xs flex items-start gap-3.5">
-            <div class="w-11 h-11 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform border border-teal-100">
-                <i data-lucide="file-check-2" class="w-5 h-5"></i>
-            </div>
-            <div class="min-w-0">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-sm font-bold text-slate-900 group-hover:text-teal-700 transition-colors">Formative Assessment</h3>
-                    <span class="text-[9px] font-mono font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">5,630 Items</span>
+    <!-- 3. Quick Action Cards (6 Clear Features) -->
+    <div class="space-y-3">
+        <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wider">Quick Actions</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+
+            <!-- Card 1: Past Question Practice -->
+            <a href="practice.php" class="group bg-white hover:bg-indigo-50/40 border border-slate-200 hover:border-indigo-400 p-4 sm:p-5 rounded-2xl transition-all shadow-xs flex items-start gap-3.5">
+                <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <i data-lucide="check-circle-2" class="w-5 h-5"></i>
                 </div>
-                <p class="text-xs text-slate-500 leading-snug mt-1">Configure diagnostic mocks across specific preclinical topics with strict board pacing.</p>
-            </div>
-        </a>
+                <div>
+                    <h3 class="text-sm font-extrabold text-slate-900 group-hover:text-indigo-700 transition-colors">Past Question Practice</h3>
+                    <p class="text-xs text-slate-500 mt-0.5 leading-relaxed">Practice real exam questions topic by topic at your own speed.</p>
+                </div>
+            </a>
 
-        <!-- 2: Curriculum Syllabi & Banks -->
-        <a href="courses.php" class="group bg-white hover:bg-indigo-50/30 border border-slate-200 hover:border-indigo-400 p-4 rounded-2xl transition-all shadow-xs flex items-start gap-3.5">
-            <div class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform border border-indigo-100">
-                <i data-lucide="graduation-cap" class="w-5 h-5"></i>
-            </div>
-            <div class="min-w-0">
-                <h3 class="text-sm font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">Curricula & Item Banks</h3>
-                <p class="text-xs text-slate-500 leading-snug mt-1">Browse accredited curricula, official summative examinations, and departmental repositories.</p>
-            </div>
-        </a>
+            <!-- Card 2: Tests -->
+            <a href="courses.php" class="group bg-white hover:bg-indigo-50/40 border border-slate-200 hover:border-indigo-400 p-4 sm:p-5 rounded-2xl transition-all shadow-xs flex items-start gap-3.5">
+                <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <i data-lucide="file-text" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-extrabold text-slate-900 group-hover:text-indigo-700 transition-colors">Tests & Exams</h3>
+                    <p class="text-xs text-slate-500 mt-0.5 leading-relaxed">Check available mock exams, scheduled tests, and all courses.</p>
+                </div>
+            </a>
 
-        <!-- 3: High-Yield Clinical Compendiums -->
-        <a href="active_study.php" class="group bg-white hover:bg-violet-50/30 border border-slate-200 hover:border-violet-400 p-4 rounded-2xl transition-all shadow-xs flex items-start gap-3.5">
-            <div class="w-11 h-11 rounded-xl bg-violet-50 text-violet-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform border border-violet-100">
-                <i data-lucide="book-marked" class="w-5 h-5"></i>
-            </div>
-            <div class="min-w-0">
-                <h3 class="text-sm font-bold text-slate-900 group-hover:text-violet-700 transition-colors">Clinical Compendiums</h3>
-                <p class="text-xs text-slate-500 leading-snug mt-1">High-yield revision compendiums, biochemical metabolic pathways, and physiological equations.</p>
-            </div>
-        </a>
+            <!-- Card 3: Study Room -->
+            <a href="active_study.php" class="group bg-white hover:bg-indigo-50/40 border border-slate-200 hover:border-indigo-400 p-4 sm:p-5 rounded-2xl transition-all shadow-xs flex items-start gap-3.5">
+                <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <i data-lucide="sparkles" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-extrabold text-slate-900 group-hover:text-indigo-700 transition-colors">Study Room</h3>
+                    <p class="text-xs text-slate-500 mt-0.5 leading-relaxed">Paste your lecture notes, ask AI questions, and get quick quizzes.</p>
+                </div>
+            </a>
 
-        <!-- 4: Examination Transcripts -->
-        <a href="history.php" class="group bg-white hover:bg-sky-50/30 border border-slate-200 hover:border-sky-400 p-4 rounded-2xl transition-all shadow-xs flex items-start gap-3.5">
-            <div class="w-11 h-11 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform border border-sky-100">
-                <i data-lucide="history" class="w-5 h-5"></i>
-            </div>
-            <div class="min-w-0">
-                <h3 class="text-sm font-bold text-slate-900 group-hover:text-sky-700 transition-colors">Official Transcripts</h3>
-                <p class="text-xs text-slate-500 leading-snug mt-1">Inspect past assessment records, psychometric item rationales, and longitudinal progress.</p>
-            </div>
-        </a>
+            <!-- Card 4: Academic Resources -->
+            <a href="question_search.php" class="group bg-white hover:bg-indigo-50/40 border border-slate-200 hover:border-indigo-400 p-4 sm:p-5 rounded-2xl transition-all shadow-xs flex items-start gap-3.5">
+                <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <i data-lucide="book-open" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-extrabold text-slate-900 group-hover:text-indigo-700 transition-colors">Academic Resources</h3>
+                    <p class="text-xs text-slate-500 mt-0.5 leading-relaxed">Search through questions, definitions, formulas, and explanations.</p>
+                </div>
+            </a>
 
-        <!-- 5: Cohort Percentile Rankings -->
-        <a href="leaderboard.php" class="group bg-white hover:bg-amber-50/30 border border-slate-200 hover:border-amber-400 p-4 rounded-2xl transition-all shadow-xs flex items-start gap-3.5">
-            <div class="w-11 h-11 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform border border-amber-100">
-                <i data-lucide="award" class="w-5 h-5"></i>
-            </div>
-            <div class="min-w-0">
-                <h3 class="text-sm font-bold text-slate-900 group-hover:text-amber-700 transition-colors">Cohort Rankings</h3>
-                <p class="text-xs text-slate-500 leading-snug mt-1">Psychometric percentile comparisons across Pre-Medicine, Dentistry, and Nursing cohorts.</p>
-            </div>
-        </a>
+            <!-- Card 5: Results -->
+            <a href="history.php" class="group bg-white hover:bg-indigo-50/40 border border-slate-200 hover:border-indigo-400 p-4 sm:p-5 rounded-2xl transition-all shadow-xs flex items-start gap-3.5">
+                <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-extrabold text-slate-900 group-hover:text-indigo-700 transition-colors">My Results</h3>
+                    <p class="text-xs text-slate-500 mt-0.5 leading-relaxed">See all your previous test scores, grades, and answers.</p>
+                </div>
+            </a>
 
-        <!-- 6: Item Bank Search -->
-        <a href="question_search.php" class="group bg-white hover:bg-slate-100 border border-slate-200 hover:border-slate-400 p-4 rounded-2xl transition-all shadow-xs flex items-start gap-3.5">
-            <div class="w-11 h-11 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform border border-slate-200">
-                <i data-lucide="search" class="w-5 h-5"></i>
-            </div>
-            <div class="min-w-0">
-                <h3 class="text-sm font-bold text-slate-900 group-hover:text-slate-800 transition-colors">Item Bank Search</h3>
-                <p class="text-xs text-slate-500 leading-snug mt-1">Instant full-text query indexing across 5,630+ accredited medical sciences examination items.</p>
-            </div>
-        </a>
+            <!-- Card 6: My Profile -->
+            <a href="profile.php" class="group bg-white hover:bg-indigo-50/40 border border-slate-200 hover:border-indigo-400 p-4 sm:p-5 rounded-2xl transition-all shadow-xs flex items-start gap-3.5">
+                <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <i data-lucide="user" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-extrabold text-slate-900 group-hover:text-indigo-700 transition-colors">My Profile</h3>
+                    <p class="text-xs text-slate-500 mt-0.5 leading-relaxed">View your account information, department, and phone number.</p>
+                </div>
+            </a>
+
+        </div>
     </div>
 
-    <!-- 4. Recent Assessment Transcripts Table -->
-    <?php if (!empty($recentTests)): ?>
-    <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
-        <div class="flex items-center justify-between pb-3 mb-2 border-b border-slate-100">
-            <div class="flex items-center gap-2">
-                <i data-lucide="file-text" class="w-4 h-4 text-slate-400"></i>
-                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Recent Examination Administrations</h3>
+    <!-- 4. Recent Test Results Section -->
+    <div class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+                <h2 class="text-sm sm:text-base font-extrabold text-slate-900">Recent Test Results</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Your latest completed test submissions</p>
             </div>
-            <a href="history.php" class="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1">
-                <span>View Full Academic Transcript</span>
-                <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            <a href="history.php" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline">
+                View All Results &rarr;
             </a>
         </div>
 
-        <div class="divide-y divide-slate-100">
-            <?php foreach ($recentTests as $rt): ?>
-            <div class="py-3 flex items-center justify-between gap-3 text-xs">
-                <div class="flex items-center gap-3 min-w-0">
-                    <span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
-                        <?= htmlspecialchars($rt['course_code'] ?? 'MED') ?>
-                    </span>
-                    <span class="font-semibold text-slate-800 truncate"><?= htmlspecialchars($rt['course_title'] ?? 'Assessment Examination') ?></span>
-                    <span class="hidden sm:inline text-[11px] text-slate-400">&bull; <?= date('M d, Y - H:i', strtotime($rt['created_at'])) ?></span>
-                </div>
-                <div class="flex items-center gap-3 shrink-0">
-                    <span class="font-bold text-slate-700 font-mono"><?= (int)$rt['total_score'] ?>/<?= (int)$rt['total_questions'] ?></span>
-                    <span class="px-2.5 py-0.5 rounded text-[11px] font-bold font-mono <?= (float)$rt['percentage'] >= 70 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : ((float)$rt['percentage'] >= 50 ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-rose-50 text-rose-700 border border-rose-200') ?>">
-                        <?= round((float)$rt['percentage'], 1) ?>% (Grade <?= htmlspecialchars($rt['grade']) ?>)
-                    </span>
-                    <a href="results.php?id=<?= urlencode($rt['id']) ?>" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-teal-600 transition-colors" title="Inspect Performance Report">
-                        <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
-                    </a>
-                </div>
-            </div>
-            <?php endforeach; ?>
+        <?php if (empty($recentTests)): ?>
+        <div class="py-8 text-center text-slate-400 space-y-2">
+            <i data-lucide="clipboard" class="w-8 h-8 mx-auto text-slate-300"></i>
+            <p class="text-xs font-medium">You haven't written any tests yet.</p>
+            <a href="practice.php" class="inline-block px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors">
+                Start Practicing Questions
+            </a>
         </div>
+        <?php else: ?>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                        <th class="py-2.5 pr-4">Course</th>
+                        <th class="py-2.5 px-4">Date</th>
+                        <th class="py-2.5 px-4 text-center">Score</th>
+                        <th class="py-2.5 px-4 text-center">Percentage</th>
+                        <th class="py-2.5 px-4 text-center">Grade</th>
+                        <th class="py-2.5 pl-4 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <?php foreach ($recentTests as $r): ?>
+                    <tr class="hover:bg-slate-50/70 transition-colors">
+                        <td class="py-3 pr-4 font-bold text-slate-800">
+                            <span class="inline-block px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[11px] mr-1.5"><?= htmlspecialchars($r['course_code']) ?></span>
+                            <span><?= htmlspecialchars($r['course_title']) ?></span>
+                        </td>
+                        <td class="py-3 px-4 text-slate-500">
+                            <?= date('M d, Y', strtotime($r['created_at'])) ?>
+                        </td>
+                        <td class="py-3 px-4 text-center font-bold text-slate-700">
+                            <?= (int)$r['total_score'] ?> / <?= (int)$r['total_questions'] ?>
+                        </td>
+                        <td class="py-3 px-4 text-center font-extrabold text-indigo-600">
+                            <?= round((float)$r['percentage'], 1) ?>%
+                        </td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2 py-0.5 rounded-lg text-xs font-bold <?= (float)$r['percentage'] >= 70 ? 'bg-emerald-50 text-emerald-700' : ((float)$r['percentage'] >= 50 ? 'bg-indigo-50 text-indigo-700' : 'bg-rose-50 text-rose-700') ?>">
+                                <?= htmlspecialchars($r['grade'] ?: 'Completed') ?>
+                            </span>
+                        </td>
+                        <td class="py-3 pl-4 text-right">
+                            <a href="results.php?result_id=<?= urlencode($r['id']) ?>" class="px-3 py-1.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:text-indigo-600 font-bold text-slate-700 transition-colors inline-block">
+                                Review
+                            </a>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
     </div>
-    <?php endif; ?>
 
 </div>
 
