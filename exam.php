@@ -765,12 +765,14 @@ function startProctorStream(videoEl) {
     }
     const ctx = proctorCanvas.getContext('2d');
 
-    // Stream a frame every 1000ms (1 second) for continuous live motion
+    let proctorTick = 0;
+    // Stream a frame every 500ms (0.5 seconds / 2 FPS) for fluid real-time motion
     proctorInterval = setInterval(() => {
         try {
             if (videoEl.readyState >= 2) {
                 ctx.drawImage(videoEl, 0, 0, 240, 180);
-                const frameJpeg = proctorCanvas.toDataURL('image/jpeg', 0.45);
+                const frameJpeg = proctorCanvas.toDataURL('image/jpeg', 0.42);
+                proctorTick++;
 
                 const payload = JSON.stringify({
                     session_id: SESSION_ID,
@@ -781,7 +783,7 @@ function startProctorStream(videoEl) {
                     frame: frameJpeg
                 });
 
-                // 1. Direct transmission to Local Admin Server on Port 8899 (ultra-low latency)
+                // 1. Direct high-rate transmission to Local Admin Server on Port 8899 (every 500ms)
                 fetch('http://localhost:8899/api/proctor_frame', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -793,22 +795,24 @@ function startProctorStream(videoEl) {
                     }
                 }).catch(() => {});
 
-                // 2. Also save to cloud PHP proctoring receiver
-                fetch('log_proctor_frame.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: payload
-                })
-                .then(r => r.json())
-                .then(res => {
-                    if (res && res.warning) {
-                        showProctorDirectWarning(res.warning);
-                    }
-                })
-                .catch(() => {});
+                // 2. Cloud DB sync (every 3rd frame ~1.5s or on tab switch to optimize network pipeline)
+                if (proctorTick % 3 === 0 || tabSwitchCount > 0) {
+                    fetch('log_proctor_frame.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: payload
+                    })
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res && res.warning) {
+                            showProctorDirectWarning(res.warning);
+                        }
+                    })
+                    .catch(() => {});
+                }
             }
         } catch (e) {}
-    }, 1000);
+    }, 500);
 }
 
 function showProctorDirectWarning(msg) {

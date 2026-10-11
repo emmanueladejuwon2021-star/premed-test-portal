@@ -336,23 +336,28 @@ const server = http.createServer(async (req, res) => {
     if (sessionId) {
       const existing = proctorLiveSessions.get(sessionId) || {};
       const currentWarning = existing.warning || null;
+      const now = Date.now();
+      const lastDbSync = existing.lastDbSync || 0;
+      const newSwitches = typeof data.tab_switches !== 'undefined' ? Number(data.tab_switches) : (existing.tabSwitches || 0);
+      const shouldSyncCloud = (now - lastDbSync > 2000) || (newSwitches > (existing.tabSwitches || 0));
 
       proctorLiveSessions.set(sessionId, {
         sessionId: sessionId,
         studentName: data.student_name || existing.studentName || 'Student',
         matricNo: data.matric_no || existing.matricNo || 'Unknown',
         courseCode: data.course_code || existing.courseCode || 'EXAM',
-        tabSwitches: typeof data.tab_switches !== 'undefined' ? Number(data.tab_switches) : (existing.tabSwitches || 0),
+        tabSwitches: newSwitches,
         frame: data.frame || existing.frame || null,
-        updatedAt: Date.now(),
+        updatedAt: now,
+        lastDbSync: shouldSyncCloud ? now : lastDbSync,
         warning: currentWarning ? null : existing.warning // Clear on delivery
       });
 
-      // Also persist to cloud DB asynchronously
-      if (data.frame) {
+      // Persist to cloud DB throttled to once every 2s or on tab switch
+      if (data.frame && shouldSyncCloud) {
         tursoExecute('UPDATE exam_sessions SET latest_frame = ?, tab_switches = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;', [
           data.frame,
-          Number(data.tab_switches || 0),
+          newSwitches,
           sessionId
         ]).catch(() => {});
       }
