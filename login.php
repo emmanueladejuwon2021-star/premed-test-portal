@@ -54,12 +54,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$student) {
                 $error = 'Matriculation number "' . htmlspecialchars($matricNo) . '" is not registered yet. Please click the "Register" tab to create your account.';
                 $activeTab = 'register';
-            } elseif ($student['password'] !== $password && $student['password'] !== '123456') {
-                $error = 'Incorrect password credentials. Please verify your password and try again.';
             } else {
-                $_SESSION['student'] = $student;
-                header('Location: index.php');
-                exit;
+                // Support both hashed and legacy plaintext passwords
+                $stored = $student['password'];
+                $valid = false;
+                if (strlen($stored) > 50 && str_starts_with($stored, '$2y$')) {
+                    $valid = password_verify($password, $stored);
+                } else {
+                    $valid = ($stored === $password);
+                    // Auto-upgrade plaintext to hash on successful login
+                    if ($valid) {
+                        $hashed = password_hash($password, PASSWORD_DEFAULT);
+                        $up = $db->prepare("UPDATE students SET password = ? WHERE id = ?");
+                        $up->execute([$hashed, $student['id']]);
+                        $student['password'] = $hashed;
+                    }
+                }
+                if (!$valid) {
+                    $error = 'Incorrect password credentials. Please verify your password and try again.';
+                } else {
+                    $_SESSION['student'] = $student;
+                    header('Location: index.php');
+                    exit;
+                }
             }
         }
     } elseif ($action === 'student_register') {
@@ -122,11 +139,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $activeTab = 'login';
             } else {
                 $id = bin2hex(random_bytes(12));
+                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
                 $stmt = $db->prepare("
                     INSERT INTO students (id, name, matric_no, password, department, phone, strength) 
                     VALUES (?, ?, ?, ?, ?, ?, 'Clinical Sciences')
                 ");
-                $stmt->execute([$id, $name, $matricNo, $password, $department, $phone]);
+                $stmt->execute([$id, $name, $matricNo, $hashedPassword, $department, $phone]);
 
                 $fetchNew = $db->prepare("SELECT * FROM students WHERE id = ? LIMIT 1");
                 $fetchNew->execute([$id]);

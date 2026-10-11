@@ -25,9 +25,29 @@ class AuthController {
         $student = $stmt->fetch();
 
         if ($student) {
-            // Existing student login
+            // Existing student login - require password
             $password = trim($input['password'] ?? '');
-            if (!empty($password) && $student['password'] !== $password) {
+            if (empty($password)) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Password is required']);
+                return;
+            }
+
+            $stored = $student['password'];
+            $valid = false;
+            if (strlen($stored) > 50 && str_starts_with($stored, '$2y$')) {
+                $valid = password_verify($password, $stored);
+            } else {
+                $valid = ($stored === $password);
+                if ($valid) {
+                    $hashed = password_hash($password, PASSWORD_DEFAULT);
+                    $up = $db->prepare("UPDATE students SET password = ? WHERE id = ?");
+                    $up->execute([$hashed, $student['id']]);
+                    $student['password'] = $hashed;
+                }
+            }
+
+            if (!$valid) {
                 http_response_code(401);
                 echo json_encode(['error' => 'Invalid password credentials']);
                 return;
@@ -52,7 +72,10 @@ class AuthController {
 
         // New student registration
         $name = trim($input['name'] ?? '');
-        $password = trim($input['password'] ?? '123456');
+        $password = trim($input['password'] ?? '');
+        if (empty($password)) {
+            $password = '123456'; // temporary default, will be hashed
+        }
         $department = trim($input['department'] ?? 'Medicine & Surgery');
         $strength = trim($input['strength'] ?? 'Biology');
         $phone = trim($input['phone'] ?? '');
@@ -64,9 +87,10 @@ class AuthController {
             return;
         }
 
-        $id = bin2hex(random_bytes(12)); // 24-character hex ID similar to Mongo ObjectID
+        $id = bin2hex(random_bytes(12));
+        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
         $insert = $db->prepare("INSERT INTO students (id, name, email, matric_no, phone, password, department, strength) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        $insert->execute([$id, $name, $email, $matricNo, $phone, $password, $department, $strength]);
+        $insert->execute([$id, $name, $email, $matricNo, $phone, $hashedPassword, $department, $strength]);
 
         $token = AuthHelper::generateToken([
             'id' => $id,
