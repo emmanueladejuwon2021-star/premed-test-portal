@@ -76,8 +76,41 @@ if (empty($questions)) {
     exit;
 }
 
+// 3. Security & Test Administration Settings
+$antiCheatBlur = 1;
+$enforceFullscreen = 1;
+$maxTabSwitches = 3;
+$watermarkEnabled = 1;
+$autoSubmit = 1;
+$calculatorAllowed = 1;
+$shuffleQuestions = 1;
+$shuffleOptions = 1;
+
+try {
+    $sStmt = $db->query("SELECT key_name, value FROM settings");
+    $sRows = $sStmt ? $sStmt->fetchAll() : [];
+    $sMap = [];
+    foreach ($sRows as $row) $sMap[$row['key_name']] = $row['value'];
+    if (isset($sMap['anti_cheat_blur'])) $antiCheatBlur = (int)$sMap['anti_cheat_blur'];
+    if (isset($sMap['enforce_fullscreen'])) $enforceFullscreen = (int)$sMap['enforce_fullscreen'];
+    if (isset($sMap['max_tab_switches'])) $maxTabSwitches = (int)$sMap['max_tab_switches'];
+    if (isset($sMap['watermark_enabled'])) $watermarkEnabled = (int)$sMap['watermark_enabled'];
+} catch (Exception $e) {}
+
+// Test-specific overrides (per-test settings supersede global defaults if $test is loaded)
+if ($test) {
+    if (isset($test['enforce_fullscreen'])) $enforceFullscreen = (int)$test['enforce_fullscreen'];
+    if (isset($test['max_tab_switches'])) $maxTabSwitches = (int)$test['max_tab_switches'];
+    if (isset($test['auto_submit'])) $autoSubmit = (int)$test['auto_submit'];
+    if (isset($test['calculator_allowed'])) $calculatorAllowed = (int)$test['calculator_allowed'];
+    if (isset($test['shuffle_questions'])) $shuffleQuestions = (int)$test['shuffle_questions'];
+    if (isset($test['shuffle_options'])) $shuffleOptions = (int)$test['shuffle_options'];
+}
+
 // Randomize and constrain to item volume limit
-shuffle($questions);
+if ($shuffleQuestions) {
+    shuffle($questions);
+}
 if (count($questions) > $limit) {
     $questions = array_slice($questions, 0, $limit);
 }
@@ -105,23 +138,6 @@ if (!$student) {
 
 $sessionId = bin2hex(random_bytes(12));
 $totalQuestions = count($clientQuestions);
-
-// Security Settings
-$antiCheatBlur = 1;
-$enforceFullscreen = 1;
-$maxTabSwitches = 3;
-$watermarkEnabled = 1;
-
-try {
-    $sStmt = $db->query("SELECT key_name, value FROM settings");
-    $sRows = $sStmt ? $sStmt->fetchAll() : [];
-    $sMap = [];
-    foreach ($sRows as $row) $sMap[$row['key_name']] = $row['value'];
-    if (isset($sMap['anti_cheat_blur'])) $antiCheatBlur = (int)$sMap['anti_cheat_blur'];
-    if (isset($sMap['enforce_fullscreen'])) $enforceFullscreen = (int)$sMap['enforce_fullscreen'];
-    if (isset($sMap['max_tab_switches'])) $maxTabSwitches = (int)$sMap['max_tab_switches'];
-    if (isset($sMap['watermark_enabled'])) $watermarkEnabled = (int)$sMap['watermark_enabled'];
-} catch (Exception $e) {}
 
 // Register active session in Turso cloud DB
 try {
@@ -172,9 +188,11 @@ require_once __DIR__ . '/includes/header.php';
             <button type="button" onclick="speakCurrentQuestion()" title="Read question out loud" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors">
                 <i data-lucide="volume-2" class="w-4 h-4"></i>
             </button>
+            <?php if ($calculatorAllowed): ?>
             <button type="button" onclick="toggleCalculator()" title="Calculator" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors">
                 <i data-lucide="calculator" class="w-4 h-4"></i>
             </button>
+            <?php endif; ?>
             <button type="button" onclick="toggleFontSize()" title="Text size" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors font-bold text-xs">
                 A<span class="text-[10px]">±</span>
             </button>
@@ -294,6 +312,7 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </div>
 
+<?php if ($calculatorAllowed): ?>
 <!-- On-Screen Calculator -->
 <div id="calcModal" class="fixed bottom-4 right-4 bg-slate-900 text-white p-3.5 rounded-2xl shadow-2xl z-50 hidden w-60 border border-slate-800">
     <div class="flex justify-between items-center mb-2.5">
@@ -324,10 +343,12 @@ require_once __DIR__ . '/includes/header.php';
         <button onclick="calcInput('.')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">.</button>
     </div>
 </div>
+<?php endif; ?>
 
 <!-- Hidden submission form to submit_exam.php -->
 <form id="submissionForm" method="POST" action="submit_exam.php">
     <input type="hidden" name="course_id" value="<?= htmlspecialchars($courseId) ?>">
+    <input type="hidden" name="test_id" value="<?= htmlspecialchars($testId) ?>">
     <input type="hidden" name="session_id" value="<?= htmlspecialchars($sessionId) ?>">
     <input type="hidden" name="answers_json" id="answersJsonInput" value="">
     <input type="hidden" name="question_ids_json" id="questionIdsJsonInput" value="">
@@ -676,6 +697,7 @@ let cheatingLogs = [];
 const MAX_TAB_SWITCHES = <?= (int)$maxTabSwitches ?>;
 const ANTI_CHEAT_BLUR = <?= (int)$antiCheatBlur ?>;
 const ENFORCE_FULLSCREEN = <?= (int)$enforceFullscreen ?>;
+const AUTO_SUBMIT = <?= (int)$autoSubmit ?>;
 const SESSION_ID = '<?= htmlspecialchars($sessionId) ?>';
 
 function recordCheatingEvent(type, details) {
@@ -709,10 +731,12 @@ function recordCheatingEvent(type, details) {
     if (MAX_TAB_SWITCHES > 0 && tabSwitchCount >= MAX_TAB_SWITCHES) {
         const flagInput = document.getElementById('isFlaggedCheatingInput');
         if (flagInput) flagInput.value = '1';
-        setTimeout(() => {
-            alert(`Notice: Maximum allowed warnings (${MAX_TAB_SWITCHES}) reached. Your test is now being submitted.`);
-            executeSubmit();
-        }, 400);
+        if (AUTO_SUBMIT) {
+            setTimeout(() => {
+                alert(`Notice: Maximum allowed warnings (${MAX_TAB_SWITCHES}) reached. Your test is now being submitted.`);
+                executeSubmit();
+            }, 400);
+        }
     }
 }
 
@@ -767,7 +791,8 @@ function setupAntiCheatingListeners() {
 
 // Calculator functions
 function toggleCalculator() {
-    document.getElementById('calcModal').classList.toggle('hidden');
+    const el = document.getElementById('calcModal');
+    if (el) el.classList.toggle('hidden');
 }
 function calcInput(char) {
     const d = document.getElementById('calcDisplay');

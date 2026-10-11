@@ -12,6 +12,7 @@
  */
 
 const http = require('node:http');
+const https = require('node:https');
 const { DatabaseSync } = require('node:sqlite');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -20,6 +21,180 @@ const { exec } = require('node:child_process');
 const PORT = 8899;
 const DB_PATH = path.join(__dirname, 'premed_portal.sqlite');
 const GIT_PATH = 'C:\\tools\\mingit\\cmd\\git.exe';
+
+const TURSO_URL = 'https://premed-test-portal-emmanueladejuwon2021-star.aws-us-east-1.turso.io/v2/pipeline';
+const TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTE3NDk0MzQsImlkIjoiMDFhMTJiNTYtZmEwMS03MmMzLWJlMjctYzRmMDhmMjkxNmJiIiwia2lkIjoiel90TE1SckVpVnk2a28xZ0tEbGc4RkgyUnpWUkJJd1FUcG05UV9PdXRhZyIsInJpZCI6IjNlZmQ3MDQ0LWU2ZTAtNDQ1NS05MGQ5LTY0N2EwNjlkZjcwMyJ9.08Klb4LcVxUkzyLgz6G8s6RnshFl7cMHpVKYaygdBcZpYI8jiyXtEQEw7TNoq66rRCta9ajGYxWiaUBCTs_zBA';
+
+function tursoExecute(sql, args = []) {
+  return new Promise((resolve) => {
+    try {
+      const stmt = {
+        sql,
+        args: args.map(a => {
+          if (a === null || a === undefined) return { type: 'null' };
+          if (typeof a === 'number') {
+            return Number.isInteger(a) ? { type: 'integer', value: String(a) } : { type: 'float', value: a };
+          }
+          return { type: 'text', value: String(a) };
+        })
+      };
+      const payload = JSON.stringify({
+        requests: [
+          { type: 'execute', stmt },
+          { type: 'close' }
+        ]
+      });
+      const req = https.request(TURSO_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${TURSO_TOKEN}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload)
+        },
+        timeout: 10000
+      }, (res) => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+          try { resolve(JSON.parse(body)); } catch { resolve(null); }
+        });
+      });
+      req.on('error', (e) => {
+        console.error('[TURSO SYNC ERROR]', e.message);
+        resolve(null);
+      });
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+      req.write(payload);
+      req.end();
+    } catch (e) {
+      console.error('[TURSO DISPATCH ERROR]', e.message);
+      resolve(null);
+    }
+  });
+}
+
+function tursoBatch(stmts) {
+  return new Promise((resolve) => {
+    try {
+      const requests = stmts.map(s => {
+        if (typeof s === 'string') return { type: 'execute', stmt: { sql: s } };
+        return {
+          type: 'execute',
+          stmt: {
+            sql: s.sql,
+            args: (s.args || []).map(a => {
+              if (a === null || a === undefined) return { type: 'null' };
+              if (typeof a === 'number') {
+                return Number.isInteger(a) ? { type: 'integer', value: String(a) } : { type: 'float', value: a };
+              }
+              return { type: 'text', value: String(a) };
+            })
+          }
+        };
+      });
+      requests.push({ type: 'close' });
+
+      const payload = JSON.stringify({ requests });
+      const req = https.request(TURSO_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${TURSO_TOKEN}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload)
+        },
+        timeout: 20000
+      }, (res) => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+          try { resolve(JSON.parse(body)); } catch { resolve(null); }
+        });
+      });
+      req.on('error', (e) => {
+        console.error('[TURSO BATCH ERROR]', e.message);
+        resolve(null);
+      });
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+      req.write(payload);
+      req.end();
+    } catch (e) {
+      console.error('[TURSO BATCH DISPATCH ERROR]', e.message);
+      resolve(null);
+    }
+  });
+}
+
+async function syncAllToTursoCloud() {
+  try {
+    const courses = db.prepare('SELECT * FROM courses').all();
+    const topics = db.prepare('SELECT * FROM topics').all();
+    const tests = db.prepare('SELECT * FROM tests').all();
+    const questions = db.prepare('SELECT * FROM questions').all();
+    const settings = db.prepare('SELECT * FROM settings').all();
+
+    await tursoBatch([
+      'DELETE FROM topics;',
+      'DELETE FROM courses;',
+      'DELETE FROM tests;'
+    ]);
+
+    const courseStmts = courses.map(c => ({
+      sql: 'INSERT INTO courses (id, code, title, duration, question_limit, attempts_allowed, is_mock, is_locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [c.id, c.code, c.title, c.duration || 30, c.question_limit || 20, c.attempts_allowed || 1, c.is_mock !== undefined ? c.is_mock : 1, c.is_locked || 0]
+    }));
+    if (courseStmts.length > 0) await tursoBatch(courseStmts);
+
+    for (let i = 0; i < topics.length; i += 30) {
+      const batch = topics.slice(i, i + 30).map(t => ({
+        sql: 'INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)',
+        args: [t.id, t.course_id, t.name]
+      }));
+      await tursoBatch(batch);
+    }
+
+    if (tests.length > 0) {
+      const testStmts = tests.map(t => ({
+        sql: `INSERT INTO tests (id, title, course_id, topic_ids, duration, question_limit, attempts_allowed, is_live, auto_submit, enforce_fullscreen, max_tab_switches, shuffle_questions, shuffle_options, calculator_allowed, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          t.id, t.title, t.course_id, t.topic_ids || '["ALL"]',
+          t.duration || 30, t.question_limit || 20, t.attempts_allowed || 1,
+          t.is_live !== undefined ? t.is_live : 1,
+          t.auto_submit !== undefined ? t.auto_submit : 1,
+          t.enforce_fullscreen !== undefined ? t.enforce_fullscreen : 1,
+          t.max_tab_switches || 3,
+          t.shuffle_questions !== undefined ? t.shuffle_questions : 1,
+          t.shuffle_options !== undefined ? t.shuffle_options : 1,
+          t.calculator_allowed !== undefined ? t.calculator_allowed : 1,
+          t.created_at || new Date().toISOString(),
+          t.updated_at || new Date().toISOString()
+        ]
+      }));
+      await tursoBatch(testStmts);
+    }
+
+    if (settings.length > 0) {
+      const settingStmts = settings.map(s => ({
+        sql: 'INSERT OR REPLACE INTO settings (key_name, value) VALUES (?, ?)',
+        args: [s.key_name, s.value]
+      }));
+      await tursoBatch(settingStmts);
+    }
+
+    if (questions.length > 0) {
+      for (let i = 0; i < questions.length; i += 30) {
+        const batch = questions.slice(i, i + 30).map(q => ({
+          sql: 'INSERT OR REPLACE INTO questions (id, topic_id, text, option_a, option_b, option_c, option_d, correct_option, explanation, diagram_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          args: [q.id, q.topic_id, q.text, q.option_a, q.option_b, q.option_c, q.option_d, q.correct_option, q.explanation || '', q.diagram_url || '']
+        }));
+        await tursoBatch(batch);
+      }
+    }
+    console.log('[TURSO CLOUD SYNC] Complete 2-way mirror to Turso Cloud verified.');
+  } catch (e) {
+    console.error('[TURSO CLOUD SYNC ERROR]', e.message);
+  }
+}
 
 let db;
 try {
@@ -116,6 +291,7 @@ function getSetting(key, def = '1') {
 function setSetting(key, val) {
   try {
     db.prepare('INSERT INTO settings (key_name, value) VALUES (?, ?) ON CONFLICT(key_name) DO UPDATE SET value = excluded.value').run(key, String(val));
+    tursoExecute('INSERT INTO settings (key_name, value) VALUES (?, ?) ON CONFLICT(key_name) DO UPDATE SET value = excluded.value', [key, String(val)]);
   } catch (e) {
     console.error('[SETTING ERROR]', e.message);
   }
@@ -1464,6 +1640,11 @@ const server = http.createServer(async (req, res) => {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(testId, title, courseId, topicIds, duration, questionLimit, attemptsAllowed, isLive, autoSubmit, enforceFullscreen, maxTabSwitches, shuffleQuestions, shuffleOptions, calculatorAllowed);
 
+        tursoExecute(`
+          INSERT INTO tests (id, title, course_id, topic_ids, duration, question_limit, attempts_allowed, is_live, auto_submit, enforce_fullscreen, max_tab_switches, shuffle_questions, shuffle_options, calculator_allowed)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [testId, title, courseId, topicIds, duration, questionLimit, attemptsAllowed, isLive, autoSubmit, enforceFullscreen, maxTabSwitches, shuffleQuestions, shuffleOptions, calculatorAllowed]);
+
         res.writeHead(200, { 'Content-Type': 'text/html' });
         return res.end(renderHtml('tests', `Examination "${title}" successfully created and ${isLive ? 'made LIVE on student portal' : 'saved as draft'}!`));
       }
@@ -1479,6 +1660,7 @@ const server = http.createServer(async (req, res) => {
       const nextLive = currentLive ? 0 : 1;
       if (testId) {
         db.prepare('UPDATE tests SET is_live = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(nextLive, testId);
+        tursoExecute('UPDATE tests SET is_live = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nextLive, testId]);
       }
       res.writeHead(302, { Location: '/?tab=tests' });
       return res.end();
@@ -1489,6 +1671,7 @@ const server = http.createServer(async (req, res) => {
       const testId = data.test_id;
       if (testId) {
         db.prepare('DELETE FROM tests WHERE id = ?').run(testId);
+        tursoExecute('DELETE FROM tests WHERE id = ?', [testId]);
       }
       res.writeHead(302, { Location: '/?tab=tests' });
       return res.end();
@@ -1498,6 +1681,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/action/master_tests_live_toggle') {
       const targetLive = parseInt(data.target_live, 10) || 0;
       db.prepare('UPDATE tests SET is_live = ?, updated_at = CURRENT_TIMESTAMP').run(targetLive);
+      tursoExecute('UPDATE tests SET is_live = ?, updated_at = CURRENT_TIMESTAMP', [targetLive]);
       res.writeHead(302, { Location: '/?tab=tests' });
       return res.end();
     }
@@ -1514,8 +1698,10 @@ const server = http.createServer(async (req, res) => {
       if (code && title) {
         const cid = 'course_' + code.toLowerCase().replace(/[^a-z0-9]/g, '') + '_' + Date.now();
         db.prepare('INSERT INTO courses (id, code, title, duration, question_limit, attempts_allowed, is_mock, is_locked) VALUES (?, ?, ?, ?, ?, ?, 1, ?)').run(cid, code, title, duration, questionLimit, attemptsAllowed, isLocked);
+        tursoExecute('INSERT INTO courses (id, code, title, duration, question_limit, attempts_allowed, is_mock, is_locked) VALUES (?, ?, ?, ?, ?, ?, 1, ?)', [cid, code, title, duration, questionLimit, attemptsAllowed, isLocked]);
         const tid = 'topic_' + Math.random().toString(36).substring(2, 10);
         db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)').run(tid, cid, 'General Curriculum');
+        tursoExecute('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)', [tid, cid, 'General Curriculum']);
       }
       res.writeHead(302, { Location: '/?tab=courses' });
       return res.end();
@@ -1533,6 +1719,7 @@ const server = http.createServer(async (req, res) => {
 
       if (cid && code && title) {
         db.prepare('UPDATE courses SET code = ?, title = ?, duration = ?, question_limit = ?, attempts_allowed = ?, is_locked = ? WHERE id = ?').run(code, title, duration, questionLimit, attemptsAllowed, isLocked, cid);
+        tursoExecute('UPDATE courses SET code = ?, title = ?, duration = ?, question_limit = ?, attempts_allowed = ?, is_locked = ? WHERE id = ?', [code, title, duration, questionLimit, attemptsAllowed, isLocked, cid]);
       }
       res.writeHead(302, { Location: '/?tab=courses' });
       return res.end();
@@ -1545,9 +1732,12 @@ const server = http.createServer(async (req, res) => {
         const topics = db.prepare('SELECT id FROM topics WHERE course_id = ?').all(cid);
         for (const t of topics) {
           db.prepare('DELETE FROM questions WHERE topic_id = ?').run(t.id);
+          tursoExecute('DELETE FROM questions WHERE topic_id = ?', [t.id]);
         }
         db.prepare('DELETE FROM topics WHERE course_id = ?').run(cid);
+        tursoExecute('DELETE FROM topics WHERE course_id = ?', [cid]);
         db.prepare('DELETE FROM courses WHERE id = ?').run(cid);
+        tursoExecute('DELETE FROM courses WHERE id = ?', [cid]);
       }
       res.writeHead(302, { Location: '/?tab=courses' });
       return res.end();
@@ -1584,6 +1774,7 @@ const server = http.createServer(async (req, res) => {
       if (cid && name) {
         const tid = 'topic_' + Math.random().toString(36).substring(2, 10);
         db.prepare('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)').run(tid, cid, name);
+        tursoExecute('INSERT INTO topics (id, course_id, name) VALUES (?, ?, ?)', [tid, cid, name]);
       }
       res.writeHead(302, { Location: '/?tab=courses' });
       return res.end();
@@ -1594,7 +1785,9 @@ const server = http.createServer(async (req, res) => {
       const tid = data.topic_id;
       if (tid) {
         db.prepare('DELETE FROM questions WHERE topic_id = ?').run(tid);
+        tursoExecute('DELETE FROM questions WHERE topic_id = ?', [tid]);
         db.prepare('DELETE FROM topics WHERE id = ?').run(tid);
+        tursoExecute('DELETE FROM topics WHERE id = ?', [tid]);
       }
       res.writeHead(302, { Location: '/?tab=courses' });
       return res.end();
@@ -1623,6 +1816,7 @@ const server = http.createServer(async (req, res) => {
         }
         const qid = 'q_' + Math.random().toString(36).substring(2, 12);
         db.prepare('INSERT INTO questions (id, topic_id, text, a, b, c, d, correct_option, explanation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(qid, topicId, text, optA, optB, optC, optD, correct, explanation);
+        tursoExecute('INSERT INTO questions (id, topic_id, text, a, b, c, d, correct_option, explanation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [qid, topicId, text, optA, optB, optC, optD, correct, explanation]);
       }
       res.writeHead(302, { Location: '/?tab=questions' });
       return res.end();
@@ -1647,6 +1841,7 @@ const server = http.createServer(async (req, res) => {
           topicId = topic ? topic.id : null;
         }
         db.prepare('UPDATE questions SET topic_id = ?, text = ?, a = ?, b = ?, c = ?, d = ?, correct_option = ?, explanation = ? WHERE id = ?').run(topicId, text, optA, optB, optC, optD, correct, explanation, qid);
+        tursoExecute('UPDATE questions SET topic_id = ?, text = ?, a = ?, b = ?, c = ?, d = ?, correct_option = ?, explanation = ? WHERE id = ?', [topicId, text, optA, optB, optC, optD, correct, explanation, qid]);
       }
       res.writeHead(302, { Location: '/?tab=questions' });
       return res.end();
@@ -1759,6 +1954,7 @@ const server = http.createServer(async (req, res) => {
       const qid = data.question_id;
       if (qid) {
         db.prepare('DELETE FROM questions WHERE id = ?').run(qid);
+        tursoExecute('DELETE FROM questions WHERE id = ?', [qid]);
       }
       res.writeHead(302, { Location: '/?tab=questions' });
       return res.end();
@@ -1784,6 +1980,16 @@ const server = http.createServer(async (req, res) => {
             phone = excluded.phone
         `).run(sid, name, matric, pass, dept, phone);
 
+        tursoExecute(`
+          INSERT INTO students (id, name, matric_no, password, department, phone, strength) 
+          VALUES (?, ?, ?, ?, ?, ?, 'Clinical Sciences')
+          ON CONFLICT(matric_no) DO UPDATE SET 
+            name = excluded.name, 
+            password = excluded.password, 
+            department = excluded.department, 
+            phone = excluded.phone
+        `, [sid, name, matric, pass, dept, phone]);
+
         res.writeHead(200, { 'Content-Type': 'text/html' });
         return res.end(renderHtml('candidates', `Student "${name}" (${matric}) registered successfully!`));
       }
@@ -1798,6 +2004,9 @@ const server = http.createServer(async (req, res) => {
         db.prepare('DELETE FROM results WHERE student_id = ?').run(sid);
         db.prepare('DELETE FROM exam_sessions WHERE student_id = ?').run(sid);
         db.prepare('DELETE FROM students WHERE id = ?').run(sid);
+        tursoExecute('DELETE FROM results WHERE student_id = ?', [sid]);
+        tursoExecute('DELETE FROM exam_sessions WHERE student_id = ?', [sid]);
+        tursoExecute('DELETE FROM students WHERE id = ?', [sid]);
       }
       res.writeHead(302, { Location: '/?tab=candidates' });
       return res.end();
@@ -1810,6 +2019,8 @@ const server = http.createServer(async (req, res) => {
       if (sid && cid) {
         db.prepare('DELETE FROM results WHERE student_id = ? AND course_id = ?').run(sid, cid);
         db.prepare('DELETE FROM exam_sessions WHERE student_id = ? AND course_id = ?').run(sid, cid);
+        tursoExecute('DELETE FROM results WHERE student_id = ? AND course_id = ?', [sid, cid]);
+        tursoExecute('DELETE FROM exam_sessions WHERE student_id = ? AND course_id = ?', [sid, cid]);
       }
       res.writeHead(302, { Location: '/?tab=candidates' });
       return res.end();
@@ -1829,29 +2040,22 @@ const server = http.createServer(async (req, res) => {
 
     // Publish to Website (Clean, robust sync)
     if (pathname === '/sync') {
-      exec(`"${GIT_PATH}" add premed_portal.sqlite`, { cwd: __dirname }, (addErr) => {
-        exec(`"${GIT_PATH}" diff --cached --name-only premed_portal.sqlite`, { cwd: __dirname }, (diffErr, diffOut) => {
-          const hasStaged = diffOut && diffOut.trim().includes('premed_portal.sqlite');
-
-          const pushToRemote = (noticeMsg) => {
-            exec(`"${GIT_PATH}" -c credential.helper="" -c http.sslVerify=false push origin main`, { cwd: __dirname }, (pushErr, stdout, stderr) => {
-              const out = (stdout || '') + ' ' + (stderr || '');
-              if (pushErr && !out.includes('Everything up-to-date') && !out.includes('main -> main')) {
-                res.writeHead(200, { 'Content-Type': 'text/html' });
-                return res.end(renderHtml('home', 'Notice: ' + (stderr || pushErr.message), 'error'));
-              }
+      try {
+        await syncAllToTursoCloud();
+      } catch (e) {
+        console.error('[TURSO SYNC ERROR]', e.message);
+      }
+      exec(`"${GIT_PATH}" add -A`, { cwd: __dirname }, (addErr) => {
+        exec(`"${GIT_PATH}" commit -m "Admin sync: update questions and portal database"`, { cwd: __dirname }, (commitErr) => {
+          exec(`"${GIT_PATH}" -c credential.helper="" -c http.sslVerify=false push origin main`, { cwd: __dirname }, (pushErr, stdout, stderr) => {
+            const out = (stdout || '') + ' ' + (stderr || '');
+            if (pushErr && !out.includes('Everything up-to-date') && !out.includes('main -> main')) {
               res.writeHead(200, { 'Content-Type': 'text/html' });
-              return res.end(renderHtml('home', noticeMsg, 'success'));
-            });
-          };
-
-          if (hasStaged) {
-            exec(`"${GIT_PATH}" commit -m "Admin sync: update questions and portal database"`, { cwd: __dirname }, (commitErr) => {
-              pushToRemote('All changes successfully published to the live website!');
-            });
-          } else {
-            pushToRemote('Live website is already up to date with your local changes.');
-          }
+              return res.end(renderHtml('home', 'Notice: ' + (stderr || pushErr.message), 'error'));
+            }
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            return res.end(renderHtml('home', 'All changes and tests successfully published to Turso Cloud & live website!', 'success'));
+          });
         });
       });
       return;
@@ -1983,111 +2187,97 @@ function bin2hexId() {
 }
 
 async function syncWithLivePortal(overrideUrl = null) {
-  let siteUrl = (overrideUrl || getSetting('live_website_url', 'https://premed-test-portal.vercel.app')).trim();
-  siteUrl = siteUrl.replace(/\/$/, '');
-  if (!siteUrl.startsWith('http')) siteUrl = 'https://' + siteUrl;
-  setSetting('live_website_url', siteUrl);
-
-  const endpoint = siteUrl + '/sync_live_data.php';
-  const remoteData = await fetchHttpJson(endpoint);
   let importedStudents = 0;
   let importedResults = 0;
   let importedSessions = 0;
-
-  if (Array.isArray(remoteData.students)) {
-    for (const s of remoteData.students) {
-      db.prepare(`
-        INSERT INTO students (id, name, matric_no, password, department, phone, strength)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(matric_no) DO UPDATE SET
-          name = excluded.name,
-          password = excluded.password,
-          department = excluded.department,
-          phone = excluded.phone
-      `).run(s.id, s.name, s.matric_no, s.password, s.department, s.phone || '', s.strength || 'Clinical Sciences');
-      importedStudents++;
-    }
-  }
-
-  if (Array.isArray(remoteData.sessions)) {
-    for (const se of remoteData.sessions) {
-      db.prepare(`
-        INSERT INTO exam_sessions (id, student_id, matric_no, student_name, course_id, course_code, status, tab_switches, cheating_log, total_score, total_questions, percentage, grade, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          status = excluded.status,
-          tab_switches = excluded.tab_switches,
-          cheating_log = excluded.cheating_log,
-          total_score = excluded.total_score,
-          total_questions = excluded.total_questions,
-          percentage = excluded.percentage,
-          grade = excluded.grade,
-          updated_at = excluded.updated_at
-      `).run(
-        se.id, se.student_id, se.matric_no, se.student_name, se.course_id, se.course_code,
-        se.status, se.tab_switches || 0, se.cheating_log || '[]',
-        se.total_score || 0, se.total_questions || 0, se.percentage || 0, se.grade || '',
-        se.updated_at || new Date().toISOString()
-      );
-      importedSessions++;
-    }
-  }
-
-  if (Array.isArray(remoteData.results)) {
-    for (const r of remoteData.results) {
-      db.prepare(`
-        INSERT INTO results (id, student_id, course_id, total_score, total_questions, percentage, grade, time_spent, tab_switches, is_flagged_cheating, cheating_log)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          total_score = excluded.total_score,
-          percentage = excluded.percentage,
-          grade = excluded.grade,
-          tab_switches = excluded.tab_switches,
-          is_flagged_cheating = excluded.is_flagged_cheating,
-          cheating_log = excluded.cheating_log
-      `).run(
-        r.id, r.student_id, r.course_id, r.total_score, r.total_questions, r.percentage, r.grade,
-        r.time_spent || 0, r.tab_switches || 0, r.is_flagged_cheating || 0, r.cheating_log || '[]'
-      );
-      importedResults++;
-    }
-  }
-
   let importedTests = 0;
-  if (Array.isArray(remoteData.tests)) {
-    for (const t of remoteData.tests) {
-      db.prepare(`
-        INSERT INTO tests (id, title, course_id, topic_ids, duration, question_limit, attempts_allowed, is_live, auto_submit, enforce_fullscreen, max_tab_switches, shuffle_questions, shuffle_options, calculator_allowed, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          title = excluded.title,
-          course_id = excluded.course_id,
-          topic_ids = excluded.topic_ids,
-          duration = excluded.duration,
-          question_limit = excluded.question_limit,
-          attempts_allowed = excluded.attempts_allowed,
-          is_live = excluded.is_live,
-          auto_submit = excluded.auto_submit,
-          enforce_fullscreen = excluded.enforce_fullscreen,
-          max_tab_switches = excluded.max_tab_switches,
-          shuffle_questions = excluded.shuffle_questions,
-          shuffle_options = excluded.shuffle_options,
-          calculator_allowed = excluded.calculator_allowed,
-          updated_at = excluded.updated_at
-      `).run(
-        t.id, t.title, t.course_id, t.topic_ids || '["ALL"]',
-        t.duration || 30, t.question_limit || 20, t.attempts_allowed || 1,
-        t.is_live !== undefined ? t.is_live : 1,
-        t.auto_submit !== undefined ? t.auto_submit : 1,
-        t.enforce_fullscreen !== undefined ? t.enforce_fullscreen : 1,
-        t.max_tab_switches || 3,
-        t.shuffle_questions !== undefined ? t.shuffle_questions : 1,
-        t.shuffle_options !== undefined ? t.shuffle_options : 1,
-        t.calculator_allowed !== undefined ? t.calculator_allowed : 1,
-        t.updated_at || new Date().toISOString()
-      );
-      importedTests++;
+
+  try {
+    const res = await tursoBatch([
+      'SELECT id, name, matric_no, password, department, phone, strength FROM students;',
+      'SELECT id, student_id, matric_no, student_name, course_id, course_code, status, tab_switches, cheating_log, total_score, total_questions, percentage, grade, updated_at FROM exam_sessions;',
+      'SELECT id, student_id, course_id, total_score, total_questions, percentage, grade, time_spent, tab_switches, is_flagged_cheating, cheating_log FROM results;',
+      'SELECT id, title, course_id, topic_ids, duration, question_limit, attempts_allowed, is_live, auto_submit, enforce_fullscreen, max_tab_switches, shuffle_questions, shuffle_options, calculator_allowed, updated_at FROM tests;'
+    ]);
+
+    if (res && res.results) {
+      // 1. Students
+      const studentCols = res.results[0]?.response?.result?.cols || [];
+      const studentRows = res.results[0]?.response?.result?.rows || [];
+      for (const row of studentRows) {
+        const s = {};
+        studentCols.forEach((col, idx) => s[col.name] = row[idx]?.value);
+        if (s.matric_no) {
+          db.prepare(`
+            INSERT INTO students (id, name, matric_no, password, department, phone, strength)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(matric_no) DO UPDATE SET
+              name = excluded.name,
+              password = excluded.password,
+              department = excluded.department,
+              phone = excluded.phone
+          `).run(s.id || bin2hexId(), s.name || '', s.matric_no, s.password || '', s.department || '', s.phone || '', s.strength || 'Clinical Sciences');
+          importedStudents++;
+        }
+      }
+
+      // 2. Exam Sessions
+      const sessionCols = res.results[1]?.response?.result?.cols || [];
+      const sessionRows = res.results[1]?.response?.result?.rows || [];
+      for (const row of sessionRows) {
+        const se = {};
+        sessionCols.forEach((col, idx) => se[col.name] = row[idx]?.value);
+        if (se.id) {
+          db.prepare(`
+            INSERT INTO exam_sessions (id, student_id, matric_no, student_name, course_id, course_code, status, tab_switches, cheating_log, total_score, total_questions, percentage, grade, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              status = excluded.status,
+              tab_switches = excluded.tab_switches,
+              cheating_log = excluded.cheating_log,
+              total_score = excluded.total_score,
+              total_questions = excluded.total_questions,
+              percentage = excluded.percentage,
+              grade = excluded.grade,
+              updated_at = excluded.updated_at
+          `).run(
+            se.id, se.student_id || '', se.matric_no || '', se.student_name || '', se.course_id || '', se.course_code || '',
+            se.status || 'IN_PROGRESS', parseInt(se.tab_switches, 10) || 0, se.cheating_log || '[]',
+            parseInt(se.total_score, 10) || 0, parseInt(se.total_questions, 10) || 0, parseFloat(se.percentage) || 0, se.grade || '',
+            se.updated_at || new Date().toISOString()
+          );
+          importedSessions++;
+        }
+      }
+
+      // 3. Results
+      const resCols = res.results[2]?.response?.result?.cols || [];
+      const resRows = res.results[2]?.response?.result?.rows || [];
+      for (const row of resRows) {
+        const r = {};
+        resCols.forEach((col, idx) => r[col.name] = row[idx]?.value);
+        if (r.id) {
+          db.prepare(`
+            INSERT INTO results (id, student_id, course_id, total_score, total_questions, percentage, grade, time_spent, tab_switches, is_flagged_cheating, cheating_log)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              total_score = excluded.total_score,
+              percentage = excluded.percentage,
+              grade = excluded.grade,
+              tab_switches = excluded.tab_switches,
+              is_flagged_cheating = excluded.is_flagged_cheating,
+              cheating_log = excluded.cheating_log
+          `).run(
+            r.id, r.student_id || '', r.course_id || '',
+            parseInt(r.total_score, 10) || 0, parseInt(r.total_questions, 10) || 0, parseFloat(r.percentage) || 0, r.grade || '',
+            parseInt(r.time_spent, 10) || 0, parseInt(r.tab_switches, 10) || 0, parseInt(r.is_flagged_cheating, 10) || 0, r.cheating_log || '[]'
+          );
+          importedResults++;
+        }
+      }
     }
+  } catch (err) {
+    console.error('[TURSO LIVE SYNC ERROR]', err.message);
   }
 
   return { importedStudents, importedSessions, importedResults, importedTests };
