@@ -444,6 +444,25 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </div>
 
+<!-- Live Proctor Direct Warning Modal -->
+<div id="proctorLiveWarningModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 text-center space-y-3.5 shadow-2xl border-2 border-amber-500">
+        <div class="w-12 h-12 mx-auto rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+            <i data-lucide="video" class="w-6 h-6"></i>
+        </div>
+        <div class="space-y-1.5">
+            <h3 class="text-sm font-black text-amber-600 uppercase tracking-wider">Live Proctor Notice</h3>
+            <p class="text-xs text-slate-700 leading-snug font-medium p-3 rounded-xl bg-amber-50 border border-amber-200 text-left" id="proctorLiveWarningMsg">
+                The examination proctor is watching your camera live and flagged an activity.
+            </p>
+        </div>
+        <p class="text-[11px] text-slate-500 font-medium">Please face your webcam directly and maintain focus on your screen.</p>
+        <button type="button" onclick="dismissProctorWarning()" class="w-full py-2.5 rounded-xl bg-[#103a71] hover:bg-[#0d2e5a] text-white font-bold text-xs shadow-xs">
+            Acknowledge &amp; Return to Test
+        </button>
+    </div>
+</div>
+
 <?php if ($watermarkEnabled): ?>
 <!-- Candidate Translucent Watermark Overlay -->
 <div class="pointer-events-none fixed inset-0 z-20 select-none overflow-hidden opacity-[0.035] flex flex-wrap gap-12 p-6 text-base font-black text-slate-900 font-mono rotate-[-12deg]">
@@ -708,20 +727,103 @@ function toggleHelpModal() {
     if (m) m.classList.toggle('hidden');
 }
 
+let proctorCanvas = null;
+let proctorInterval = null;
+
 function initLiveWebcam() {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ video: { width: 160, height: 120 } })
-            .then(stream => {
-                const vid = document.getElementById('liveWebcam');
-                const ph = document.getElementById('webcamPlaceholder');
-                if (vid) {
-                    vid.srcObject = stream;
-                    vid.classList.remove('hidden');
-                    if (ph) ph.classList.add('hidden');
-                }
-            })
-            .catch(() => {});
+        navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                width: { ideal: 320 }, 
+                height: { ideal: 240 },
+                facingMode: "user"
+            } 
+        })
+        .then(stream => {
+            const vid = document.getElementById('liveWebcam');
+            const ph = document.getElementById('webcamPlaceholder');
+            if (vid) {
+                vid.srcObject = stream;
+                vid.classList.remove('hidden');
+                if (ph) ph.classList.add('hidden');
+
+                // Start Live Real-Time Proctoring Stream to Admin Panel
+                startProctorStream(vid);
+            }
+        })
+        .catch(err => {
+            console.log('Webcam feed unavailable or blocked:', err.message);
+        });
     }
+}
+
+function startProctorStream(videoEl) {
+    if (!proctorCanvas) {
+        proctorCanvas = document.createElement('canvas');
+        proctorCanvas.width = 240;
+        proctorCanvas.height = 180;
+    }
+    const ctx = proctorCanvas.getContext('2d');
+
+    // Stream a frame every 1200ms for continuous live motion
+    proctorInterval = setInterval(() => {
+        try {
+            if (videoEl.readyState >= 2) {
+                ctx.drawImage(videoEl, 0, 0, 240, 180);
+                const frameJpeg = proctorCanvas.toDataURL('image/jpeg', 0.45);
+
+                const payload = JSON.stringify({
+                    session_id: SESSION_ID,
+                    student_name: '<?= addslashes(htmlspecialchars($student['name'])) ?>',
+                    matric_no: '<?= addslashes(htmlspecialchars($student['matric_no'])) ?>',
+                    course_code: '<?= addslashes(htmlspecialchars($course['code'])) ?>',
+                    tab_switches: tabSwitchCount,
+                    frame: frameJpeg
+                });
+
+                // 1. Direct transmission to Local Admin Server on Port 8899 (ultra-low latency)
+                fetch('http://localhost:8899/api/proctor_frame', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: payload,
+                    mode: 'cors'
+                }).then(r => r.json()).then(res => {
+                    if (res && res.warning) {
+                        showProctorDirectWarning(res.warning);
+                    }
+                }).catch(() => {});
+
+                // 2. Also save to cloud PHP proctoring receiver
+                fetch('log_proctor_frame.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: payload
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res && res.warning) {
+                        showProctorDirectWarning(res.warning);
+                    }
+                })
+                .catch(() => {});
+            }
+        } catch (e) {}
+    }, 1200);
+}
+
+function showProctorDirectWarning(msg) {
+    const modal = document.getElementById('proctorLiveWarningModal');
+    const msgEl = document.getElementById('proctorLiveWarningMsg');
+    if (modal && msgEl) {
+        msgEl.innerText = msg;
+        modal.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+    }
+}
+
+function dismissProctorWarning() {
+    const modal = document.getElementById('proctorLiveWarningModal');
+    if (modal) modal.classList.add('hidden');
 }
 window.addEventListener('DOMContentLoaded', initLiveWebcam);
 

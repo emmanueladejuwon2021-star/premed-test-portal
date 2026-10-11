@@ -33,6 +33,10 @@ const DEPARTMENTS = [
   'Public Health'
 ];
 
+// In-Memory Live Video Proctoring Feeds Cache
+// Maps sessionId -> { sessionId, studentName, matricNo, courseCode, tabSwitches, frame, updatedAt, warning }
+const proctorLiveSessions = new Map();
+
 // Helper: Format arguments for Turso Pipeline API
 function formatArgs(args = []) {
   return args.map(a => {
@@ -131,13 +135,23 @@ async function tursoBatch(stmts) {
   return await runTursoPipeline(requests);
 }
 
-// Helper: Parse POST body
+// Helper: Parse POST body (handles JSON and URL-encoded forms)
 function parseBody(req) {
   return new Promise((resolve) => {
     let body = '';
     req.on('data', chunk => body += chunk);
     req.on('end', () => {
       try {
+        const contentType = (req.headers['content-type'] || '').toLowerCase();
+        if (contentType.includes('application/json')) {
+          try {
+            resolve(JSON.parse(body || '{}'));
+            return;
+          } catch {
+            resolve({});
+            return;
+          }
+        }
         const parsed = new URLSearchParams(body);
         const data = {};
         for (const [key, val] of parsed.entries()) {
@@ -210,6 +224,20 @@ async function fetchAdminDashboardData() {
   const settingsMap = {};
   settingsRows.forEach(r => { settingsMap[r.key_name] = r.value; });
 
+  // Merge live proctoring stream frames from in-memory cache
+  const now = Date.now();
+  examSessions.forEach(s => {
+    const cached = proctorLiveSessions.get(s.id);
+    if (cached) {
+      if (cached.frame) s.latest_frame = cached.frame;
+      if (typeof cached.tabSwitches !== 'undefined') s.tab_switches = cached.tabSwitches;
+      if (cached.warning) s.proctor_warning = cached.warning;
+      s.is_streaming = (now - (cached.updatedAt || 0)) < 15000;
+    } else {
+      s.is_streaming = Boolean(s.latest_frame);
+    }
+  });
+
   const activeSessionsCount = examSessions.filter(s => s.status === 'IN_PROGRESS').length;
   const cheatedSessionsCount = examSessions.filter(s => s.status === 'TERMINATED_FOR_CHEATING' || (s.tab_switches || 0) >= 3).length;
   const liveTestsCount = allTests.filter(t => t.is_live === 1).length;
@@ -243,6 +271,19 @@ const server = http.createServer(async (req, res) => {
   const query = parsedUrl.query;
 
   // -------------------------------------------------------------
+  // CORS Preflight Handler
+  // -------------------------------------------------------------
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400'
+    });
+    return res.end();
+  }
+
+  // -------------------------------------------------------------
   // GET / - Admin Dashboard
   // -------------------------------------------------------------
   if (req.method === 'GET' && pathname === '/') {
@@ -258,14 +299,100 @@ const server = http.createServer(async (req, res) => {
   }
 
   // -------------------------------------------------------------
-  // GET /api/live_sessions - Telemetry polling endpoint
+  // GET /api/live_sessions - Telemetry & Live Video Polling
   // -------------------------------------------------------------
   if (req.method === 'GET' && pathname === '/api/live_sessions') {
     const sessions = await tursoQuery('SELECT * FROM exam_sessions ORDER BY updated_at DESC LIMIT 60;');
+    const now = Date.now();
+
+    sessions.forEach(s => {
+      const cached = proctorLiveSessions.get(s.id);
+      if (cached) {
+        if (cached.frame) s.latest_frame = cached.frame;
+        if (typeof cached.tabSwitches !== 'undefined') s.tab_switches = cached.tabSwitches;
+        if (cached.warning) s.proctor_warning = cached.warning;
+        s.is_streaming = (now - (cached.updatedAt || 0)) < 15000;
+      } else {
+        s.is_streaming = Boolean(s.latest_frame);
+      }
+    });
+
     const activeCount = sessions.filter(s => s.status === 'IN_PROGRESS').length;
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*'
+    });
     return res.end(JSON.stringify({ activeCount, sessions }));
+  }
+
+  // -------------------------------------------------------------
+  // POST /api/proctor_frame - Ingest candidate webcam snapshot
+  // -------------------------------------------------------------
+  if (req.method === 'POST' && pathname === '/api/proctor_frame') {
+    const data = await parseBody(req);
+    const sessionId = data.session_id;
+
+    if (sessionId) {
+      const existing = proctorLiveSessions.get(sessionId) || {};
+      const currentWarning = existing.warning || null;
+
+      proctorLiveSessions.set(sessionId, {
+        sessionId: sessionId,
+        studentName: data.student_name || existing.studentName || 'Student',
+        matricNo: data.matric_no || existing.matricNo || 'Unknown',
+        courseCode: data.course_code || existing.courseCode || 'EXAM',
+        tabSwitches: typeof data.tab_switches !== 'undefined' ? Number(data.tab_switches) : (existing.tabSwitches || 0),
+        frame: data.frame || existing.frame || null,
+        updatedAt: Date.now(),
+        warning: currentWarning ? null : existing.warning // Clear on delivery
+      });
+
+      // Also persist to cloud DB asynchronously
+      if (data.frame) {
+        tursoExecute('UPDATE exam_sessions SET latest_frame = ?, tab_switches = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;', [
+          data.frame,
+          Number(data.tab_switches || 0),
+          sessionId
+        ]).catch(() => {});
+      }
+
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      });
+      return res.end(JSON.stringify({ success: true, warning: currentWarning }));
+    }
+
+    res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify({ error: 'Missing session_id' }));
+  }
+
+  // -------------------------------------------------------------
+  // POST /api/send_warning - Send real-time proctor warning to student
+  // -------------------------------------------------------------
+  if (req.method === 'POST' && pathname === '/api/send_warning') {
+    const data = await parseBody(req);
+    const sessionId = data.session_id;
+    const warningMsg = (data.warning_message || data.warning || '').trim();
+
+    if (sessionId && warningMsg) {
+      const existing = proctorLiveSessions.get(sessionId) || {};
+      existing.warning = warningMsg;
+      existing.updatedAt = Date.now();
+      proctorLiveSessions.set(sessionId, existing);
+
+      await tursoExecute('UPDATE exam_sessions SET proctor_warning = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;', [warningMsg, sessionId]);
+
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      });
+      return res.end(JSON.stringify({ success: true, message: 'Warning dispatched successfully' }));
+    }
+
+    res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify({ error: 'Missing session_id or warning message' }));
   }
 
   // -------------------------------------------------------------
@@ -511,6 +638,7 @@ const server = http.createServer(async (req, res) => {
       const sessionId = data.session_id;
       const matricNo = data.matric_no;
       if (sessionId) {
+        proctorLiveSessions.delete(sessionId);
         await tursoExecute('DELETE FROM exam_sessions WHERE id = ?;', [sessionId]);
       }
       if (matricNo) {
@@ -524,13 +652,37 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/action/invalidate_session') {
       const sessionId = data.session_id;
       if (sessionId) {
+        if (proctorLiveSessions.has(sessionId)) {
+          const s = proctorLiveSessions.get(sessionId);
+          s.status = 'TERMINATED_FOR_CHEATING';
+        }
         await tursoExecute("UPDATE exam_sessions SET status = 'TERMINATED_FOR_CHEATING', updated_at = CURRENT_TIMESTAMP WHERE id = ?;", [sessionId]);
       }
       res.writeHead(302, { Location: '/?tab=home&alert=' + encodeURIComponent('Candidate test terminated for cheating violation.') });
       return res.end();
     }
 
-    // 15. Save Global Settings
+    // 15. Send Proctor Warning via Form POST
+    if (pathname === '/action/send_proctor_warning') {
+      const sessionId = data.session_id;
+      const warningMsg = (data.warning_message || data.warning || '').trim();
+
+      if (sessionId && warningMsg) {
+        const existing = proctorLiveSessions.get(sessionId) || {};
+        existing.warning = warningMsg;
+        existing.updatedAt = Date.now();
+        proctorLiveSessions.set(sessionId, existing);
+
+        await tursoExecute('UPDATE exam_sessions SET proctor_warning = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;', [warningMsg, sessionId]);
+        res.writeHead(302, { Location: '/?tab=home&alert=' + encodeURIComponent('Proctor warning sent directly to candidate screen.') });
+        return res.end();
+      }
+
+      res.writeHead(302, { Location: '/?tab=home&alert=Missing+warning+message&alert_type=error' });
+      return res.end();
+    }
+
+    // 16. Save Global Settings
     if (pathname === '/action/save_settings') {
       const enforceFullscreen = data.enforce_fullscreen || '1';
       const antiCheatBlur = data.anti_cheat_blur || '1';
@@ -553,7 +705,7 @@ const server = http.createServer(async (req, res) => {
   res.end('404 Not Found');
 });
 
-server.listen(PORT, '127.0.0.1', () => {
+server.listen(PORT, () => {
   console.log(`======================================================================`);
   console.log(`  APEX PREMED ADMIN COMMAND CENTER (100% PURE TURSO CLOUD DB)`);
   console.log(`======================================================================`);

@@ -243,6 +243,103 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
     })}
   </main>
 
+  <!-- ================= MODAL: LIVE PROCTOR WARNING DISPATCHER ================= -->
+  <div id="proctorWarningModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <i data-lucide="bell-ring" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-black text-slate-900 dark:text-white">Dispatch Proctor Notice</h3>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400" id="warnModalTargetName">Candidate</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeWarningModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg font-bold leading-none cursor-pointer">&times;</button>
+      </div>
+
+      <div class="space-y-2">
+        <p class="text-xs font-bold text-slate-700 dark:text-slate-300">Quick Incident Presets:</p>
+        <div class="flex flex-wrap gap-1.5">
+          <button type="button" onclick="setWarningPreset('⚠️ Face Camera: Please face your webcam directly and maintain focus on your screen.')" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-medium transition-colors cursor-pointer">
+            Face Camera
+          </button>
+          <button type="button" onclick="setWarningPreset('⚠️ Unauthorized Persons: Multiple individuals detected in examination area.')" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-medium transition-colors cursor-pointer">
+            Multiple Persons
+          </button>
+          <button type="button" onclick="setWarningPreset('⚠️ Tab Switching: Do not switch browser tabs or leave the test interface.')" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-medium transition-colors cursor-pointer">
+            Tab Switching
+          </button>
+          <button type="button" onclick="setWarningPreset('⚠️ Audio Prohibited: Speaking or communicating during examination is not allowed.')" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-medium transition-colors cursor-pointer">
+            Speaking
+          </button>
+          <button type="button" onclick="setWarningPreset('⚠️ Unauthorized Device: Remove all phones and external devices immediately.')" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-medium transition-colors cursor-pointer">
+            Phone / Device
+          </button>
+        </div>
+      </div>
+
+      <form id="warnModalForm" onsubmit="submitWarningForm(event)" class="space-y-3">
+        <input type="hidden" name="session_id" id="warnSessionId" value="">
+        <div class="space-y-1">
+          <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Warning Message to Student:</label>
+          <textarea id="warnMessageInput" name="warning_message" rows="3" required class="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Enter warning text that will pop up on the candidate's screen..."></textarea>
+        </div>
+        <div id="warnModalStatus" class="hidden text-xs font-bold text-emerald-600 dark:text-emerald-400"></div>
+        <div class="flex items-center justify-end gap-2 pt-1">
+          <button type="button" onclick="closeWarningModal()" class="px-3 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+            Cancel
+          </button>
+          <button type="submit" id="warnSubmitBtn" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            <span>Send Warning Now</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: ENLARGE LIVE CAMERA STREAM ================= -->
+  <div id="proctorEnlargeModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full p-5 space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+            <i data-lucide="maximize" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-black text-slate-900 dark:text-white" id="enlargeCandidateTitle">Candidate Stream</h3>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400" id="enlargeCandidateSub">Live Feed</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeEnlargeModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg font-bold leading-none cursor-pointer">&times;</button>
+      </div>
+
+      <!-- High-Res Video Viewport -->
+      <div class="relative aspect-[4/3] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
+        <img id="enlargeVideoFeed" src="" alt="Enlarged Live Feed" class="w-full h-full object-cover">
+        <div class="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-black uppercase bg-rose-600 text-white flex items-center gap-1.5 shadow-md">
+          <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+          LIVE 1.2S STREAM
+        </div>
+        <div class="absolute bottom-3 right-3 px-3 py-1 rounded-lg text-xs font-bold bg-black/80 text-white backdrop-blur-xs border border-white/10" id="enlargeTabSwitches">
+          0 tab switches
+        </div>
+      </div>
+
+      <!-- Action Footer -->
+      <div class="flex items-center justify-between pt-2">
+        <button type="button" onclick="triggerWarningFromEnlarge()" class="px-3.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-950 hover:bg-amber-100 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold flex items-center gap-1.5 cursor-pointer">
+          <i data-lucide="bell-ring" class="w-4 h-4"></i> Issue Warning
+        </button>
+        <button type="button" onclick="closeEnlargeModal()" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer">
+          Close Full View
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= FOOTER ================= -->
   <footer class="mt-auto py-5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 text-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -261,19 +358,170 @@ function renderHtml(tab = 'home', alert = null, alertType = 'success', editCours
   <script>
     if (window.lucide) lucide.createIcons();
 
-    // Auto-refresh Live Radar table every 10 seconds if on home tab
-    ${activeTab === 'home' ? `
-      setInterval(() => {
-        fetch('/api/live_sessions')
-          .then(r => r.json())
-          .then(data => {
-            if (data && data.sessions) {
-              const countEl = document.getElementById('liveRadarCounter');
-              if (countEl) countEl.innerText = data.activeCount;
+    // -------------------------------------------------------------
+    // LIVE PROCTORING STREAM & TELEMETRY CONTROLS
+    // -------------------------------------------------------------
+    let currentWarningSessionId = null;
+    let currentEnlargeSession = null;
+
+    function openWarningModal(sessionId, name, matric) {
+      currentWarningSessionId = sessionId;
+      const idEl = document.getElementById('warnSessionId');
+      const nameEl = document.getElementById('warnModalTargetName');
+      const inputEl = document.getElementById('warnMessageInput');
+      const statusEl = document.getElementById('warnModalStatus');
+
+      if (idEl) idEl.value = sessionId;
+      if (nameEl) nameEl.innerText = name + ' (' + matric + ')';
+      if (inputEl) inputEl.value = '⚠️ Examination Notice: Please face your webcam directly and maintain focus on your screen.';
+      if (statusEl) statusEl.classList.add('hidden');
+
+      const modal = document.getElementById('proctorWarningModal');
+      if (modal) modal.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeWarningModal() {
+      const modal = document.getElementById('proctorWarningModal');
+      if (modal) modal.classList.add('hidden');
+      currentWarningSessionId = null;
+    }
+
+    function setWarningPreset(txt) {
+      const inputEl = document.getElementById('warnMessageInput');
+      if (inputEl) inputEl.value = txt;
+    }
+
+    function submitWarningForm(e) {
+      e.preventDefault();
+      const sessionId = document.getElementById('warnSessionId')?.value;
+      const msg = document.getElementById('warnMessageInput')?.value;
+      const btn = document.getElementById('warnSubmitBtn');
+      const statusEl = document.getElementById('warnModalStatus');
+
+      if (!sessionId || !msg) return;
+
+      if (btn) {
+        btn.disabled = true;
+        btn.innerText = 'Dispatching...';
+      }
+
+      fetch('/api/send_warning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, warning_message: msg })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Sent!';
+        }
+        if (statusEl) {
+          statusEl.innerText = 'Warning dispatched directly to candidate screen!';
+          statusEl.classList.remove('hidden');
+        }
+        setTimeout(() => {
+          closeWarningModal();
+          if (btn) {
+            btn.innerHTML = '<i data-lucide="send" class="w-3.5 h-3.5"></i> Send Warning Now';
+          }
+          if (window.lucide) lucide.createIcons();
+        }, 1200);
+      })
+      .catch(() => {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = 'Send Warning Now';
+        }
+        alert('Failed to dispatch warning. Please try again.');
+      });
+    }
+
+    function openEnlargeModal(sessionId, name, matric, course) {
+      currentEnlargeSession = { sessionId, name, matric, course };
+      const titleEl = document.getElementById('enlargeCandidateTitle');
+      const subEl = document.getElementById('enlargeCandidateSub');
+      const vidEl = document.getElementById('enlargeVideoFeed');
+      const swEl = document.getElementById('enlargeTabSwitches');
+
+      if (titleEl) titleEl.innerText = name + ' (' + matric + ')';
+      if (subEl) subEl.innerText = course + ' • Real-Time CCTV Feed';
+
+      const currentImg = document.getElementById('proctor-img-' + sessionId);
+      if (vidEl && currentImg && currentImg.src) {
+        vidEl.src = currentImg.src;
+      }
+      const badge = document.getElementById('proctor-switch-badge-' + sessionId);
+      if (swEl && badge) {
+        swEl.innerText = badge.innerText;
+      }
+
+      const modal = document.getElementById('proctorEnlargeModal');
+      if (modal) modal.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeEnlargeModal() {
+      const modal = document.getElementById('proctorEnlargeModal');
+      if (modal) modal.classList.add('hidden');
+      currentEnlargeSession = null;
+    }
+
+    function triggerWarningFromEnlarge() {
+      if (currentEnlargeSession) {
+        const s = currentEnlargeSession;
+        closeEnlargeModal();
+        openWarningModal(s.sessionId, s.name, s.matric);
+      }
+    }
+
+    // Real-Time 1.2s Proctor Video & Telemetry Poller
+    function pollProctorStreams(isManual = false) {
+      fetch('/api/live_sessions')
+        .then(r => r.json())
+        .then(data => {
+          if (!data) return;
+          const countEl = document.getElementById('liveRadarCounter');
+          if (countEl) countEl.innerText = data.activeCount;
+          const feedCount = document.getElementById('proctorFeedsCount');
+          if (feedCount) feedCount.innerText = data.activeCount;
+
+          const sessions = data.sessions || [];
+          const active = sessions.filter(s => s.status === 'IN_PROGRESS');
+
+          active.forEach(s => {
+            const img = document.getElementById('proctor-img-' + s.id);
+            const placeholder = document.getElementById('proctor-placeholder-' + s.id);
+            const switchBadge = document.getElementById('proctor-switch-badge-' + s.id);
+
+            if (img && s.latest_frame) {
+              img.src = s.latest_frame;
+              img.classList.remove('hidden');
+              if (placeholder) placeholder.classList.add('hidden');
             }
-          })
-          .catch(() => {});
-      }, 10000);
+
+            if (switchBadge) {
+              const switches = s.tab_switches || 0;
+              switchBadge.innerText = switches > 0 ? ('⚠️ ' + switches + ' Switches') : '🛡️ 0 Clean';
+              switchBadge.className = switches > 0 
+                ? 'px-2 py-0.5 rounded text-[10px] font-bold shadow-xs bg-amber-600 text-white' 
+                : 'px-2 py-0.5 rounded text-[10px] font-bold shadow-xs bg-emerald-600/90 text-white';
+            }
+
+            if (currentEnlargeSession && currentEnlargeSession.sessionId === s.id) {
+              const enlImg = document.getElementById('enlargeVideoFeed');
+              if (enlImg && s.latest_frame) enlImg.src = s.latest_frame;
+              const enlBadge = document.getElementById('enlargeTabSwitches');
+              if (enlBadge) enlBadge.innerText = (s.tab_switches || 0) + ' tab switches';
+            }
+          });
+        })
+        .catch(() => {});
+    }
+
+    ${activeTab === 'home' ? `
+      setInterval(pollProctorStreams, 1200);
     ` : ''}
 
     // Dynamic Course Topic Filter for Test Creator
@@ -380,6 +628,133 @@ function renderRadarTab(ctx) {
       <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
         <i data-lucide="award" class="w-6 h-6"></i>
       </div>
+    </div>
+  </div>
+
+  <!-- ================= LIVE CCTV VIDEO PROCTORING WALL ================= -->
+  <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+    <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-rose-500/5 via-transparent to-transparent">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 border border-rose-200 dark:border-rose-900">
+          <i data-lucide="video" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-base font-black text-slate-900 dark:text-white">Live Video Proctoring Station</h2>
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
+              <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+              Live CCTV Stream &bull; 1.2s Poll
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Real-time candidate webcams, automated eye-contact focus, and direct proctor warnings.</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-mono font-bold text-slate-500 dark:text-slate-400">
+          <span id="proctorFeedsCount" class="text-rose-600 dark:text-rose-400 font-extrabold">${activeSessions.length}</span> Active Stream(s)
+        </span>
+        <button type="button" onclick="pollProctorStreams(true)" class="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs font-bold transition-colors flex items-center gap-1.5" title="Force Refresh Feeds">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          <span>Poll Streams</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="p-4 sm:p-5">
+      ${activeSessions.length === 0 ? `
+        <div class="p-8 text-center bg-slate-900 rounded-2xl border border-slate-800 text-slate-300 space-y-3">
+          <div class="w-12 h-12 rounded-2xl bg-slate-800 text-rose-400 mx-auto flex items-center justify-center">
+            <i data-lucide="video-off" class="w-6 h-6"></i>
+          </div>
+          <div class="space-y-1">
+            <h4 class="text-sm font-bold text-white">Live Proctoring Feeds Standby</h4>
+            <p class="text-xs text-slate-400 max-w-md mx-auto">
+              Camera feeds will automatically stream here when candidates start their exams. Snapshots are captured and updated every 1.2 seconds.
+            </p>
+          </div>
+        </div>
+      ` : `
+        <div id="proctorVideoWallGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          ${activeSessions.map(s => `
+            <div id="proctor-card-${escapeHtml(s.id)}" class="bg-slate-50 dark:bg-slate-950/70 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs flex flex-col transition-all hover:border-brand-500/50">
+              
+              <!-- Video Screen Area -->
+              <div class="relative aspect-[4/3] bg-slate-950 flex items-center justify-center overflow-hidden group">
+                <img id="proctor-img-${escapeHtml(s.id)}" src="${escapeHtml(s.latest_frame || '')}" alt="Live Camera" class="w-full h-full object-cover transition-opacity duration-150 ${s.latest_frame ? '' : 'hidden'}">
+                
+                <div id="proctor-placeholder-${escapeHtml(s.id)}" class="flex flex-col items-center justify-center p-4 text-center space-y-2 ${s.latest_frame ? 'hidden' : ''}">
+                  <div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 animate-pulse">
+                    <i data-lucide="camera" class="w-5 h-5"></i>
+                  </div>
+                  <p class="text-[11px] font-mono text-slate-400">Connecting candidate camera...</p>
+                </div>
+
+                <!-- Top Video Badges -->
+                <div class="absolute top-2.5 inset-x-2.5 flex items-center justify-between pointer-events-none">
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-600 text-white flex items-center gap-1 shadow-md">
+                    <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                    LIVE
+                  </span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-black/75 text-white backdrop-blur-xs border border-white/10">
+                    ${escapeHtml(s.course_code || 'EXAM')}
+                  </span>
+                </div>
+
+                <!-- Bottom Video Badges -->
+                <div class="absolute bottom-2.5 inset-x-2.5 flex items-center justify-between pointer-events-none">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-black/75 text-slate-200 backdrop-blur-xs border border-white/10 truncate max-w-[120px]">
+                    ${escapeHtml(s.matric_no)}
+                  </span>
+                  <span id="proctor-switch-badge-${escapeHtml(s.id)}" class="px-2 py-0.5 rounded text-[10px] font-bold shadow-xs ${(s.tab_switches || 0) > 0 ? 'bg-amber-600 text-white' : 'bg-emerald-600/90 text-white'}">
+                    ${(s.tab_switches || 0) > 0 ? '⚠️ ' + s.tab_switches + ' Switches' : '🛡️ 0 Clean'}
+                  </span>
+                </div>
+
+                <!-- Hover Enlarge Action Overlay -->
+                <button type="button" onclick="openEnlargeModal('${escapeHtml(s.id)}', '${escapeHtml(s.student_name || 'Candidate')}', '${escapeHtml(s.matric_no)}', '${escapeHtml(s.course_code || 'EXAM')}')" class="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white font-bold text-xs gap-1.5 transition-opacity backdrop-blur-xs cursor-pointer">
+                  <i data-lucide="maximize-2" class="w-4 h-4"></i> Enlarge Camera
+                </button>
+              </div>
+
+              <!-- Candidate Info & Control Footer -->
+              <div class="p-3.5 space-y-2.5 flex-1 flex flex-col justify-between">
+                <div>
+                  <h4 class="text-xs font-black text-slate-900 dark:text-white truncate">${escapeHtml(s.student_name || 'Candidate')}</h4>
+                  <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    <span class="font-mono">${escapeHtml(s.matric_no)}</span>
+                    <span class="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">Stream OK</span>
+                  </div>
+                </div>
+
+                <!-- Action Controls -->
+                <div class="flex items-center gap-1.5 pt-1 border-t border-slate-200/80 dark:border-slate-800/80">
+                  <button type="button" onclick="openWarningModal('${escapeHtml(s.id)}', '${escapeHtml(s.student_name || 'Candidate')}', '${escapeHtml(s.matric_no)}')" class="flex-1 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold flex items-center justify-center gap-1 transition-colors">
+                    <i data-lucide="bell-ring" class="w-3.5 h-3.5"></i>
+                    <span>Warn</span>
+                  </button>
+
+                  <form method="POST" action="/action/invalidate_session" class="inline" onsubmit="return confirm('Immediately terminate test for candidate ${escapeHtml(s.student_name)} for cheating?');">
+                    <input type="hidden" name="session_id" value="${escapeHtml(s.id)}">
+                    <button type="submit" title="Terminate test for cheating" class="p-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-bold transition-colors">
+                      <i data-lucide="shield-x" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </form>
+
+                  <form method="POST" action="/action/allow_retake" class="inline" onsubmit="return confirm('Allow retake and reset test session for ${escapeHtml(s.student_name)}?');">
+                    <input type="hidden" name="session_id" value="${escapeHtml(s.id)}">
+                    <input type="hidden" name="matric_no" value="${escapeHtml(s.matric_no)}">
+                    <button type="submit" title="Allow candidate retake" class="p-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold transition-colors">
+                      <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </form>
+                </div>
+
+              </div>
+
+            </div>
+          `).join('')}
+        </div>
+      `}
     </div>
   </div>
 
