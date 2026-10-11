@@ -159,150 +159,216 @@ try {
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<div class="max-w-5xl mx-auto px-3 sm:px-4 py-4 space-y-3.5" id="examApp">
-
-    <!-- 1. Test Header & Timer -->
-    <div class="bg-slate-900 text-white rounded-2xl p-3 sm:p-3.5 border border-slate-800 shadow-md flex flex-wrap items-center justify-between gap-3 sticky top-14 z-30">
-        <!-- Left: Course Code & Question Tracking -->
-        <div class="flex items-center gap-2.5 min-w-0">
-            <span class="text-xs font-black uppercase text-teal-300 bg-teal-950/80 px-2 py-0.5 rounded border border-teal-800 font-mono shrink-0">
-                <?= htmlspecialchars($course['code']) ?>
-            </span>
-            <span class="text-xs font-bold text-slate-200 truncate hidden sm:inline max-w-[170px]">
-                <?= htmlspecialchars($course['title']) ?>
-            </span>
-            <span class="text-xs text-slate-500 font-semibold">&bull;</span>
-            <span class="text-xs font-extrabold text-teal-400 bg-slate-800 px-2.5 py-0.5 rounded-lg font-mono" id="progressIndicator">
-                Question 1 of <?= $totalQuestions ?>
-            </span>
+<!-- Authentic University / Council Institutional Header Banner -->
+<div class="bg-[#103a71] text-white rounded-2xl shadow-md border border-[#0d2e5a] p-3 sm:p-4 mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+        
+        <!-- Left: Institution Crest & Title -->
+        <div class="flex items-center gap-3">
+            <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white shrink-0 shadow-inner">
+                <svg class="w-6 h-6 sm:w-7 sm:h-7 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                    <path d="M2 17l10 5 10-5"></path>
+                    <path d="M2 12l10 5 10-5"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xs sm:text-base font-black tracking-tight uppercase text-white leading-tight">
+                    Apex Pre-Medical Sciences Examination Council
+                </h1>
+                <p class="text-[10px] sm:text-[11px] font-bold text-sky-200 tracking-wider uppercase mt-0.5">
+                    Online CBT Examination Portal &bull; <span class="text-amber-300"><?= htmlspecialchars($course['code']) ?> - <?= htmlspecialchars($course['title']) ?></span>
+                </p>
+            </div>
         </div>
 
-        <!-- Center: Countdown Clock Pill -->
-        <div id="timerContainer" class="px-3.5 py-1.5 rounded-xl bg-slate-950 text-white font-mono font-bold text-xs flex items-center gap-2 border border-slate-800 shadow-inner">
-            <i data-lucide="timer" class="w-3.5 h-3.5 text-teal-400"></i>
-            <span id="timerDisplay">--:--</span>
+        <!-- Right: Candidate Camera & Details -->
+        <div class="flex items-center gap-3 sm:gap-4 shrink-0">
+            <!-- Live Camera / Proctor Box -->
+            <div class="relative w-20 h-16 sm:w-24 sm:h-18 rounded-lg overflow-hidden bg-slate-950 border border-white/30 shadow-inner flex items-center justify-center">
+                <video id="liveWebcam" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
+                <div id="webcamPlaceholder" class="flex flex-col items-center justify-center text-slate-400">
+                    <i data-lucide="user" class="w-6 h-6 text-slate-300"></i>
+                </div>
+                <div class="absolute bottom-1 left-1 right-1 bg-black/75 backdrop-blur-xs rounded px-1 py-0.2 flex items-center justify-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+                    <span class="text-[8px] font-black tracking-wider uppercase text-white font-mono">Live Camera</span>
+                </div>
+            </div>
+
+            <!-- Candidate Info -->
+            <div class="text-xs space-y-0.5">
+                <div class="font-extrabold text-white text-[12px] sm:text-[13px] leading-tight truncate max-w-[170px]">
+                    Name: <span class="text-amber-200"><?= strtoupper(htmlspecialchars($student['name'])) ?></span>
+                </div>
+                <div class="font-mono text-[11px] text-sky-200 font-semibold">
+                    Matric No: <span class="text-white"><?= htmlspecialchars($student['matric_no']) ?></span>
+                </div>
+                <div class="pt-0.5">
+                    <button type="button" onclick="toggleHelpModal()" class="px-2.5 py-0.5 rounded-md bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-400/30 font-bold text-[10px] transition-colors">
+                        Need Help?
+                    </button>
+                </div>
+            </div>
+
         </div>
 
-        <!-- Right: Tools & Submit -->
-        <div class="flex items-center gap-1.5">
-            <button type="button" onclick="speakCurrentQuestion()" title="Read question out loud" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors">
-                <i data-lucide="volume-2" class="w-4 h-4"></i>
-            </button>
-            <?php if ($calculatorAllowed): ?>
-            <button type="button" onclick="toggleCalculator()" title="Calculator" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors">
-                <i data-lucide="calculator" class="w-4 h-4"></i>
-            </button>
-            <?php endif; ?>
-            <button type="button" onclick="toggleFontSize()" title="Text size" class="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:text-teal-300 hover:bg-slate-750 transition-colors font-bold text-xs">
-                A<span class="text-[10px]">±</span>
-            </button>
-            <button type="button" onclick="confirmSubmit()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-xs transition-colors flex items-center gap-1.5 ml-1">
-                <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
-                <span>Submit Test</span>
-            </button>
+    </div>
+</div>
+
+<!-- Main Two-Column CBT Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start" id="examApp">
+
+    <!-- LEFT COLUMN: Question Navigation Grid (4 cols on lg) -->
+    <div class="lg:col-span-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3.5 sticky top-20">
+        
+        <!-- Navigation Grid Header -->
+        <div class="border-b border-slate-100 pb-2.5">
+            <h3 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="layout-grid" class="w-4 h-4 text-[#103a71]"></i>
+                <span>Question Navigation Grid</span>
+            </h3>
         </div>
+
+        <!-- Legend -->
+        <div class="flex items-center justify-between text-[11px] font-semibold text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
+            <div class="flex items-center gap-1.5">
+                <span class="w-3.5 h-3.5 rounded bg-[#22c55e] inline-block shadow-xs"></span>
+                <span>Answered</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <span class="w-3.5 h-3.5 rounded bg-slate-200 border border-slate-300 inline-block"></span>
+                <span>Unanswered</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <span class="w-3.5 h-3.5 rounded bg-amber-400 inline-block shadow-xs"></span>
+                <span>Bookmarked</span>
+            </div>
+        </div>
+
+        <!-- 5-Column Grid Numbers Container -->
+        <div class="grid grid-cols-5 gap-1.5 max-h-[380px] overflow-y-auto pr-1" id="paletteGrid">
+            <!-- Numbers inserted by JS -->
+        </div>
+
+        <!-- Summary Counter Footer -->
+        <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-mono text-slate-500 font-bold">
+            <span>Answered: <strong id="answeredCount" class="text-emerald-600">0</strong>/<?= $totalQuestions ?></span>
+            <span>Flagged: <strong id="flaggedBadge" class="text-amber-500">0</strong></span>
+            <span>Remaining: <strong id="remainingBadge" class="text-slate-600"><?= $totalQuestions ?></strong></span>
+        </div>
+
     </div>
 
-    <!-- 2. Test Workspace -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-
-        <!-- LEFT STAGE: Question & Choices (8 cols on lg) -->
-        <div class="lg:col-span-8 space-y-3">
-            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col justify-between min-h-[460px]">
-                <div>
-                    <!-- Question Header & Flag Button -->
-                    <div class="flex justify-between items-center pb-3 mb-3 border-b border-slate-100">
-                        <span class="text-xs font-black uppercase tracking-wider text-teal-700 font-mono" id="questionHeaderNumber">
-                            Question 1 of <?= $totalQuestions ?>
-                        </span>
-                        <div class="flex items-center gap-3">
-                            <button type="button" onclick="clearCurrentSelection()" class="text-[11px] font-semibold text-slate-400 hover:text-rose-600 transition-colors">
-                                Clear Choice
-                            </button>
-                            <button type="button" onclick="toggleFlag()" id="flagBtn" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-amber-500 transition-colors">
-                                <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
-                                <span id="flagLabel">Flag for Review</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Question Stem -->
-                    <div id="questionStem" class="text-sm sm:text-base font-medium text-slate-900 leading-relaxed mb-4 select-none">
-                        <!-- Stem inserted by JS -->
-                    </div>
-
-                    <!-- Diagram (if present) -->
-                    <div id="diagramContainer" class="mb-4 hidden text-center">
-                        <img id="questionDiagram" src="" alt="Question diagram" class="max-h-52 rounded-xl mx-auto border border-slate-200 shadow-xs cursor-zoom-in" onclick="zoomDiagram(this.src)">
-                    </div>
-
-                    <!-- Response Choices (A, B, C, D) -->
-                    <div class="space-y-2 select-none" id="optionsContainer">
-                        <!-- Options generated by JS -->
+    <!-- RIGHT COLUMN: Question & Testing Stage (8 cols on lg) -->
+    <div class="lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-5 flex flex-col justify-between min-h-[520px]">
+        
+        <div>
+            <!-- Top Bar above Question: Tools, Time Remaining & Submit Button -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                
+                <!-- Left: Question Progress & Tools -->
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-black text-slate-800 font-mono" id="questionHeaderNumber">
+                        Question 1 of <?= $totalQuestions ?>
+                    </span>
+                    <div class="flex items-center gap-1 ml-2">
+                        <button type="button" onclick="speakCurrentQuestion()" title="Read out loud" class="p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100">
+                            <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <?php if ($calculatorAllowed): ?>
+                        <button type="button" onclick="toggleCalculator()" title="Calculator" class="p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100">
+                            <i data-lucide="calculator" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <?php endif; ?>
+                        <button type="button" onclick="toggleFontSize()" title="Text size" class="p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 font-bold text-xs">
+                            A<span class="text-[10px]">±</span>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Bottom Navigation Buttons -->
-                <div class="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
-                    <button type="button" id="prevBtn" onclick="prevQuestion()" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                        <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
-                        <span>Previous</span>
-                    </button>
+                <!-- Right: Digital Timer & Red Submit Exam Button -->
+                <div class="flex items-center gap-3">
+                    <!-- Digital Red Timer -->
+                    <div class="flex items-center gap-1.5 text-xs font-black uppercase text-slate-600" id="timerContainer">
+                        <span class="text-slate-500 font-bold text-[11px] hidden sm:inline">TIME REMAINING:</span>
+                        <span id="timerDisplay" class="font-mono text-base sm:text-lg font-black text-[#dc2626]">--:--</span>
+                    </div>
 
-                    <span class="text-[11px] text-slate-400 font-mono hidden sm:inline">Keys: [A-D] or [1-4] &bull; Arrows</span>
-
-                    <button type="button" id="nextBtn" onclick="nextQuestion()" class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-colors">
-                        <span>Next</span>
-                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                    <!-- Prominent Red Submit Exam Button -->
+                    <button type="button" onclick="confirmSubmit()" class="px-4 py-2 rounded-lg bg-[#dc2626] hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-sm transition-colors flex items-center gap-1.5">
+                        <span>SUBMIT EXAM</span>
                     </button>
+                </div>
+
+            </div>
+
+            <!-- Question Stem -->
+            <div class="py-4">
+                <div id="questionStem" class="text-sm sm:text-base font-medium text-slate-900 leading-relaxed select-none mb-4">
+                    <!-- Stem inserted by JS -->
+                </div>
+
+                <!-- Diagram (if present) -->
+                <div id="diagramContainer" class="mb-4 hidden text-center">
+                    <img id="questionDiagram" src="" alt="Question diagram" class="max-h-56 rounded-xl mx-auto border border-slate-200 shadow-xs cursor-zoom-in" onclick="zoomDiagram(this.src)">
+                </div>
+
+                <!-- Response Choices (Radio CBT Style) -->
+                <div class="space-y-2.5 select-none pt-2" id="optionsContainer">
+                    <!-- Options generated by JS -->
                 </div>
             </div>
         </div>
 
-        <!-- RIGHT STAGE: Question List Palette (4 cols on lg) -->
-        <div class="lg:col-span-4">
-            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3.5 sticky top-28">
-                <!-- Palette Header & Progress -->
-                <div class="flex items-center justify-between pb-2.5 border-b border-slate-100">
-                    <span class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                        <i data-lucide="grid" class="w-3.5 h-3.5 text-teal-600"></i>
-                        <span>Question List</span>
-                    </span>
-                    <span class="text-[11px] font-mono text-slate-500 font-bold" id="statsPill">
-                        <span id="answeredCount" class="text-teal-600">0</span>/<?= $totalQuestions ?> Answered
-                    </span>
-                </div>
+        <!-- Bottom Navigation Action Bar -->
+        <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <button type="button" id="prevBtn" onclick="prevQuestion()" class="px-4 py-2 rounded-lg bg-[#103a71] hover:bg-[#0d2e5a] text-white font-bold text-xs uppercase flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                    <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+                    <span>PREVIOUS</span>
+                </button>
+                <button type="button" id="nextBtn" onclick="nextQuestion()" class="px-4 py-2 rounded-lg bg-[#103a71] hover:bg-[#0d2e5a] text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-all">
+                    <span>NEXT</span>
+                    <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                </button>
+            </div>
 
-                <!-- Status Badges -->
-                <div class="grid grid-cols-3 gap-1.5 text-center text-[10px] font-semibold">
-                    <div class="p-1.5 rounded-lg bg-teal-50 text-teal-800 border border-teal-100">
-                        <span class="block font-black text-xs font-mono" id="answeredBadge">0</span> Answered
-                    </div>
-                    <div class="p-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-100">
-                        <span class="block font-black text-xs font-mono" id="flaggedBadge">0</span> Flagged
-                    </div>
-                    <div class="p-1.5 rounded-lg bg-slate-50 text-slate-600 border border-slate-200">
-                        <span class="block font-black text-xs font-mono" id="remainingBadge"><?= $totalQuestions ?></span> Left
-                    </div>
-                </div>
-
-                <!-- Numerical Item Matrix -->
-                <div class="grid grid-cols-5 gap-1.5 max-h-[290px] overflow-y-auto pr-0.5" id="paletteGrid">
-                    <!-- Numbers inserted by JS -->
-                </div>
-
-                <!-- Submit CTA -->
-                <button type="button" onclick="confirmSubmit()" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5">
-                    <i data-lucide="send" class="w-3.5 h-3.5"></i>
-                    <span>Submit Test</span>
+            <div class="flex items-center gap-3">
+                <button type="button" onclick="clearCurrentSelection()" class="text-xs font-semibold text-slate-400 hover:text-rose-600 transition-colors">
+                    Clear Choice
+                </button>
+                <button type="button" onclick="toggleFlag()" id="flagBtn" class="px-3.5 py-2 rounded-lg bg-slate-500 hover:bg-slate-600 text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-colors">
+                    <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
+                    <span id="flagLabel">MARK FOR REVIEW</span>
                 </button>
             </div>
         </div>
 
     </div>
 
-    </div>
+</div>
 
+<!-- "Need Help?" Modal -->
+<div id="helpModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+        <div class="flex items-center justify-between border-b pb-3">
+            <h3 class="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="help-circle" class="w-4 h-4 text-[#103a71]"></i>
+                <span>Examination Instructions &amp; Help</span>
+            </h3>
+            <button type="button" onclick="toggleHelpModal()" class="text-slate-400 hover:text-slate-800 text-lg">&times;</button>
+        </div>
+        <div class="text-xs text-slate-600 space-y-2.5 leading-relaxed">
+            <p><strong>1. Navigation:</strong> Use the <em>Question Navigation Grid</em> on the left or the <em>Previous / Next</em> buttons below to move across items.</p>
+            <p><strong>2. Color Codes:</strong> <span class="text-emerald-600 font-bold">Green</span> indicates answered questions, <span class="text-blue-600 font-bold">Blue</span> shows your active item, and <span class="text-amber-500 font-bold">Yellow</span> marks questions flagged for review.</p>
+            <p><strong>3. Keyboard Shortcuts:</strong> Press <code>A</code>, <code>B</code>, <code>C</code>, <code>D</code> to select answers; use <code>Left/Right Arrow keys</code> to browse items, and <code>F</code> to mark for review.</p>
+            <p><strong>4. Anti-Cheating Notice:</strong> Do not leave or switch browser tabs. Switching tabs or exiting fullscreen triggers proctor warning alerts and may submit your exam.</p>
+        </div>
+        <button type="button" onclick="toggleHelpModal()" class="w-full py-2.5 rounded-xl bg-[#103a71] text-white font-bold text-xs">
+            Return to Examination
+        </button>
+    </div>
 </div>
 
 <!-- Diagram Zoom Modal -->
@@ -462,7 +528,7 @@ function renderCurrentQuestion() {
         diagContainer.classList.add('hidden');
     }
 
-    // Render Options
+    // Render Options (CBT Radio Style)
     const optContainer = document.getElementById('optionsContainer');
     optContainer.innerHTML = '';
 
@@ -474,20 +540,21 @@ function renderCurrentQuestion() {
         const isSelected = (currentPick === opt);
 
         const btn = document.createElement('div');
-        btn.className = `p-3 sm:p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 select-none ${
+        btn.className = `p-3 sm:p-3.5 rounded-xl border cursor-pointer transition-all flex items-center gap-3 select-none ${
             isSelected 
-            ? 'border-teal-600 bg-teal-50/80 text-teal-950 font-semibold ring-2 ring-teal-500/20' 
+            ? 'border-blue-600 bg-blue-50/80 text-blue-950 font-semibold ring-2 ring-blue-500/20 shadow-xs' 
             : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-800'
         }`;
         btn.onclick = () => selectOption(opt);
 
         btn.innerHTML = `
-            <div class="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold uppercase shrink-0 transition-colors font-mono ${
-                isSelected ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600'
+            <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                isSelected ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'
             }">
-                ${opt}
+                ${isSelected ? '<div class="w-2 h-2 rounded-full bg-white"></div>' : ''}
             </div>
-            <div class="text-xs sm:text-sm pt-0.5 leading-snug flex-1">${q[opt]}</div>
+            <div class="text-xs font-bold text-slate-700 uppercase font-mono mr-1">${opt})</div>
+            <div class="text-xs sm:text-sm font-medium leading-snug flex-1">${q[opt]}</div>
         `;
         optContainer.appendChild(btn);
     });
@@ -500,9 +567,9 @@ function renderCurrentQuestion() {
     const nextBtn = document.getElementById('nextBtn');
     if (nextBtn) {
         if (currentIndex === QUESTIONS.length - 1) {
-            nextBtn.innerHTML = `<span>Review & Finalize</span><i data-lucide="check" class="w-3.5 h-3.5"></i>`;
+            nextBtn.innerHTML = `<span>REVIEW &amp; SUBMIT</span><i data-lucide="check" class="w-3.5 h-3.5"></i>`;
         } else {
-            nextBtn.innerHTML = `<span>Next Item</span><i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>`;
+            nextBtn.innerHTML = `<span>NEXT</span><i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>`;
         }
     }
 
@@ -578,11 +645,11 @@ function updateFlagButton() {
     const label = document.getElementById('flagLabel');
 
     if (isFlagged) {
-        btn.className = "flex items-center gap-1 text-xs font-bold text-amber-500 transition-colors";
-        label.innerText = "Marked for Review";
+        btn.className = "px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs uppercase flex items-center gap-1.5 transition-colors";
+        label.innerText = "BOOKMARKED";
     } else {
-        btn.className = "flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-amber-500 transition-colors";
-        label.innerText = "Mark for Review";
+        btn.className = "px-3.5 py-2 rounded-lg bg-slate-500 hover:bg-slate-600 text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-colors";
+        label.innerText = "MARK FOR REVIEW";
     }
 }
 
@@ -605,19 +672,22 @@ function renderPalette() {
         const item = document.createElement('button');
         item.type = 'button';
         item.onclick = () => jumpToQuestion(idx);
-        item.className = `h-8 w-full rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center relative ${
-            isCurrent ? 'ring-2 ring-teal-600 ring-offset-1 ' : ''
-        } ${
-            isAnswered 
-            ? 'bg-teal-600 text-white shadow-xs' 
-            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-        }`;
 
+        let bgClass = 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200';
+        if (isCurrent) {
+            bgClass = 'bg-[#1d4ed8] text-white font-black ring-2 ring-blue-300 shadow-sm';
+        } else if (isAnswered) {
+            bgClass = 'bg-[#22c55e] text-white font-bold shadow-xs';
+        } else if (isFlagged) {
+            bgClass = 'bg-amber-400 text-slate-900 font-bold';
+        }
+
+        item.className = `h-9 w-full rounded-lg text-xs font-mono font-bold transition-all flex items-center justify-center relative ${bgClass}`;
         item.innerText = idx + 1;
 
-        if (isFlagged) {
+        if (isFlagged && !isCurrent && isAnswered) {
             const dot = document.createElement('span');
-            dot.className = "absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400";
+            dot.className = "absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-300 ring-1 ring-white";
             item.appendChild(dot);
         }
 
@@ -625,11 +695,35 @@ function renderPalette() {
     });
 
     const remaining = QUESTIONS.length - answeredCount;
-    document.getElementById('answeredCount').innerText = answeredCount;
-    document.getElementById('answeredBadge').innerText = answeredCount;
-    document.getElementById('flaggedBadge').innerText = flaggedCount;
-    document.getElementById('remainingBadge').innerText = remaining;
+    const answeredEl = document.getElementById('answeredCount');
+    if (answeredEl) answeredEl.innerText = answeredCount;
+    const flaggedEl = document.getElementById('flaggedBadge');
+    if (flaggedEl) flaggedEl.innerText = flaggedCount;
+    const remainingEl = document.getElementById('remainingBadge');
+    if (remainingEl) remainingEl.innerText = remaining;
 }
+
+function toggleHelpModal() {
+    const m = document.getElementById('helpModal');
+    if (m) m.classList.toggle('hidden');
+}
+
+function initLiveWebcam() {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: { width: 160, height: 120 } })
+            .then(stream => {
+                const vid = document.getElementById('liveWebcam');
+                const ph = document.getElementById('webcamPlaceholder');
+                if (vid) {
+                    vid.srcObject = stream;
+                    vid.classList.remove('hidden');
+                    if (ph) ph.classList.add('hidden');
+                }
+            })
+            .catch(() => {});
+    }
+}
+window.addEventListener('DOMContentLoaded', initLiveWebcam);
 
 function toggleFontSize() {
     isLargeFont = !isLargeFont;

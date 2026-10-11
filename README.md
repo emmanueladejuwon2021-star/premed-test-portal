@@ -1,120 +1,72 @@
-# Apex PreMed Test Portal & Examination Command Center
+# Apex PreMed Examination Portal & Academic Learning Hub
 
-An enterprise-grade, high-performance academic CBT (Computer-Based Test) simulation environment and proctoring control system for Pre-Medical & Health Sciences faculties.
-
-Built with **Pure PHP 8.x** for the candidate portal, an asynchronous **Node.js Cloud Admin Command Center**, and **100% Pure Turso DB Cloud** (libSQL over HTTP v2 pipeline) — with **Zero SQLite**, zero native compilation dependencies, and instant cloud sync across AWS us-east-1.
+A modern, student-friendly Computer-Based Testing (CBT) portal and academic preparation platform designed specifically for pre-medical and health sciences students.
 
 ---
 
-## 🌟 Architecture & Core Pillars
+## 🌟 What This Portal Does
 
-### 1. Cloud-Native Architecture (Zero SQLite)
-- **100% Turso DB Cloud**: Candidate portal and administrative console connect directly to Turso DB Cloud via libSQL HTTP pipeline API.
-- **Atomic Cloud Pipeline**: Both the student exam environment and admin control panel share a single live source of truth with sub-200ms latency.
-- **Zero Local Database Files**: Redundant local SQLite files, manual sync bridges, and database exports have been completely eliminated.
-
-### 2. Administrator Command Center (`http://localhost:8899`)
-- **Interactive Test Manager**:
-  - Manually create proctored examinations for any accredited course.
-  - Granular topic selection: Select *Comprehensive (All Topics)* or specific curriculum modules.
-  - Configure individual test durations, question limits, fullscreen enforcement, tab-switch warning tolerances, auto-submission rules, scientific calculator availability, and question/option randomization.
-  - Instant 1-click **Live / Offline** test deployment.
-- **Live Candidate Radar**:
-  - Real-time monitoring of students currently writing tests.
-  - Tab-switch and window-blur detection with exact timestamps.
-  - Instant administrative action: **Allow Retake** (resets session) or **Invalidate / Terminate Test**.
-  - Auto-refreshes every 10 seconds via background telemetry polling.
-- **Curriculum & Topic Management**:
-  - Manage accredited pre-med courses (`BIO 101`, `CHM 101`, `PHY 101`, `ZOO 101`, `MTH 101`, `COS 101`, etc.) and official syllabus topics.
-- **Cloud Question Bank**:
-  - Author individual questions with LaTeX KaTeX formula rendering and custom options.
-- **Dark Mode & Light Mode**:
-  - Seamless theme switcher with persistent local state.
-
-### 3. Student Examination Portal
-- **Collapsible Fixed Navigation**:
-  - Quick access to **Home**, **Tests**, **Study Room**, **Academic Resources**, **Past Question Practice**, and **Results**.
-- **Proctored Examination Suite (`exam.php`)**:
-  - Live countdown timer with auto-submit.
-  - Anti-cheating telemetry detecting browser tab switches and window blur events.
-  - Translucent candidate watermark overlay displaying Matric No and candidate name.
-  - Embedded medical scientific calculator (enabled per test).
-  - KaTeX rendering for mathematical equations and chemical formulas.
-  - Text-to-Speech (TTS) item reader.
-  - Visual question palette with bookmarking/flagging capability.
+This website gives medical students a realistic, distraction-free environment to practice past examination questions, sit for proctored mock tests, and track their academic readiness across all core subjects including Biology, Chemistry, Physics, Zoology, Mathematics, and Computer Science.
 
 ---
 
-## 🚀 Getting Started
+## 📚 Key Features for Students
 
-### 1. Running the Admin Command Center
-Run the admin launcher script or start via Node.js:
-```bash
-# Using launcher
-start_admin.bat
+### 1. Realistic University Exam Experience
+- **Authentic Test Screen**: Designed to look and feel just like official Nigerian university and medical school CBT examinations (with institution headers, candidate details, and live webcam proctoring).
+- **Question Navigation Grid**: A side-by-side question grid where you can see all your questions at a glance:
+  - **Green**: Answered questions
+  - **Blue**: The question you are currently viewing
+  - **Gray**: Questions you haven't answered yet
+  - **Yellow**: Questions you flagged to review later
+- **Countdown Clock**: A clear digital timer that keeps you aware of your remaining time, with helpful alerts when time is almost up.
+- **Instant Final Submission**: Submit your test when you are satisfied with your answers, with a friendly confirmation prompt to make sure you didn't leave any questions unanswered by accident.
 
-# Or directly via Node.js
-node local_admin_server.js
-```
-Open **[http://localhost:8899](http://localhost:8899)** in your web browser.
+### 2. Built-in Test Tools
+- **Scientific Calculator**: An on-screen pop-up calculator for chemistry and physics calculations without having to leave the test window.
+- **Formula & Equation Display**: Clear, beautiful rendering of mathematical symbols, fractions, powers, and chemical formulas.
+- **Read Aloud (Text-to-Speech)**: Listen to questions read out loud with a single click.
+- **Adjustable Text Size**: Easily increase or decrease font sizes for comfortable reading.
+- **Diagram Inspection**: Click on any anatomical or physical diagram to enlarge and inspect it in detail.
 
-### 2. Running the Student Portal Locally
-Using PHP's built-in development server:
-```bash
-php -S localhost:8000
-```
-Open **[http://localhost:8000](http://localhost:8000)** in your web browser.
+### 3. Smart Practice & Self-Paced Study
+- **Topic-by-Topic Practice**: Choose any course and pick exactly which topics you want to practice — from Cell Biology to Thermodynamics to Organic Chemistry.
+- **Active Study Room**: Paste clinical notes or textbook summaries and automatically turn them into quick revision questions.
+- **Question Bank Search**: Search thousands of accredited questions by keywords or concepts to study explanations and answers.
+- **Interactive Medical Challenge**: Test your quick-recall knowledge through engaging, turn-based medical quiz challenges.
 
----
-
-## ☁️ Deployment
-
-### Deploy to Vercel
-The repository includes `vercel.json` configured for serverless PHP:
-1. Import repository into [Vercel](https://vercel.com).
-2. Configure Environment Variables (optional, credentials default to secure Turso cluster):
-   - `TURSO_DATABASE_URL`: `https://premed-test-portal-emmanueladejuwon2021-star.aws-us-east-1.turso.io`
-   - `TURSO_AUTH_TOKEN`: `<your-turso-jwt-token>`
-3. Deploy!
-
-### Deploy to Traditional Hosting / VPS (cPanel, Nginx, Apache)
-1. Upload repository files to web root.
-2. Ensure PHP `curl` and `json` extensions are enabled in `php.ini`.
+### 4. Immediate Results & Performance Feedback
+- **Instant Automated Grading**: View your score, percentage, and letter grade immediately after finishing an exam.
+- **Topic Breakdown**: Discover your strong areas and topics that need more review.
+- **Full History**: Look back at your past tests and see how your scores have improved over time.
 
 ---
 
-## 📁 Repository Structure
+## 🛡️ Fair & Secure Testing (Academic Integrity)
 
-```
-├── config/
-│   ├── db.php                     # Turso Cloud DB connection provider
-│   └── turso.php                  # Turso PDO client (libSQL HTTP pipeline)
-├── includes/
-│   ├── header.php                 # Global fixed navbar & theme
-│   └── footer.php                 # Global footer
-├── local_admin_server.js          # Node.js Admin Command Center (Port 8899)
-├── admin_ui_template.js           # Admin UI HTML template (Dark/Light mode)
-├── index.php                      # Student Home Hub
-├── login.php                      # Student authentication & registration
-├── courses.php                    # Accredited Tests Directory
-├── exam.php                       # Proctored CBT Examination Engine
-├── submit_exam.php                # Server-side Auto-Grading Engine
-├── results.php                    # Candidate result breakdown & review
-├── history.php                    # Past examination attempts
-├── practice.php                   # Custom practice generator
-├── active_study.php               # AI Active Study Room
-├── question_search.php            # Academic Resources & Question Bank
-├── start_admin.bat                # Admin server launcher script
-└── vercel.json                    # Vercel deployment configuration
-```
+To make sure mock examinations and class tests remain fair for all candidates:
+- **Full-Screen Focus**: Tests encourage a full-screen view so you can focus entirely on answering questions.
+- **Tab-Switch Warnings**: Gentle on-screen warnings if you accidentally click away or switch to another window, keeping everyone on an equal footing.
+- **Candidate Watermark**: A discreet security watermark containing your student registration details.
+- **Live Camera Display**: A small live webcam window at the top of your test screen to simulate authentic university proctored exam conditions.
 
 ---
 
-## 🛡️ Academic Integrity & Proctoring Telemetry
+## 🏫 Features for Instructors & Faculty Administrators
 
-The exam engine includes configurable security layers:
-- **Tab-Switch Auditing**: Detects when candidates leave the examination tab or blur the viewport.
-- **Maximum Warning Auto-Submission**: Automatically terminates and submits the test when allowed tab switches are exceeded.
-- **Fullscreen Locking**: Fullscreen proctoring with warning modals upon exit.
-- **Candidate Watermarking**: Anti-screenshot dynamic candidate watermark across questions.
-- **Anti-Cheat Log Transmission**: Uses `navigator.sendBeacon` to log telemetry even if the window is abruptly closed.
+### 1. Simple Test Creation
+- **Create Tests in Seconds**: Pick a course, choose whether to test all topics or only specific modules, set the duration (e.g. 30 minutes), and choose how many questions to present.
+- **Custom Security Rules**: Choose whether to enable the on-screen calculator, require full-screen mode, or randomize question order.
+- **One-Click Live Publishing**: Make a test live for students immediately or hide it until the scheduled exam time.
+
+### 2. Real-Time Candidate Monitor (Live Radar)
+- **See Who Is Writing Right Now**: A live dashboard that shows all students currently taking a test.
+- **Fairness Alerts**: View any tab switches or screen exits in real time with exact timestamps.
+- **Retake Permission**: If a student experiences a sudden internet disconnection or power cut, administrators can grant a one-click retake permission to clear the interruption.
+
+### 3. Curriculum & Question Bank Management
+- **Course & Topic Organization**: Add courses, update titles, and organize official syllabus topics.
+- **Question Authoring**: Add questions with multiple-choice options, correct answers, and detailed explanations.
+- **Student Directory**: View all registered students and their enrolled departments.
+- **Results Export**: Download all class test results directly into a spreadsheet for academic records and grading.
+- **Dark Mode & Light Mode**: Switch between a clean white look and a comfortable dark mode for working at night.
