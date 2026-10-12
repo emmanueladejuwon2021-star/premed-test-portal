@@ -159,194 +159,363 @@ try {
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<!-- Authentic University / Council Institutional Header Banner -->
-<div class="bg-[#103a71] text-white rounded-2xl shadow-md border border-[#0d2e5a] p-3 sm:p-4 mb-4">
-    <div class="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
-        
-        <!-- Left: Institution Crest & Title -->
-        <div class="flex items-center gap-3">
-            <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white shrink-0 shadow-inner">
-                <svg class="w-6 h-6 sm:w-7 sm:h-7 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-                    <path d="M2 17l10 5 10-5"></path>
-                    <path d="M2 12l10 5 10-5"></path>
-                </svg>
+<div class="w-full max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-3 select-none" id="examRoot">
+
+    <!-- Authentic University / Council Institutional Header Banner -->
+    <div class="bg-[#103a71] text-white rounded-2xl shadow-md border border-[#0d2e5a] p-3 sm:p-4 mb-3 sm:mb-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            
+            <!-- Left: Institution Crest & Title -->
+            <div class="flex items-center gap-2.5 sm:gap-3">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white shrink-0 shadow-inner">
+                    <svg class="w-5 h-5 sm:w-7 sm:h-7 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                        <path d="M2 17l10 5 10-5"></path>
+                        <path d="M2 12l10 5 10-5"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xs sm:text-base font-black tracking-tight uppercase text-white leading-tight">
+                        Apex Pre-Medical Sciences Examination Council
+                    </h1>
+                    <p class="text-[10px] sm:text-[11px] font-bold text-sky-200 tracking-wider uppercase mt-0.5">
+                        Online CBT Examination &bull; <span class="text-amber-300"><?= htmlspecialchars($course['code']) ?> - <?= htmlspecialchars($course['title']) ?></span>
+                    </p>
+                </div>
             </div>
-            <div>
-                <h1 class="text-xs sm:text-base font-black tracking-tight uppercase text-white leading-tight">
-                    Apex Pre-Medical Sciences Examination Council
-                </h1>
-                <p class="text-[10px] sm:text-[11px] font-bold text-sky-200 tracking-wider uppercase mt-0.5">
-                    Online CBT Examination Portal &bull; <span class="text-amber-300"><?= htmlspecialchars($course['code']) ?> - <?= htmlspecialchars($course['title']) ?></span>
-                </p>
+
+            <!-- Right: Candidate Camera, Details & Quick Actions -->
+            <div class="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-4 shrink-0 border-t sm:border-t-0 border-white/10 pt-2 sm:pt-0">
+                <!-- Live Camera / Proctor Box -->
+                <div class="relative w-16 h-12 sm:w-24 sm:h-16 rounded-lg overflow-hidden bg-slate-950 border border-white/30 shadow-inner flex items-center justify-center">
+                    <video id="liveWebcam" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
+                    <div id="webcamPlaceholder" class="flex flex-col items-center justify-center text-slate-400">
+                        <i data-lucide="user" class="w-4 h-4 sm:w-6 sm:h-6 text-slate-300"></i>
+                    </div>
+                    <div class="absolute bottom-0.5 left-0.5 right-0.5 bg-black/75 backdrop-blur-xs rounded px-1 py-0.2 flex items-center justify-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+                        <span class="text-[7px] sm:text-[8px] font-black tracking-wider uppercase text-white font-mono">Live</span>
+                    </div>
+                </div>
+
+                <!-- Candidate Info & Controls -->
+                <div class="text-xs space-y-0.5">
+                    <div class="font-extrabold text-white text-[11px] sm:text-[13px] leading-tight truncate max-w-[140px] sm:max-w-[200px]">
+                        <?= strtoupper(htmlspecialchars($student['name'])) ?>
+                    </div>
+                    <div class="font-mono text-[10px] sm:text-[11px] text-sky-200 font-semibold truncate max-w-[140px] sm:max-w-[200px]">
+                        Matric: <span class="text-white"><?= htmlspecialchars($student['matric_no']) ?></span>
+                    </div>
+                    <div class="flex items-center gap-1.5 pt-0.5">
+                        <!-- Mobile Question Grid Trigger -->
+                        <button type="button" onclick="toggleMobilePalette()" class="lg:hidden px-2 py-0.5 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-400/30 font-bold text-[10px] flex items-center gap-1 transition-colors">
+                            <i data-lucide="layout-grid" class="w-3 h-3 text-amber-300"></i>
+                            <span>Grid (<span id="mobileHeaderAnsCount">0</span>/<?= $totalQuestions ?>)</span>
+                        </button>
+                        <button type="button" onclick="toggleFullscreen()" title="Toggle Fullscreen" class="px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] flex items-center gap-1 transition-colors">
+                            <i data-lucide="maximize-2" class="w-3 h-3 text-sky-300"></i>
+                            <span class="hidden sm:inline">Fullscreen</span>
+                        </button>
+                        <button type="button" onclick="toggleHelpModal()" class="px-2 py-0.5 rounded-md bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-400/30 font-bold text-[10px] transition-colors">
+                            Help
+                        </button>
+                    </div>
+                </div>
+
             </div>
+
         </div>
+    </div>
 
-        <!-- Right: Candidate Camera & Details -->
-        <div class="flex items-center gap-3 sm:gap-4 shrink-0">
-            <!-- Live Camera / Proctor Box -->
-            <div class="relative w-20 h-16 sm:w-24 sm:h-18 rounded-lg overflow-hidden bg-slate-950 border border-white/30 shadow-inner flex items-center justify-center">
-                <video id="liveWebcam" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
-                <div id="webcamPlaceholder" class="flex flex-col items-center justify-center text-slate-400">
-                    <i data-lucide="user" class="w-6 h-6 text-slate-300"></i>
+    <!-- Main CBT Stage: Mobile-First Responsive Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-start" id="examApp">
+
+        <!-- RIGHT/MAIN COLUMN: Question Stage (1st on mobile, 8 cols on lg) -->
+        <div class="order-1 lg:order-2 lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-6 space-y-4 flex flex-col justify-between min-h-[460px] sm:min-h-[520px]">
+            
+            <div>
+                <!-- Top Status Bar: Question Progress, Mobile Grid Pill, Timer & Red Submit Button -->
+                <div class="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
+                    
+                    <!-- Left: Question Progress & Tools -->
+                    <div class="flex items-center gap-1.5 sm:gap-2">
+                        <span class="text-xs sm:text-sm font-black text-slate-800 font-mono" id="questionHeaderNumber">
+                            Question 1 of <?= $totalQuestions ?>
+                        </span>
+                        
+                        <div class="flex items-center gap-1 ml-1 sm:ml-2">
+                            <button type="button" onclick="speakCurrentQuestion()" title="Read out loud" class="p-1 sm:p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100">
+                                <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <?php if ($calculatorAllowed): ?>
+                            <button type="button" onclick="toggleCalculator()" title="Calculator" class="p-1 sm:p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100">
+                                <i data-lucide="calculator" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <?php endif; ?>
+                            <button type="button" onclick="toggleFontSize()" title="Text size" class="p-1 sm:p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 font-bold text-[11px] sm:text-xs">
+                                A<span class="text-[9px]">±</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right: Digital Timer & Prominent Submit Button -->
+                    <div class="flex items-center gap-2 sm:gap-3">
+                        <!-- Digital Red Timer -->
+                        <div class="flex items-center gap-1 text-xs font-black uppercase text-slate-600 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200" id="timerContainer">
+                            <span class="text-slate-500 font-bold text-[10px] hidden sm:inline">TIME:</span>
+                            <span id="timerDisplay" class="font-mono text-sm sm:text-lg font-black text-[#dc2626]">--:--</span>
+                        </div>
+
+                        <!-- Prominent Red Submit Exam Button -->
+                        <button type="button" onclick="confirmSubmit()" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-[#dc2626] hover:bg-red-700 text-white font-extrabold text-[11px] sm:text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5 active:scale-95">
+                            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                            <span>SUBMIT</span>
+                        </button>
+                    </div>
+
                 </div>
-                <div class="absolute bottom-1 left-1 right-1 bg-black/75 backdrop-blur-xs rounded px-1 py-0.2 flex items-center justify-center gap-1">
-                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
-                    <span class="text-[8px] font-black tracking-wider uppercase text-white font-mono">Live Camera</span>
+
+                <!-- Question Stem -->
+                <div class="py-2 sm:py-3">
+                    <div id="questionStem" class="text-sm sm:text-base font-medium text-slate-900 leading-relaxed select-none mb-3 sm:mb-4">
+                        <!-- Stem inserted by JS -->
+                    </div>
+
+                    <!-- Diagram (if present) -->
+                    <div id="diagramContainer" class="mb-3 sm:mb-4 hidden text-center">
+                        <img id="questionDiagram" src="" alt="Question diagram" class="max-h-48 sm:max-h-56 rounded-xl mx-auto border border-slate-200 shadow-xs cursor-zoom-in" onclick="zoomDiagram(this.src)">
+                    </div>
+
+                    <!-- Response Choices (Radio CBT Style) -->
+                    <div class="space-y-2 sm:space-y-2.5 select-none pt-1" id="optionsContainer">
+                        <!-- Options generated by JS -->
+                    </div>
                 </div>
             </div>
 
-            <!-- Candidate Info -->
-            <div class="text-xs space-y-0.5">
-                <div class="font-extrabold text-white text-[12px] sm:text-[13px] leading-tight truncate max-w-[170px]">
-                    Name: <span class="text-amber-200"><?= strtoupper(htmlspecialchars($student['name'])) ?></span>
+            <!-- Bottom Navigation Action Bar -->
+            <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
+                <div class="flex items-center gap-2">
+                    <button type="button" id="prevBtn" onclick="prevQuestion()" class="px-3.5 sm:px-4 py-2 rounded-lg bg-[#103a71] hover:bg-[#0d2e5a] text-white font-bold text-xs uppercase flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95">
+                        <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+                        <span>PREV</span>
+                    </button>
+                    <button type="button" id="nextBtn" onclick="nextQuestion()" class="px-3.5 sm:px-4 py-2 rounded-lg bg-[#103a71] hover:bg-[#0d2e5a] text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-all active:scale-95">
+                        <span>NEXT</span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                    </button>
                 </div>
-                <div class="font-mono text-[11px] text-sky-200 font-semibold">
-                    Matric No: <span class="text-white"><?= htmlspecialchars($student['matric_no']) ?></span>
-                </div>
-                <div class="pt-0.5">
-                    <button type="button" onclick="toggleHelpModal()" class="px-2.5 py-0.5 rounded-md bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-400/30 font-bold text-[10px] transition-colors">
-                        Need Help?
+
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <button type="button" onclick="clearCurrentSelection()" class="text-xs font-semibold text-slate-400 hover:text-rose-600 transition-colors">
+                        Clear Choice
+                    </button>
+                    <button type="button" onclick="toggleFlag()" id="flagBtn" class="px-3 sm:px-3.5 py-2 rounded-lg bg-slate-500 hover:bg-slate-600 text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-colors">
+                        <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
+                        <span id="flagLabel">BOOKMARK</span>
                     </button>
                 </div>
             </div>
 
+        </div>
+
+        <!-- LEFT COLUMN: Desktop Question Navigation Grid (hidden on mobile, visible on lg) -->
+        <div class="order-2 lg:order-1 lg:col-span-4 hidden lg:block bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3.5 sticky top-4">
+            
+            <!-- Navigation Grid Header -->
+            <div class="border-b border-slate-100 pb-2.5 flex items-center justify-between">
+                <h3 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <i data-lucide="layout-grid" class="w-4 h-4 text-[#103a71]"></i>
+                    <span>Question Navigation Grid</span>
+                </h3>
+                <span class="text-[11px] font-mono font-bold text-slate-400"><?= $totalQuestions ?> Items</span>
+            </div>
+
+            <!-- Legend -->
+            <div class="flex items-center justify-between text-[11px] font-semibold text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3.5 h-3.5 rounded bg-[#22c55e] inline-block shadow-xs"></span>
+                    <span>Answered</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3.5 h-3.5 rounded bg-slate-200 border border-slate-300 inline-block"></span>
+                    <span>Unanswered</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3.5 h-3.5 rounded bg-amber-400 inline-block shadow-xs"></span>
+                    <span>Bookmarked</span>
+                </div>
+            </div>
+
+            <!-- 5-Column Grid Numbers Container -->
+            <div class="grid grid-cols-5 gap-1.5 max-h-[380px] overflow-y-auto pr-1" id="paletteGrid">
+                <!-- Numbers inserted by JS -->
+            </div>
+
+            <!-- Summary Counter Footer -->
+            <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-mono text-slate-500 font-bold">
+                <span>Answered: <strong id="answeredCount" class="text-emerald-600">0</strong>/<?= $totalQuestions ?></span>
+                <span>Flagged: <strong id="flaggedBadge" class="text-amber-500">0</strong></span>
+                <span>Remaining: <strong id="remainingBadge" class="text-slate-600"><?= $totalQuestions ?></strong></span>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Mobile Question Palette Drawer / Bottom Sheet -->
+<div id="mobilePaletteModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4" onclick="toggleMobilePalette()">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[85vh] p-4 sm:p-5 text-slate-800 shadow-2xl border border-slate-200 flex flex-col space-y-3" onclick="event.stopPropagation()">
+        
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                </div>
+                <h3 class="text-xs font-black text-slate-900 uppercase tracking-wider">Question Navigation Palette</h3>
+            </div>
+            <button type="button" onclick="toggleMobilePalette()" class="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Legend -->
+        <div class="flex items-center justify-between text-[10px] font-semibold text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
+            <div class="flex items-center gap-1">
+                <span class="w-3 h-3 rounded bg-[#22c55e] inline-block"></span>
+                <span>Answered</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <span class="w-3 h-3 rounded bg-slate-200 border border-slate-300 inline-block"></span>
+                <span>Unanswered</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <span class="w-3 h-3 rounded bg-amber-400 inline-block"></span>
+                <span>Bookmarked</span>
+            </div>
+        </div>
+
+        <!-- Grid Numbers (6 columns on mobile phones) -->
+        <div class="grid grid-cols-6 gap-1.5 overflow-y-auto max-h-[50vh] p-1" id="mobilePaletteGrid">
+            <!-- Injected by JS -->
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-mono font-bold text-slate-600">
+            <span>Ans: <strong id="mobileAnsweredCount" class="text-emerald-600">0</strong>/<?= $totalQuestions ?></span>
+            <button type="button" onclick="toggleMobilePalette()" class="px-4 py-1.5 rounded-lg bg-[#103a71] text-white text-xs font-bold uppercase">
+                Return to Question
+            </button>
         </div>
 
     </div>
 </div>
 
-<!-- Main Two-Column CBT Layout -->
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start" id="examApp">
-
-    <!-- LEFT COLUMN: Question Navigation Grid (4 cols on lg) -->
-    <div class="lg:col-span-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3.5 sticky top-20">
+<!-- Custom Submit Examination Confirmation Dialog -->
+<div id="submitConfirmModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 text-slate-800 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in duration-200">
         
-        <!-- Navigation Grid Header -->
-        <div class="border-b border-slate-100 pb-2.5">
-            <h3 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <i data-lucide="layout-grid" class="w-4 h-4 text-[#103a71]"></i>
-                <span>Question Navigation Grid</span>
-            </h3>
-        </div>
-
-        <!-- Legend -->
-        <div class="flex items-center justify-between text-[11px] font-semibold text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
-            <div class="flex items-center gap-1.5">
-                <span class="w-3.5 h-3.5 rounded bg-[#22c55e] inline-block shadow-xs"></span>
-                <span>Answered</span>
+        <!-- Modal Header -->
+        <div class="flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center shrink-0">
+                <i data-lucide="send" class="w-6 h-6"></i>
             </div>
-            <div class="flex items-center gap-1.5">
-                <span class="w-3.5 h-3.5 rounded bg-slate-200 border border-slate-300 inline-block"></span>
-                <span>Unanswered</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-                <span class="w-3.5 h-3.5 rounded bg-amber-400 inline-block shadow-xs"></span>
-                <span>Bookmarked</span>
+            <div>
+                <h3 class="text-base font-black text-slate-900 tracking-tight">Finalize &amp; Submit Test?</h3>
+                <p class="text-xs text-slate-500 font-medium">Apex Pre-Medical Sciences Examination Council</p>
             </div>
         </div>
 
-        <!-- 5-Column Grid Numbers Container -->
-        <div class="grid grid-cols-5 gap-1.5 max-h-[380px] overflow-y-auto pr-1" id="paletteGrid">
-            <!-- Numbers inserted by JS -->
+        <!-- Metric Badges Grid -->
+        <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="p-2.5 rounded-2xl bg-emerald-50 border border-emerald-100">
+                <div class="text-base sm:text-lg font-black text-emerald-700" id="submitModalAnswered">0</div>
+                <div class="text-[9px] sm:text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Answered</div>
+            </div>
+            <div class="p-2.5 rounded-2xl bg-rose-50 border border-rose-100">
+                <div class="text-base sm:text-lg font-black text-rose-700" id="submitModalUnanswered">0</div>
+                <div class="text-[9px] sm:text-[10px] font-bold text-rose-600 uppercase tracking-wider">Unanswered</div>
+            </div>
+            <div class="p-2.5 rounded-2xl bg-amber-50 border border-amber-100">
+                <div class="text-base sm:text-lg font-black text-amber-700" id="submitModalFlagged">0</div>
+                <div class="text-[9px] sm:text-[10px] font-bold text-amber-600 uppercase tracking-wider">Bookmarked</div>
+            </div>
         </div>
 
-        <!-- Summary Counter Footer -->
-        <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-mono text-slate-500 font-bold">
-            <span>Answered: <strong id="answeredCount" class="text-emerald-600">0</strong>/<?= $totalQuestions ?></span>
-            <span>Flagged: <strong id="flaggedBadge" class="text-amber-500">0</strong></span>
-            <span>Remaining: <strong id="remainingBadge" class="text-slate-600"><?= $totalQuestions ?></strong></span>
+        <!-- Dynamic Notice Box -->
+        <div id="submitModalNotice" class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700"></div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-2.5 pt-1">
+            <button type="button" onclick="dismissSubmitModal()" class="flex-1 py-2.5 sm:py-3 px-3 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs uppercase tracking-wider transition-colors">
+                Keep Reviewing
+            </button>
+            <button type="button" onclick="executeSubmit()" class="flex-1 py-2.5 sm:py-3 px-3 rounded-xl bg-[#dc2626] hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95">
+                <i data-lucide="check-circle" class="w-4 h-4"></i>
+                <span>Yes, Submit Now</span>
+            </button>
         </div>
 
     </div>
+</div>
 
-    <!-- RIGHT COLUMN: Question & Testing Stage (8 cols on lg) -->
-    <div class="lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-5 flex flex-col justify-between min-h-[520px]">
-        
-        <div>
-            <!-- Top Bar above Question: Tools, Time Remaining & Submit Button -->
-            <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
-                
-                <!-- Left: Question Progress & Tools -->
-                <div class="flex items-center gap-2">
-                    <span class="text-sm font-black text-slate-800 font-mono" id="questionHeaderNumber">
-                        Question 1 of <?= $totalQuestions ?>
-                    </span>
-                    <div class="flex items-center gap-1 ml-2">
-                        <button type="button" onclick="speakCurrentQuestion()" title="Read out loud" class="p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100">
-                            <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
-                        </button>
-                        <?php if ($calculatorAllowed): ?>
-                        <button type="button" onclick="toggleCalculator()" title="Calculator" class="p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100">
-                            <i data-lucide="calculator" class="w-3.5 h-3.5"></i>
-                        </button>
-                        <?php endif; ?>
-                        <button type="button" onclick="toggleFontSize()" title="Text size" class="p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 font-bold text-xs">
-                            A<span class="text-[10px]">±</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Right: Digital Timer & Red Submit Exam Button -->
-                <div class="flex items-center gap-3">
-                    <!-- Digital Red Timer -->
-                    <div class="flex items-center gap-1.5 text-xs font-black uppercase text-slate-600" id="timerContainer">
-                        <span class="text-slate-500 font-bold text-[11px] hidden sm:inline">TIME REMAINING:</span>
-                        <span id="timerDisplay" class="font-mono text-base sm:text-lg font-black text-[#dc2626]">--:--</span>
-                    </div>
-
-                    <!-- Prominent Red Submit Exam Button -->
-                    <button type="button" onclick="confirmSubmit()" class="px-4 py-2 rounded-lg bg-[#dc2626] hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-sm transition-colors flex items-center gap-1.5">
-                        <span>SUBMIT EXAM</span>
-                    </button>
-                </div>
-
-            </div>
-
-            <!-- Question Stem -->
-            <div class="py-4">
-                <div id="questionStem" class="text-sm sm:text-base font-medium text-slate-900 leading-relaxed select-none mb-4">
-                    <!-- Stem inserted by JS -->
-                </div>
-
-                <!-- Diagram (if present) -->
-                <div id="diagramContainer" class="mb-4 hidden text-center">
-                    <img id="questionDiagram" src="" alt="Question diagram" class="max-h-56 rounded-xl mx-auto border border-slate-200 shadow-xs cursor-zoom-in" onclick="zoomDiagram(this.src)">
-                </div>
-
-                <!-- Response Choices (Radio CBT Style) -->
-                <div class="space-y-2.5 select-none pt-2" id="optionsContainer">
-                    <!-- Options generated by JS -->
-                </div>
-            </div>
+<!-- Fullscreen Gateway Modal (When Enforced in Admin Settings) -->
+<div id="fullscreenGatewayModal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl border border-slate-200">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center">
+            <i data-lucide="maximize" class="w-7 h-7"></i>
         </div>
-
-        <!-- Bottom Navigation Action Bar -->
-        <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center gap-2">
-                <button type="button" id="prevBtn" onclick="prevQuestion()" class="px-4 py-2 rounded-lg bg-[#103a71] hover:bg-[#0d2e5a] text-white font-bold text-xs uppercase flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                    <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
-                    <span>PREVIOUS</span>
-                </button>
-                <button type="button" id="nextBtn" onclick="nextQuestion()" class="px-4 py-2 rounded-lg bg-[#103a71] hover:bg-[#0d2e5a] text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-all">
-                    <span>NEXT</span>
-                    <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
-                </button>
-            </div>
-
-            <div class="flex items-center gap-3">
-                <button type="button" onclick="clearCurrentSelection()" class="text-xs font-semibold text-slate-400 hover:text-rose-600 transition-colors">
-                    Clear Choice
-                </button>
-                <button type="button" onclick="toggleFlag()" id="flagBtn" class="px-3.5 py-2 rounded-lg bg-slate-500 hover:bg-slate-600 text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-colors">
-                    <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
-                    <span id="flagLabel">MARK FOR REVIEW</span>
-                </button>
-            </div>
+        <div class="space-y-1">
+            <h3 class="text-base font-black text-slate-900 tracking-tight">Proctored Fullscreen Mode Required</h3>
+            <p class="text-xs text-slate-600 leading-relaxed">
+                The administrator has configured this examination to require Fullscreen Mode. To prevent window switching and maintain examination security, you must enter fullscreen to proceed.
+            </p>
         </div>
-
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-500 font-medium">
+            Please close any background tabs or external applications before beginning.
+        </div>
+        <button type="button" onclick="enterFullscreenExam()" class="w-full py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 active:scale-95">
+            <i data-lucide="shield-check" class="w-4 h-4"></i>
+            <span>Enter Fullscreen &amp; Begin Test</span>
+        </button>
     </div>
+</div>
 
+<!-- Fullscreen Exited Warning Modal -->
+<div id="fullscreenExitModal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl border-2 border-rose-500">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center">
+            <i data-lucide="alert-octagon" class="w-7 h-7"></i>
+        </div>
+        <div class="space-y-1">
+            <h3 class="text-base font-black text-rose-600 tracking-tight">Security Notice: Fullscreen Exited</h3>
+            <p class="text-xs text-slate-600 leading-snug">
+                You exited proctored fullscreen mode. This event has been recorded in your security audit log. Please re-enter fullscreen immediately to continue.
+            </p>
+        </div>
+        <div class="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-mono font-bold" id="fullscreenExitWarningCount">
+            Warning 1 of 3 allowed
+        </div>
+        <button type="button" onclick="reEnterFullscreenExam()" class="w-full py-3.5 px-4 rounded-xl bg-[#103a71] hover:bg-[#0d2e5a] text-white font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 active:scale-95">
+            <i data-lucide="maximize" class="w-4 h-4"></i>
+            <span>Re-Enter Fullscreen Immediately</span>
+        </button>
+    </div>
+</div>
+
+<!-- Screen Blur Overlay when Window Loses Focus -->
+<div id="blurScreenOverlay" class="hidden fixed inset-0 z-40 bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center text-white space-y-3">
+    <div class="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-amber-300 animate-pulse">
+        <i data-lucide="lock" class="w-8 h-8"></i>
+    </div>
+    <h3 class="text-lg font-black tracking-tight">Test Window Paused &bull; Focus Lost</h3>
+    <p class="text-xs text-slate-300 max-w-xs leading-relaxed">
+        You switched away from the active test window. Leaving the examination tab is prohibited and has been recorded.
+    </p>
+    <button type="button" onclick="resumeTestFromBlur()" class="mt-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider transition-all">
+        Resume Examination
+    </button>
 </div>
 
 <!-- "Need Help?" Modal -->
@@ -360,10 +529,10 @@ require_once __DIR__ . '/includes/header.php';
             <button type="button" onclick="toggleHelpModal()" class="text-slate-400 hover:text-slate-800 text-lg">&times;</button>
         </div>
         <div class="text-xs text-slate-600 space-y-2.5 leading-relaxed">
-            <p><strong>1. Navigation:</strong> Use the <em>Question Navigation Grid</em> on the left or the <em>Previous / Next</em> buttons below to move across items.</p>
+            <p><strong>1. Navigation:</strong> Use the <em>Question Navigation Grid</em> or the <em>Previous / Next</em> buttons to navigate between questions.</p>
             <p><strong>2. Color Codes:</strong> <span class="text-emerald-600 font-bold">Green</span> indicates answered questions, <span class="text-blue-600 font-bold">Blue</span> shows your active item, and <span class="text-amber-500 font-bold">Yellow</span> marks questions flagged for review.</p>
-            <p><strong>3. Keyboard Shortcuts:</strong> Press <code>A</code>, <code>B</code>, <code>C</code>, <code>D</code> to select answers; use <code>Left/Right Arrow keys</code> to browse items, and <code>F</code> to mark for review.</p>
-            <p><strong>4. Anti-Cheating Notice:</strong> Do not leave or switch browser tabs. Switching tabs or exiting fullscreen triggers proctor warning alerts and may submit your exam.</p>
+            <p><strong>3. Keyboard Shortcuts:</strong> Press <code>A</code>, <code>B</code>, <code>C</code>, <code>D</code> to select options; use <code>Arrow keys</code> to move, and <code>F</code> to bookmark.</p>
+            <p><strong>4. Security Rules:</strong> Do not switch tabs or minimize the window. Text copying and external shortcuts are strictly disabled.</p>
         </div>
         <button type="button" onclick="toggleHelpModal()" class="w-full py-2.5 rounded-xl bg-[#103a71] text-white font-bold text-xs">
             Return to Examination
@@ -423,7 +592,7 @@ require_once __DIR__ . '/includes/header.php';
     <input type="hidden" name="cheating_log" id="cheatingLogInput" value="[]">
 </form>
 
-<!-- Warning Modal -->
+<!-- Tab Switch Warning Modal -->
 <div id="cheatingModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-sm w-full p-5 text-center space-y-3.5 shadow-2xl border-2 border-rose-500">
         <div class="w-12 h-12 mx-auto rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
@@ -482,6 +651,15 @@ let secondsRemaining = DURATION_MINUTES > 0 ? DURATION_MINUTES * 60 : null;
 let timerInterval = null;
 let isLargeFont = false;
 
+// Anti Cheating Telemetry Settings
+let tabSwitchCount = 0;
+let cheatingLogs = [];
+const MAX_TAB_SWITCHES = <?= (int)$maxTabSwitches ?>;
+const ANTI_CHEAT_BLUR = <?= (int)$antiCheatBlur ?>;
+const ENFORCE_FULLSCREEN = <?= (int)$enforceFullscreen ?>;
+const AUTO_SUBMIT = <?= (int)$autoSubmit ?>;
+const SESSION_ID = '<?= htmlspecialchars($sessionId) ?>';
+
 // Initialize examination state
 function initExam() {
     renderCurrentQuestion();
@@ -503,9 +681,11 @@ function initExam() {
         document.getElementById('timerDisplay').innerText = "Self-Paced";
     }
 
-    // Keyboard shortcuts & security
+    // Keyboard shortcuts & strict security listeners
     setupKeyboardShortcuts();
-    setupAntiCheatingListeners();
+    setupStrictSecurity();
+    setupTabSecurity();
+    setupFullscreenSecurity();
 }
 
 function updateTimerDisplay() {
@@ -517,9 +697,11 @@ function updateTimerDisplay() {
     if (display) display.innerText = str;
     if (container) {
         if (secondsRemaining < 180) {
-            container.className = "px-3.5 py-1.5 rounded-xl bg-rose-600 text-white font-mono font-bold text-xs flex items-center gap-2 shadow-xs animate-pulse";
+            container.className = "flex items-center gap-1 text-xs font-black uppercase text-white px-2 py-1 rounded-lg bg-rose-600 shadow-xs animate-pulse";
+            display.className = "font-mono text-sm sm:text-lg font-black text-white";
         } else if (secondsRemaining < 600) {
-            container.className = "px-3.5 py-1.5 rounded-xl bg-amber-600 text-white font-mono font-bold text-xs flex items-center gap-2 shadow-xs";
+            container.className = "flex items-center gap-1 text-xs font-black uppercase text-white px-2 py-1 rounded-lg bg-amber-600 shadow-xs";
+            display.className = "font-mono text-sm sm:text-lg font-black text-white";
         }
     }
 }
@@ -527,16 +709,14 @@ function updateTimerDisplay() {
 function renderCurrentQuestion() {
     const q = QUESTIONS[currentIndex];
     const headEl = document.getElementById('questionHeaderNumber');
-    const progEl = document.getElementById('progressIndicator');
     if (headEl) headEl.innerText = `Question ${currentIndex + 1} of ${QUESTIONS.length}`;
-    if (progEl) progEl.innerText = `Question ${currentIndex + 1} of ${QUESTIONS.length}`;
 
     // Render stem text
     const stemEl = document.getElementById('questionStem');
     stemEl.innerHTML = q.text;
     stemEl.className = isLargeFont 
-        ? "text-base sm:text-lg font-medium text-slate-900 leading-relaxed mb-4 select-none"
-        : "text-sm sm:text-base font-medium text-slate-900 leading-relaxed mb-4 select-none";
+        ? "text-base sm:text-lg font-medium text-slate-900 leading-relaxed mb-3 sm:mb-4 select-none"
+        : "text-sm sm:text-base font-medium text-slate-900 leading-relaxed mb-3 sm:mb-4 select-none";
 
     // Render diagram
     const diagContainer = document.getElementById('diagramContainer');
@@ -559,20 +739,19 @@ function renderCurrentQuestion() {
         const isSelected = (currentPick === opt);
 
         const btn = document.createElement('div');
-        btn.className = `p-3 sm:p-3.5 rounded-xl border cursor-pointer transition-all flex items-center gap-3 select-none ${
+        btn.className = `p-3 sm:p-3.5 rounded-xl border cursor-pointer transition-all flex items-center gap-2.5 sm:gap-3 select-none active:scale-[0.99] min-h-[48px] ${
             isSelected 
-            ? 'border-blue-600 bg-blue-50/80 text-blue-950 font-semibold ring-2 ring-blue-500/20 shadow-xs' 
+            ? 'border-indigo-600 bg-indigo-50/90 text-indigo-950 font-semibold ring-2 ring-indigo-500/25 shadow-xs' 
             : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-800'
         }`;
         btn.onclick = () => selectOption(opt);
 
         btn.innerHTML = `
-            <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                isSelected ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'
+            <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                isSelected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white text-slate-600'
             }">
-                ${isSelected ? '<div class="w-2 h-2 rounded-full bg-white"></div>' : ''}
+                <span class="text-[11px] font-black uppercase font-mono">${opt.toUpperCase()}</span>
             </div>
-            <div class="text-xs font-bold text-slate-700 uppercase font-mono mr-1">${opt})</div>
             <div class="text-xs sm:text-sm font-medium leading-snug flex-1">${q[opt]}</div>
         `;
         optContainer.appendChild(btn);
@@ -597,7 +776,9 @@ function renderCurrentQuestion() {
         renderMathInElement(document.getElementById('examApp'), {
             delimiters: [
                 {left: '$$', right: '$$', display: true},
-                {left: '$', right: '$', display: false}
+                {left: '$', right: '$', display: false},
+                {left: '\\(', right: '\\)', display: false},
+                {left: '\\[', right: '\\]', display: true}
             ],
             throwOnError: false
         });
@@ -644,6 +825,11 @@ function jumpToQuestion(idx) {
     currentIndex = idx;
     renderCurrentQuestion();
     renderPalette();
+    // If mobile palette is open, close it
+    const m = document.getElementById('mobilePaletteModal');
+    if (m && !m.classList.contains('hidden')) {
+        m.classList.add('hidden');
+    }
 }
 
 function toggleFlag() {
@@ -664,21 +850,23 @@ function updateFlagButton() {
     const label = document.getElementById('flagLabel');
 
     if (isFlagged) {
-        btn.className = "px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs uppercase flex items-center gap-1.5 transition-colors";
+        btn.className = "px-3 sm:px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs uppercase flex items-center gap-1.5 transition-colors";
         label.innerText = "BOOKMARKED";
     } else {
-        btn.className = "px-3.5 py-2 rounded-lg bg-slate-500 hover:bg-slate-600 text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-colors";
-        label.innerText = "MARK FOR REVIEW";
+        btn.className = "px-3 sm:px-3.5 py-2 rounded-lg bg-slate-500 hover:bg-slate-600 text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-colors";
+        label.innerText = "BOOKMARK";
     }
 }
 
 function renderPalette() {
-    const grid = document.getElementById('paletteGrid');
-    if (!grid) return;
-    grid.innerHTML = '';
+    const desktopGrid = document.getElementById('paletteGrid');
+    const mobileGrid = document.getElementById('mobilePaletteGrid');
 
     let answeredCount = 0;
     let flaggedCount = 0;
+
+    const desktopFrag = document.createDocumentFragment();
+    const mobileFrag = document.createDocumentFragment();
 
     QUESTIONS.forEach((q, idx) => {
         const isAnswered = !!userAnswers[q.id];
@@ -688,38 +876,74 @@ function renderPalette() {
         if (isAnswered) answeredCount++;
         if (isFlagged) flaggedCount++;
 
-        const item = document.createElement('button');
-        item.type = 'button';
-        item.onclick = () => jumpToQuestion(idx);
-
         let bgClass = 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200';
         if (isCurrent) {
-            bgClass = 'bg-[#1d4ed8] text-white font-black ring-2 ring-blue-300 shadow-sm';
+            bgClass = 'bg-[#103a71] text-white font-black ring-2 ring-indigo-400 shadow-sm';
         } else if (isAnswered) {
             bgClass = 'bg-[#22c55e] text-white font-bold shadow-xs';
         } else if (isFlagged) {
             bgClass = 'bg-amber-400 text-slate-900 font-bold';
         }
 
-        item.className = `h-9 w-full rounded-lg text-xs font-mono font-bold transition-all flex items-center justify-center relative ${bgClass}`;
-        item.innerText = idx + 1;
-
+        // Desktop Button
+        const dBtn = document.createElement('button');
+        dBtn.type = 'button';
+        dBtn.onclick = () => jumpToQuestion(idx);
+        dBtn.className = `h-9 w-full rounded-lg text-xs font-mono font-bold transition-all flex items-center justify-center relative ${bgClass}`;
+        dBtn.innerText = idx + 1;
         if (isFlagged && !isCurrent && isAnswered) {
             const dot = document.createElement('span');
             dot.className = "absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-300 ring-1 ring-white";
-            item.appendChild(dot);
+            dBtn.appendChild(dot);
         }
+        desktopFrag.appendChild(dBtn);
 
-        grid.appendChild(item);
+        // Mobile Button
+        const mBtn = document.createElement('button');
+        mBtn.type = 'button';
+        mBtn.onclick = () => jumpToQuestion(idx);
+        mBtn.className = `h-9 rounded-lg text-xs font-mono font-bold transition-all flex items-center justify-center relative ${bgClass}`;
+        mBtn.innerText = idx + 1;
+        if (isFlagged && !isCurrent && isAnswered) {
+            const dot = document.createElement('span');
+            dot.className = "absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-300 ring-1 ring-white";
+            mBtn.appendChild(dot);
+        }
+        mobileFrag.appendChild(mBtn);
     });
 
+    if (desktopGrid) {
+        desktopGrid.innerHTML = '';
+        desktopGrid.appendChild(desktopFrag);
+    }
+    if (mobileGrid) {
+        mobileGrid.innerHTML = '';
+        mobileGrid.appendChild(mobileFrag);
+    }
+
     const remaining = QUESTIONS.length - answeredCount;
+    
+    // Desktop Counters
     const answeredEl = document.getElementById('answeredCount');
     if (answeredEl) answeredEl.innerText = answeredCount;
     const flaggedEl = document.getElementById('flaggedBadge');
     if (flaggedEl) flaggedEl.innerText = flaggedCount;
     const remainingEl = document.getElementById('remainingBadge');
     if (remainingEl) remainingEl.innerText = remaining;
+
+    // Mobile Badges
+    const mobHeader = document.getElementById('mobileHeaderAnsCount');
+    if (mobHeader) mobHeader.innerText = answeredCount;
+    const mobCount = document.getElementById('mobileAnsweredCount');
+    if (mobCount) mobCount.innerText = answeredCount;
+}
+
+function toggleMobilePalette() {
+    const m = document.getElementById('mobilePaletteModal');
+    if (m) {
+        m.classList.toggle('hidden');
+        if (window.lucide) lucide.createIcons();
+    }
 }
 
 function toggleHelpModal() {
@@ -727,6 +951,56 @@ function toggleHelpModal() {
     if (m) m.classList.toggle('hidden');
 }
 
+// Custom Submit Confirmation Dialog Logic
+function confirmSubmit() {
+    const answeredCount = Object.keys(userAnswers).length;
+    const unanswered = QUESTIONS.length - answeredCount;
+    const flagged = flaggedQuestions.size;
+
+    document.getElementById('submitModalAnswered').innerText = answeredCount;
+    document.getElementById('submitModalUnanswered').innerText = unanswered;
+    document.getElementById('submitModalFlagged').innerText = flagged;
+
+    const noticeEl = document.getElementById('submitModalNotice');
+    if (unanswered > 0) {
+        noticeEl.className = "p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs leading-relaxed space-y-1";
+        noticeEl.innerHTML = `
+            <div class="font-bold flex items-center gap-1.5 text-amber-800">
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600"></i>
+                <span>Attention: ${unanswered} Unanswered Question(s)</span>
+            </div>
+            <p>You still have <strong>${unanswered}</strong> question(s) without an answer. Submitting now will finalize your test and grade all unanswered questions as zero.</p>
+        `;
+    } else {
+        noticeEl.className = "p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs leading-relaxed space-y-1";
+        noticeEl.innerHTML = `
+            <div class="font-bold flex items-center gap-1.5 text-emerald-800">
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+                <span>All Questions Answered</span>
+            </div>
+            <p>Excellent! You have answered all <strong>${QUESTIONS.length}</strong> questions. Confirm below to grade and compute your results.</p>
+        `;
+    }
+
+    const modal = document.getElementById('submitConfirmModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+    }
+}
+
+function dismissSubmitModal() {
+    const modal = document.getElementById('submitConfirmModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function executeSubmit() {
+    document.getElementById('answersJsonInput').value = JSON.stringify(userAnswers);
+    document.getElementById('questionIdsJsonInput').value = JSON.stringify(QUESTIONS.map(q => q.id));
+    document.getElementById('submissionForm').submit();
+}
+
+// Live Webcam & Real-Time Proctoring Stream
 let proctorCanvas = null;
 let proctorInterval = null;
 
@@ -747,7 +1021,6 @@ function initLiveWebcam() {
                 vid.classList.remove('hidden');
                 if (ph) ph.classList.add('hidden');
 
-                // Start Live Real-Time Proctoring Stream to Admin Panel
                 startProctorStream(vid);
             }
         })
@@ -766,7 +1039,7 @@ function startProctorStream(videoEl) {
     const ctx = proctorCanvas.getContext('2d');
 
     let proctorTick = 0;
-    // Stream a frame every 500ms (0.5 seconds / 2 FPS) for fluid real-time motion
+    // High-rate transmission every 500ms (0.5s / 2 FPS)
     proctorInterval = setInterval(() => {
         try {
             if (videoEl.readyState >= 2) {
@@ -783,7 +1056,7 @@ function startProctorStream(videoEl) {
                     frame: frameJpeg
                 });
 
-                // 1. Direct high-rate transmission to Local Admin Server on Port 8899 (every 500ms)
+                // 1. Direct transmission to Local Admin Server on Port 8899
                 fetch('http://localhost:8899/api/proctor_frame', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -795,7 +1068,7 @@ function startProctorStream(videoEl) {
                     }
                 }).catch(() => {});
 
-                // 2. Cloud DB sync (every 3rd frame ~1.5s or on tab switch to optimize network pipeline)
+                // 2. Cloud DB sync (every 3rd frame ~1.5s or on infraction)
                 if (proctorTick % 3 === 0 || tabSwitchCount > 0) {
                     fetch('log_proctor_frame.php', {
                         method: 'POST',
@@ -829,6 +1102,7 @@ function dismissProctorWarning() {
     const modal = document.getElementById('proctorLiveWarningModal');
     if (modal) modal.classList.add('hidden');
 }
+
 window.addEventListener('DOMContentLoaded', initLiveWebcam);
 
 function toggleFontSize() {
@@ -841,26 +1115,6 @@ function zoomDiagram(src) {
     document.getElementById('zoomModal').classList.remove('hidden');
 }
 
-function confirmSubmit() {
-    const answeredCount = Object.keys(userAnswers).length;
-    const unanswered = QUESTIONS.length - answeredCount;
-    let msg = `You have answered ${answeredCount} of ${QUESTIONS.length} questions.`;
-    if (unanswered > 0) {
-        msg += `\n\nNotice: You still have ${unanswered} unanswered question(s).`;
-    }
-    msg += "\n\nAre you sure you want to submit your test now?";
-
-    if (confirm(msg)) {
-        executeSubmit();
-    }
-}
-
-function executeSubmit() {
-    document.getElementById('answersJsonInput').value = JSON.stringify(userAnswers);
-    document.getElementById('questionIdsJsonInput').value = JSON.stringify(QUESTIONS.map(q => q.id));
-    document.getElementById('submissionForm').submit();
-}
-
 // Text to speech
 function speakCurrentQuestion() {
     if ('speechSynthesis' in window) {
@@ -871,7 +1125,7 @@ function speakCurrentQuestion() {
     }
 }
 
-// Keyboard accelerators
+// Keyboard navigation
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', e => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -891,15 +1145,173 @@ function setupKeyboardShortcuts() {
     });
 }
 
-// Anti Cheating Telemetry
-let tabSwitchCount = 0;
-let cheatingLogs = [];
-const MAX_TAB_SWITCHES = <?= (int)$maxTabSwitches ?>;
-const ANTI_CHEAT_BLUR = <?= (int)$antiCheatBlur ?>;
-const ENFORCE_FULLSCREEN = <?= (int)$enforceFullscreen ?>;
-const AUTO_SUBMIT = <?= (int)$autoSubmit ?>;
-const SESSION_ID = '<?= htmlspecialchars($sessionId) ?>';
+// STRICT SECURITY: Disable Copy, Cut, Paste, Selection, Context Menu & Inspection
+function setupStrictSecurity() {
+    // 1. Disable Right Click Context Menu
+    document.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        return false;
+    }, { capture: true });
 
+    // 2. Disable Copy, Cut & Paste
+    document.addEventListener('copy', e => {
+        e.preventDefault();
+        return false;
+    }, { capture: true });
+
+    document.addEventListener('cut', e => {
+        e.preventDefault();
+        return false;
+    }, { capture: true });
+
+    document.addEventListener('paste', e => {
+        e.preventDefault();
+        return false;
+    }, { capture: true });
+
+    // 3. Disable Text Selection Start & Dragging
+    document.addEventListener('selectstart', e => {
+        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            return false;
+        }
+    }, { capture: true });
+
+    document.addEventListener('dragstart', e => {
+        e.preventDefault();
+        return false;
+    }, { capture: true });
+
+    // 4. Block Inspection & Copy Key Chords
+    document.addEventListener('keydown', e => {
+        const key = e.key.toLowerCase();
+        const ctrl = e.ctrlKey || e.metaKey;
+
+        // F12 or devtools chords
+        if (e.key === 'F12' || (ctrl && e.shiftKey && ['i', 'j', 'c'].includes(key))) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+
+        // Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+A, Ctrl+U, Ctrl+S, Ctrl+P
+        if (ctrl && ['c', 'v', 'x', 'a', 'u', 's', 'p'].includes(key)) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+    }, { capture: true });
+}
+
+// TAB LEAVING & WINDOW BLUR SECURITY
+function setupTabSecurity() {
+    if (!ANTI_CHEAT_BLUR) return;
+
+    let isBlurred = false;
+
+    function handleBlur(reason) {
+        if (isBlurred) return;
+        isBlurred = true;
+
+        const overlay = document.getElementById('blurScreenOverlay');
+        if (overlay) overlay.classList.remove('hidden');
+
+        recordCheatingEvent('TAB_SWITCH', reason);
+    }
+
+    function handleFocus() {
+        if (!isBlurred) return;
+        isBlurred = false;
+
+        const overlay = document.getElementById('blurScreenOverlay');
+        if (overlay) overlay.classList.add('hidden');
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            handleBlur('Switched browser tab or minimized window');
+        } else {
+            handleFocus();
+        }
+    });
+
+    window.addEventListener('blur', () => {
+        handleBlur('Browser window lost focus to background application');
+    });
+
+    window.addEventListener('focus', () => {
+        handleFocus();
+    });
+
+    document.addEventListener('mouseleave', (e) => {
+        if (e.clientY <= 0) {
+            handleBlur('Pointer left examination window boundary');
+        }
+    });
+}
+
+function resumeTestFromBlur() {
+    const overlay = document.getElementById('blurScreenOverlay');
+    if (overlay) overlay.classList.add('hidden');
+}
+
+// FULLSCREEN SECURITY ENFORCEMENT
+function setupFullscreenSecurity() {
+    if (!ENFORCE_FULLSCREEN) return;
+
+    // Check if initial fullscreen gateway is needed
+    if (!document.fullscreenElement) {
+        const gateway = document.getElementById('fullscreenGatewayModal');
+        if (gateway) gateway.classList.remove('hidden');
+    }
+
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) {
+            recordCheatingEvent('FULLSCREEN_EXIT', 'Exited proctored fullscreen window');
+            const exitModal = document.getElementById('fullscreenExitModal');
+            const exitBadge = document.getElementById('fullscreenExitWarningCount');
+            if (exitBadge) {
+                exitBadge.innerText = MAX_TAB_SWITCHES > 0 
+                    ? `Warning ${tabSwitchCount} of ${MAX_TAB_SWITCHES} allowed`
+                    : `Warning #${tabSwitchCount}`;
+            }
+            if (exitModal) exitModal.classList.remove('hidden');
+        } else {
+            const gateway = document.getElementById('fullscreenGatewayModal');
+            if (gateway) gateway.classList.add('hidden');
+            const exitModal = document.getElementById('fullscreenExitModal');
+            if (exitModal) exitModal.classList.add('hidden');
+        }
+    });
+}
+
+function enterFullscreenExam() {
+    if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(err => {
+            console.warn('Fullscreen request failed:', err.message);
+        });
+    }
+    const gateway = document.getElementById('fullscreenGatewayModal');
+    if (gateway) gateway.classList.add('hidden');
+}
+
+function reEnterFullscreenExam() {
+    if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+    }
+    const exitModal = document.getElementById('fullscreenExitModal');
+    if (exitModal) exitModal.classList.add('hidden');
+}
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+        document.exitFullscreen().catch(() => {});
+    }
+}
+
+// Infraction Telemetry Dispatcher
 function recordCheatingEvent(type, details) {
     tabSwitchCount++;
     const now = new Date();
@@ -933,7 +1345,7 @@ function recordCheatingEvent(type, details) {
         if (flagInput) flagInput.value = '1';
         if (AUTO_SUBMIT) {
             setTimeout(() => {
-                alert(`Notice: Maximum allowed warnings (${MAX_TAB_SWITCHES}) reached. Your test is now being submitted.`);
+                alert(`Security Notice: Maximum allowed warnings (${MAX_TAB_SWITCHES}) reached. Your test is now being submitted.`);
                 executeSubmit();
             }, 400);
         }
@@ -960,32 +1372,6 @@ function dismissCheatingModal() {
     if (modal) modal.classList.add('hidden');
     if (ENFORCE_FULLSCREEN && !document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch(() => {});
-    }
-}
-
-function setupAntiCheatingListeners() {
-    document.addEventListener('contextmenu', e => e.preventDefault());
-    document.addEventListener('copy', e => e.preventDefault());
-    document.addEventListener('paste', e => e.preventDefault());
-
-    if (ANTI_CHEAT_BLUR) {
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden') {
-                recordCheatingEvent('TAB_SWITCH', 'Switched browser tab or minimized window');
-            }
-        });
-
-        window.addEventListener('blur', () => {
-            recordCheatingEvent('WINDOW_BLUR', 'Window lost focus to background application');
-        });
-    }
-
-    if (ENFORCE_FULLSCREEN) {
-        document.addEventListener('fullscreenchange', () => {
-            if (!document.fullscreenElement) {
-                recordCheatingEvent('FULLSCREEN_EXIT', 'Exited proctored fullscreen mode');
-            }
-        });
     }
 }
 

@@ -13,7 +13,7 @@ toClean.forEach(f => {
 console.log('1. Adding and committing all modified files...');
 try {
   git('add -A');
-  git('commit -m "chore: finalize local sqlite question bank wipe and cloud sync"');
+  git('commit -m "feat: mobile test interface layout, focused proctored window, fullscreen enforcement, tab security, and custom submit modal"');
 } catch (e) {
   console.log('Commit note:', e.message);
 }

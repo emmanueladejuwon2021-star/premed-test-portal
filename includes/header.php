@@ -58,7 +58,7 @@ $pageTitle = $pageTitle ?? 'PreMed Portal';
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-indigo-600 selection:text-white">
 
-<?php if (!$isPublicPage): ?>
+<?php if (!$isPublicPage && $currentPage !== 'exam.php'): ?>
 <!-- ================= FIXED & COLLAPSIBLE NAVBAR ================= -->
 <header class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6">
@@ -226,5 +226,5 @@ $pageTitle = $pageTitle ?? 'PreMed Portal';
 </script>
 <?php endif; ?>
 
-<!-- Main Content Area with offset for fixed top navbar -->
-<main class="flex-grow <?= !$isPublicPage ? 'pt-20 sm:pt-24' : '' ?>">
+<!-- Main Content Area with offset for fixed top navbar (suppressed on exam.php) -->
+<main class="flex-grow <?= (!$isPublicPage && $currentPage !== 'exam.php') ? 'pt-20 sm:pt-24' : '' ?>">
