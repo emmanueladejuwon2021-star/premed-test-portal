@@ -5,7 +5,17 @@
  */
 
 class AuthHelper {
-    private static string $secretKey = 'super-secret-first-class-freshers-vault';
+    private static ?string $secretKey = null;
+
+    private static function getSecretKey(): string {
+        if (self::$secretKey === null) {
+            self::$secretKey = getenv('JWT_SECRET') ?: 'super-secret-first-class-freshers-vault-CHANGE-ME';
+            if (self::$secretKey === 'super-secret-first-class-freshers-vault-CHANGE-ME' && getenv('APP_ENV') === 'production') {
+                die('JWT_SECRET environment variable must be set in production.');
+            }
+        }
+        return self::$secretKey;
+    }
 
     public static function setCorsHeaders(): void {
         header("Access-Control-Allow-Origin: *");
@@ -34,7 +44,7 @@ class AuthHelper {
         $base64Header = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($header));
         $base64Payload = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($payloadEncoded));
 
-        $signature = hash_hmac('sha256', "{$base64Header}.{$base64Payload}", self::$secretKey, true);
+        $signature = hash_hmac('sha256', "{$base64Header}.{$base64Payload}", self::getSecretKey(), true);
         $base64Signature = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($signature));
 
         return "{$base64Header}.{$base64Payload}.{$base64Signature}";
@@ -53,7 +63,7 @@ class AuthHelper {
         if (count($parts) !== 3) return null;
 
         [$headerB64, $payloadB64, $sigB64] = $parts;
-        $expectedSig = hash_hmac('sha256', "{$headerB64}.{$payloadB64}", self::$secretKey, true);
+        $expectedSig = hash_hmac('sha256', "{$headerB64}.{$payloadB64}", self::getSecretKey(), true);
         $expectedSigB64 = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($expectedSig));
 
         if (!hash_equals($expectedSigB64, $sigB64)) {
