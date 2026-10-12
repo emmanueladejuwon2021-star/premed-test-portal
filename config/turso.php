@@ -52,7 +52,8 @@ class TursoPDO {
             ],
             CURLOPT_TIMEOUT => 25,
             CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_TCP_KEEPALIVE => 1
         ]);
 
