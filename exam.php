@@ -1,6 +1,6 @@
 <?php
 /**
- * Prometric / Board Examination CBT Simulation Environment - Enterprise Production Edition
+ * Prometric / Board Examination CBT Simulation Environment - Clinical Medical Edition
  * Apex Pre-Medical Sciences Examination Council (PMSEC)
  */
 
@@ -66,11 +66,11 @@ if (!empty($topicFilters) && is_array($topicFilters)) {
 
 if (empty($questions)) {
     require_once __DIR__ . '/includes/header.php';
-    echo "<div class='max-w-md mx-auto p-8 my-12 bg-white rounded-3xl border border-slate-200 text-center space-y-3 shadow-xs'>
-        <div class='w-12 h-12 mx-auto rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center'><i data-lucide='help-circle' class='w-6 h-6'></i></div>
+    echo "<div class='max-w-md mx-auto p-8 my-12 bg-white rounded-3xl border border-teal-200 text-center space-y-3 shadow-xs'>
+        <div class='w-12 h-12 mx-auto rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center'><i data-lucide='help-circle' class='w-6 h-6'></i></div>
         <h2 class='text-base font-bold text-slate-800'>No Questions Available Yet</h2>
         <p class='text-xs text-slate-500'>There are currently no questions added to this test. Please check back later or contact your instructor.</p>
-        <a href='courses.php' class='inline-block px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition-colors'>Return to Tests</a>
+        <a href='courses.php' class='inline-block px-4 py-2 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-700 transition-colors'>Return to Tests</a>
     </div>";
     require_once __DIR__ . '/includes/footer.php';
     exit;
@@ -161,62 +161,96 @@ require_once __DIR__ . '/includes/header.php';
 
 <div class="w-full max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-3 select-none" id="examRoot">
 
-    <!-- Authentic University / Council Institutional Header Banner -->
-    <div class="bg-[#103a71] text-white rounded-2xl shadow-md border border-[#0d2e5a] p-3 sm:p-4 mb-3 sm:mb-4">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            
-            <!-- Left: Institution Crest & Title -->
-            <div class="flex items-center gap-2.5 sm:gap-3">
-                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white shrink-0 shadow-inner">
-                    <svg class="w-5 h-5 sm:w-7 sm:h-7 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- ================= BRAND NEW PROCTOR VIEW & EXAM HUD ================= -->
+    <div class="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white rounded-3xl border border-teal-500/25 p-3 sm:p-4 mb-3 sm:mb-4 shadow-xl relative overflow-hidden">
+        
+        <!-- Subtle Background Glow -->
+        <div class="absolute -right-16 -top-16 w-56 h-56 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -left-16 -bottom-16 w-56 h-56 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 relative z-10">
+
+            <!-- 1. LEFT: Medical Examination Badge & Course Info -->
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-teal-500/20 to-emerald-600/30 border border-teal-400/40 flex items-center justify-center text-teal-300 shrink-0 shadow-inner">
+                    <svg class="w-6 h-6 sm:w-7 sm:h-7 text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
                         <path d="M2 17l10 5 10-5"></path>
                         <path d="M2 12l10 5 10-5"></path>
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-xs sm:text-base font-black tracking-tight uppercase text-white leading-tight">
-                        Apex Pre-Medical Sciences Examination Council
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded-md bg-teal-400/15 border border-teal-400/30 text-teal-300 font-mono font-black text-xs sm:text-sm tracking-wider">
+                            <?= htmlspecialchars($course['code']) ?>
+                        </span>
+                        <span class="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden sm:inline">
+                            Apex Medical Examination
+                        </span>
+                    </div>
+                    <h1 class="text-xs sm:text-sm font-extrabold text-white tracking-tight mt-0.5 truncate max-w-[260px] sm:max-w-md">
+                        <?= htmlspecialchars($course['title']) ?>
                     </h1>
-                    <p class="text-[10px] sm:text-[11px] font-bold text-sky-200 tracking-wider uppercase mt-0.5">
-                        Online CBT Examination &bull; <span class="text-amber-300"><?= htmlspecialchars($course['code']) ?> - <?= htmlspecialchars($course['title']) ?></span>
-                    </p>
                 </div>
             </div>
 
-            <!-- Right: Candidate Camera, Details & Quick Actions -->
-            <div class="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-4 shrink-0 border-t sm:border-t-0 border-white/10 pt-2 sm:pt-0">
-                <!-- Live Camera / Proctor Box -->
-                <div class="relative w-16 h-12 sm:w-24 sm:h-16 rounded-lg overflow-hidden bg-slate-950 border border-white/30 shadow-inner flex items-center justify-center">
+            <!-- 2. CENTER: Digital Countdown Timer Capsule -->
+            <div class="flex items-center justify-center">
+                <div class="flex items-center gap-2 px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-2xl bg-black/60 border border-teal-500/30 text-white shadow-inner" id="timerContainer">
+                    <div class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></div>
+                    <span class="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider font-mono">TIME LEFT:</span>
+                    <span id="timerDisplay" class="font-mono text-base sm:text-xl font-black text-rose-400 tracking-wider">--:--</span>
+                </div>
+            </div>
+
+            <!-- 3. RIGHT: REDESIGNED PROCTOR SUPERVISION POD -->
+            <div class="flex items-center justify-between lg:justify-end gap-3 sm:gap-4 shrink-0 border-t lg:border-t-0 border-white/10 pt-2 lg:pt-0">
+                
+                <!-- Rebuilt Live Camera Viewfinder Lens with Futuristic Status Aura -->
+                <div class="relative w-24 h-16 sm:w-28 sm:h-18 rounded-2xl overflow-hidden bg-black border-2 border-teal-400/50 shadow-[0_0_20px_rgba(20,184,166,0.25)] flex items-center justify-center shrink-0">
                     <video id="liveWebcam" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
+                    
+                    <!-- Fallback placeholder icon -->
                     <div id="webcamPlaceholder" class="flex flex-col items-center justify-center text-slate-400">
-                        <i data-lucide="user" class="w-4 h-4 sm:w-6 sm:h-6 text-slate-300"></i>
+                        <i data-lucide="user-check" class="w-5 h-5 sm:w-6 sm:h-6 text-teal-400/80"></i>
                     </div>
-                    <div class="absolute bottom-0.5 left-0.5 right-0.5 bg-black/75 backdrop-blur-xs rounded px-1 py-0.2 flex items-center justify-center gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
-                        <span class="text-[7px] sm:text-[8px] font-black tracking-wider uppercase text-white font-mono">Live</span>
+
+                    <!-- Modern Target / Viewfinder Brackets -->
+                    <div class="absolute inset-1 pointer-events-none border border-teal-400/20 rounded-xl"></div>
+
+                    <!-- Live Proctoring Status Pill Overlay -->
+                    <div class="absolute bottom-1 left-1 right-1 bg-black/85 backdrop-blur-md rounded-md px-1.5 py-0.5 flex items-center justify-center gap-1 shadow-xs border border-white/10">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span class="text-[7px] sm:text-[8px] font-black tracking-wider uppercase text-emerald-300 font-mono">LIVE PROCTOR</span>
                     </div>
                 </div>
 
-                <!-- Candidate Info & Controls -->
-                <div class="text-xs space-y-0.5">
-                    <div class="font-extrabold text-white text-[11px] sm:text-[13px] leading-tight truncate max-w-[140px] sm:max-w-[200px]">
-                        <?= strtoupper(htmlspecialchars($student['name'])) ?>
+                <!-- Candidate Credentials & Quick Actions Capsule -->
+                <div class="text-xs space-y-1">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-teal-400"></span>
+                        <span class="font-black text-white text-[12px] sm:text-[13px] tracking-tight truncate max-w-[140px] sm:max-w-[190px]">
+                            <?= strtoupper(htmlspecialchars($student['name'])) ?>
+                        </span>
                     </div>
-                    <div class="font-mono text-[10px] sm:text-[11px] text-sky-200 font-semibold truncate max-w-[140px] sm:max-w-[200px]">
-                        Matric: <span class="text-white"><?= htmlspecialchars($student['matric_no']) ?></span>
+                    <div class="font-mono text-[10px] sm:text-[11px] text-teal-300 font-bold truncate max-w-[140px] sm:max-w-[190px]">
+                        ID: <span class="text-white"><?= htmlspecialchars($student['matric_no']) ?></span>
                     </div>
+                    
+                    <!-- Controls Bar -->
                     <div class="flex items-center gap-1.5 pt-0.5">
-                        <!-- Mobile Question Grid Trigger -->
-                        <button type="button" onclick="toggleMobilePalette()" class="lg:hidden px-2 py-0.5 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-400/30 font-bold text-[10px] flex items-center gap-1 transition-colors">
-                            <i data-lucide="layout-grid" class="w-3 h-3 text-amber-300"></i>
+                        <!-- Mobile Palette Button -->
+                        <button type="button" onclick="toggleMobilePalette()" class="lg:hidden px-2 py-0.5 rounded-lg bg-teal-500/20 hover:bg-teal-500/30 text-teal-200 border border-teal-400/30 font-bold text-[10px] flex items-center gap-1 transition-all active:scale-95">
+                            <i data-lucide="layout-grid" class="w-3 h-3 text-teal-300"></i>
                             <span>Grid (<span id="mobileHeaderAnsCount">0</span>/<?= $totalQuestions ?>)</span>
                         </button>
-                        <button type="button" onclick="toggleFullscreen()" title="Toggle Fullscreen" class="px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] flex items-center gap-1 transition-colors">
-                            <i data-lucide="maximize-2" class="w-3 h-3 text-sky-300"></i>
-                            <span class="hidden sm:inline">Fullscreen</span>
+                        
+                        <button type="button" onclick="toggleFullscreen()" title="Toggle Fullscreen" class="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] flex items-center gap-1 transition-all">
+                            <i data-lucide="maximize-2" class="w-3 h-3 text-teal-300"></i>
+                            <span class="hidden sm:inline">Screen</span>
                         </button>
-                        <button type="button" onclick="toggleHelpModal()" class="px-2 py-0.5 rounded-md bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-400/30 font-bold text-[10px] transition-colors">
+
+                        <button type="button" onclick="toggleHelpModal()" class="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] transition-all">
                             Help
                         </button>
                     </div>
@@ -227,51 +261,47 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </div>
 
-    <!-- Main CBT Stage: Mobile-First Responsive Layout -->
+    <!-- ================= MAIN TWO-COLUMN CBT WORKSPACE ================= -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-start" id="examApp">
 
         <!-- RIGHT/MAIN COLUMN: Question Stage (1st on mobile, 8 cols on lg) -->
-        <div class="order-1 lg:order-2 lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-6 space-y-4 flex flex-col justify-between min-h-[460px] sm:min-h-[520px]">
+        <div class="order-1 lg:order-2 lg:col-span-8 bg-white rounded-3xl border border-teal-100 shadow-sm p-4 sm:p-7 space-y-4 flex flex-col justify-between min-h-[480px] sm:min-h-[530px] relative overflow-hidden">
             
+            <!-- Sleek Top Micro Progress Bar -->
+            <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mb-1">
+                <div id="testProgressBar" class="h-full bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-300" style="width: 0%"></div>
+            </div>
+
             <div>
-                <!-- Top Status Bar: Question Progress, Mobile Grid Pill, Timer & Red Submit Button -->
-                <div class="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
+                <!-- Top Status Bar: Question Progress, Speech, Font Size, Calculator & Prominent Submit -->
+                <div class="flex flex-wrap items-center justify-between gap-2.5 pb-3.5 border-b border-slate-100">
                     
-                    <!-- Left: Question Progress & Tools -->
-                    <div class="flex items-center gap-1.5 sm:gap-2">
-                        <span class="text-xs sm:text-sm font-black text-slate-800 font-mono" id="questionHeaderNumber">
+                    <!-- Question Counter & Tools -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs sm:text-sm font-black text-slate-800 font-mono px-2.5 py-1 rounded-xl bg-teal-50 border border-teal-200/60 text-teal-900" id="questionHeaderNumber">
                             Question 1 of <?= $totalQuestions ?>
                         </span>
                         
-                        <div class="flex items-center gap-1 ml-1 sm:ml-2">
-                            <button type="button" onclick="speakCurrentQuestion()" title="Read out loud" class="p-1 sm:p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100">
+                        <div class="flex items-center gap-1">
+                            <button type="button" onclick="speakCurrentQuestion()" title="Listen to question" class="p-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition-all">
                                 <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
                             </button>
                             <?php if ($calculatorAllowed): ?>
-                            <button type="button" onclick="toggleCalculator()" title="Calculator" class="p-1 sm:p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100">
+                            <button type="button" onclick="toggleCalculator()" title="Calculator" class="p-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition-all">
                                 <i data-lucide="calculator" class="w-3.5 h-3.5"></i>
                             </button>
                             <?php endif; ?>
-                            <button type="button" onclick="toggleFontSize()" title="Text size" class="p-1 sm:p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 font-bold text-[11px] sm:text-xs">
+                            <button type="button" onclick="toggleFontSize()" title="Adjust font size" class="p-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 font-bold text-[11px] sm:text-xs transition-all">
                                 A<span class="text-[9px]">±</span>
                             </button>
                         </div>
                     </div>
 
-                    <!-- Right: Digital Timer & Prominent Submit Button -->
-                    <div class="flex items-center gap-2 sm:gap-3">
-                        <!-- Digital Red Timer -->
-                        <div class="flex items-center gap-1 text-xs font-black uppercase text-slate-600 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200" id="timerContainer">
-                            <span class="text-slate-500 font-bold text-[10px] hidden sm:inline">TIME:</span>
-                            <span id="timerDisplay" class="font-mono text-sm sm:text-lg font-black text-[#dc2626]">--:--</span>
-                        </div>
-
-                        <!-- Prominent Red Submit Exam Button -->
-                        <button type="button" onclick="confirmSubmit()" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg bg-[#dc2626] hover:bg-red-700 text-white font-extrabold text-[11px] sm:text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5 active:scale-95">
-                            <i data-lucide="send" class="w-3.5 h-3.5"></i>
-                            <span>SUBMIT</span>
-                        </button>
-                    </div>
+                    <!-- Prominent Red Submit Exam Button -->
+                    <button type="button" onclick="confirmSubmit()" class="px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-extrabold text-[11px] sm:text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5 active:scale-95">
+                        <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                        <span>SUBMIT EXAM</span>
+                    </button>
 
                 </div>
 
@@ -283,24 +313,24 @@ require_once __DIR__ . '/includes/header.php';
 
                     <!-- Diagram (if present) -->
                     <div id="diagramContainer" class="mb-3 sm:mb-4 hidden text-center">
-                        <img id="questionDiagram" src="" alt="Question diagram" class="max-h-48 sm:max-h-56 rounded-xl mx-auto border border-slate-200 shadow-xs cursor-zoom-in" onclick="zoomDiagram(this.src)">
+                        <img id="questionDiagram" src="" alt="Question diagram" class="max-h-48 sm:max-h-56 rounded-2xl mx-auto border border-teal-100 shadow-xs cursor-zoom-in" onclick="zoomDiagram(this.src)">
                     </div>
 
                     <!-- Response Choices (Radio CBT Style) -->
-                    <div class="space-y-2 sm:space-y-2.5 select-none pt-1" id="optionsContainer">
+                    <div class="space-y-2.5 select-none pt-1" id="optionsContainer">
                         <!-- Options generated by JS -->
                     </div>
                 </div>
             </div>
 
             <!-- Bottom Navigation Action Bar -->
-            <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
+            <div class="pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
                 <div class="flex items-center gap-2">
-                    <button type="button" id="prevBtn" onclick="prevQuestion()" class="px-3.5 sm:px-4 py-2 rounded-lg bg-[#103a71] hover:bg-[#0d2e5a] text-white font-bold text-xs uppercase flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95">
+                    <button type="button" id="prevBtn" onclick="prevQuestion()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs uppercase flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 shadow-xs">
                         <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
                         <span>PREV</span>
                     </button>
-                    <button type="button" id="nextBtn" onclick="nextQuestion()" class="px-3.5 sm:px-4 py-2 rounded-lg bg-[#103a71] hover:bg-[#0d2e5a] text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-all active:scale-95">
+                    <button type="button" id="nextBtn" onclick="nextQuestion()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-all active:scale-95 shadow-xs">
                         <span>NEXT</span>
                         <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
                     </button>
@@ -310,7 +340,7 @@ require_once __DIR__ . '/includes/header.php';
                     <button type="button" onclick="clearCurrentSelection()" class="text-xs font-semibold text-slate-400 hover:text-rose-600 transition-colors">
                         Clear Choice
                     </button>
-                    <button type="button" onclick="toggleFlag()" id="flagBtn" class="px-3 sm:px-3.5 py-2 rounded-lg bg-slate-500 hover:bg-slate-600 text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-colors">
+                    <button type="button" onclick="toggleFlag()" id="flagBtn" class="px-3.5 py-2.5 rounded-xl bg-slate-500 hover:bg-slate-600 text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-colors shadow-xs">
                         <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
                         <span id="flagLabel">BOOKMARK</span>
                     </button>
@@ -320,21 +350,21 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <!-- LEFT COLUMN: Desktop Question Navigation Grid (hidden on mobile, visible on lg) -->
-        <div class="order-2 lg:order-1 lg:col-span-4 hidden lg:block bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3.5 sticky top-4">
+        <div class="order-2 lg:order-1 lg:col-span-4 hidden lg:block bg-white rounded-3xl border border-teal-100 shadow-sm p-4 space-y-3.5 sticky top-4">
             
             <!-- Navigation Grid Header -->
             <div class="border-b border-slate-100 pb-2.5 flex items-center justify-between">
                 <h3 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                    <i data-lucide="layout-grid" class="w-4 h-4 text-[#103a71]"></i>
-                    <span>Question Navigation Grid</span>
+                    <i data-lucide="layout-grid" class="w-4 h-4 text-teal-600"></i>
+                    <span>Question Palette</span>
                 </h3>
                 <span class="text-[11px] font-mono font-bold text-slate-400"><?= $totalQuestions ?> Items</span>
             </div>
 
             <!-- Legend -->
-            <div class="flex items-center justify-between text-[11px] font-semibold text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
+            <div class="flex items-center justify-between text-[11px] font-semibold text-slate-600 bg-slate-50 p-2 rounded-2xl border border-slate-100">
                 <div class="flex items-center gap-1.5">
-                    <span class="w-3.5 h-3.5 rounded bg-[#22c55e] inline-block shadow-xs"></span>
+                    <span class="w-3.5 h-3.5 rounded bg-emerald-500 inline-block shadow-xs"></span>
                     <span>Answered</span>
                 </div>
                 <div class="flex items-center gap-1.5">
@@ -343,7 +373,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="flex items-center gap-1.5">
                     <span class="w-3.5 h-3.5 rounded bg-amber-400 inline-block shadow-xs"></span>
-                    <span>Bookmarked</span>
+                    <span>Flagged</span>
                 </div>
             </div>
 
@@ -354,9 +384,9 @@ require_once __DIR__ . '/includes/header.php';
 
             <!-- Summary Counter Footer -->
             <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-mono text-slate-500 font-bold">
-                <span>Answered: <strong id="answeredCount" class="text-emerald-600">0</strong>/<?= $totalQuestions ?></span>
+                <span>Ans: <strong id="answeredCount" class="text-emerald-600">0</strong>/<?= $totalQuestions ?></span>
                 <span>Flagged: <strong id="flaggedBadge" class="text-amber-500">0</strong></span>
-                <span>Remaining: <strong id="remainingBadge" class="text-slate-600"><?= $totalQuestions ?></strong></span>
+                <span>Left: <strong id="remainingBadge" class="text-slate-600"><?= $totalQuestions ?></strong></span>
             </div>
 
         </div>
@@ -371,7 +401,7 @@ require_once __DIR__ . '/includes/header.php';
         
         <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
             <div class="flex items-center gap-2">
-                <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <div class="w-7 h-7 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
                     <i data-lucide="layout-grid" class="w-4 h-4"></i>
                 </div>
                 <h3 class="text-xs font-black text-slate-900 uppercase tracking-wider">Question Navigation Palette</h3>
@@ -384,7 +414,7 @@ require_once __DIR__ . '/includes/header.php';
         <!-- Legend -->
         <div class="flex items-center justify-between text-[10px] font-semibold text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
             <div class="flex items-center gap-1">
-                <span class="w-3 h-3 rounded bg-[#22c55e] inline-block"></span>
+                <span class="w-3 h-3 rounded bg-emerald-500 inline-block"></span>
                 <span>Answered</span>
             </div>
             <div class="flex items-center gap-1">
@@ -393,7 +423,7 @@ require_once __DIR__ . '/includes/header.php';
             </div>
             <div class="flex items-center gap-1">
                 <span class="w-3 h-3 rounded bg-amber-400 inline-block"></span>
-                <span>Bookmarked</span>
+                <span>Flagged</span>
             </div>
         </div>
 
@@ -404,7 +434,7 @@ require_once __DIR__ . '/includes/header.php';
 
         <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-mono font-bold text-slate-600">
             <span>Ans: <strong id="mobileAnsweredCount" class="text-emerald-600">0</strong>/<?= $totalQuestions ?></span>
-            <button type="button" onclick="toggleMobilePalette()" class="px-4 py-1.5 rounded-lg bg-[#103a71] text-white text-xs font-bold uppercase">
+            <button type="button" onclick="toggleMobilePalette()" class="px-4 py-1.5 rounded-xl bg-teal-600 text-white text-xs font-bold uppercase">
                 Return to Question
             </button>
         </div>
@@ -439,19 +469,19 @@ require_once __DIR__ . '/includes/header.php';
             </div>
             <div class="p-2.5 rounded-2xl bg-amber-50 border border-amber-100">
                 <div class="text-base sm:text-lg font-black text-amber-700" id="submitModalFlagged">0</div>
-                <div class="text-[9px] sm:text-[10px] font-bold text-amber-600 uppercase tracking-wider">Bookmarked</div>
+                <div class="text-[9px] sm:text-[10px] font-bold text-amber-600 uppercase tracking-wider">Flagged</div>
             </div>
         </div>
 
         <!-- Dynamic Notice Box -->
-        <div id="submitModalNotice" class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700"></div>
+        <div id="submitModalNotice" class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700"></div>
 
         <!-- Action Buttons -->
         <div class="flex items-center gap-2.5 pt-1">
-            <button type="button" onclick="dismissSubmitModal()" class="flex-1 py-2.5 sm:py-3 px-3 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs uppercase tracking-wider transition-colors">
+            <button type="button" onclick="dismissSubmitModal()" class="flex-1 py-2.5 sm:py-3 px-3 rounded-2xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs uppercase tracking-wider transition-colors">
                 Keep Reviewing
             </button>
-            <button type="button" onclick="executeSubmit()" class="flex-1 py-2.5 sm:py-3 px-3 rounded-xl bg-[#dc2626] hover:bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95">
+            <button type="button" onclick="executeSubmit()" class="flex-1 py-2.5 sm:py-3 px-3 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-95">
                 <i data-lucide="check-circle" class="w-4 h-4"></i>
                 <span>Yes, Submit Now</span>
             </button>
@@ -463,7 +493,7 @@ require_once __DIR__ . '/includes/header.php';
 <!-- Fullscreen Gateway Modal (When Enforced in Admin Settings) -->
 <div id="fullscreenGatewayModal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl border border-slate-200">
-        <div class="w-14 h-14 mx-auto rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-teal-50 text-teal-600 border border-teal-100 flex items-center justify-center">
             <i data-lucide="maximize" class="w-7 h-7"></i>
         </div>
         <div class="space-y-1">
@@ -475,7 +505,7 @@ require_once __DIR__ . '/includes/header.php';
         <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-500 font-medium">
             Please close any background tabs or external applications before beginning.
         </div>
-        <button type="button" onclick="enterFullscreenExam()" class="w-full py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 active:scale-95">
+        <button type="button" onclick="enterFullscreenExam()" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 active:scale-95">
             <i data-lucide="shield-check" class="w-4 h-4"></i>
             <span>Enter Fullscreen &amp; Begin Test</span>
         </button>
@@ -497,7 +527,7 @@ require_once __DIR__ . '/includes/header.php';
         <div class="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-mono font-bold" id="fullscreenExitWarningCount">
             Warning 1 of 3 allowed
         </div>
-        <button type="button" onclick="reEnterFullscreenExam()" class="w-full py-3.5 px-4 rounded-xl bg-[#103a71] hover:bg-[#0d2e5a] text-white font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 active:scale-95">
+        <button type="button" onclick="reEnterFullscreenExam()" class="w-full py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 active:scale-95">
             <i data-lucide="maximize" class="w-4 h-4"></i>
             <span>Re-Enter Fullscreen Immediately</span>
         </button>
@@ -506,35 +536,35 @@ require_once __DIR__ . '/includes/header.php';
 
 <!-- Screen Blur Overlay when Window Loses Focus -->
 <div id="blurScreenOverlay" class="hidden fixed inset-0 z-40 bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center text-white space-y-3">
-    <div class="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-amber-300 animate-pulse">
+    <div class="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-teal-300 animate-pulse">
         <i data-lucide="lock" class="w-8 h-8"></i>
     </div>
     <h3 class="text-lg font-black tracking-tight">Test Window Paused &bull; Focus Lost</h3>
     <p class="text-xs text-slate-300 max-w-xs leading-relaxed">
         You switched away from the active test window. Leaving the examination tab is prohibited and has been recorded.
     </p>
-    <button type="button" onclick="resumeTestFromBlur()" class="mt-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider transition-all">
+    <button type="button" onclick="resumeTestFromBlur()" class="mt-2 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs uppercase tracking-wider transition-all">
         Resume Examination
     </button>
 </div>
 
 <!-- "Need Help?" Modal -->
 <div id="helpModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200">
         <div class="flex items-center justify-between border-b pb-3">
             <h3 class="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <i data-lucide="help-circle" class="w-4 h-4 text-[#103a71]"></i>
+                <i data-lucide="help-circle" class="w-4 h-4 text-teal-600"></i>
                 <span>Examination Instructions &amp; Help</span>
             </h3>
             <button type="button" onclick="toggleHelpModal()" class="text-slate-400 hover:text-slate-800 text-lg">&times;</button>
         </div>
         <div class="text-xs text-slate-600 space-y-2.5 leading-relaxed">
             <p><strong>1. Navigation:</strong> Use the <em>Question Navigation Grid</em> or the <em>Previous / Next</em> buttons to navigate between questions.</p>
-            <p><strong>2. Color Codes:</strong> <span class="text-emerald-600 font-bold">Green</span> indicates answered questions, <span class="text-blue-600 font-bold">Blue</span> shows your active item, and <span class="text-amber-500 font-bold">Yellow</span> marks questions flagged for review.</p>
+            <p><strong>2. Color Codes:</strong> <span class="text-emerald-600 font-bold">Green</span> indicates answered questions, <span class="text-teal-600 font-bold">Teal</span> shows active question, and <span class="text-amber-500 font-bold">Yellow</span> marks questions flagged for review.</p>
             <p><strong>3. Keyboard Shortcuts:</strong> Press <code>A</code>, <code>B</code>, <code>C</code>, <code>D</code> to select options; use <code>Arrow keys</code> to move, and <code>F</code> to bookmark.</p>
             <p><strong>4. Security Rules:</strong> Do not switch tabs or minimize the window. Text copying and external shortcuts are strictly disabled.</p>
         </div>
-        <button type="button" onclick="toggleHelpModal()" class="w-full py-2.5 rounded-xl bg-[#103a71] text-white font-bold text-xs">
+        <button type="button" onclick="toggleHelpModal()" class="w-full py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs">
             Return to Examination
         </button>
     </div>
@@ -542,40 +572,40 @@ require_once __DIR__ . '/includes/header.php';
 
 <!-- Diagram Zoom Modal -->
 <div id="zoomModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
-    <div class="bg-white p-2.5 rounded-2xl max-w-2xl max-h-[90vh] overflow-auto shadow-2xl" onclick="event.stopPropagation()">
-        <img id="zoomedImg" src="" alt="Zoomed Diagram" class="w-full rounded-xl">
+    <div class="bg-white p-2.5 rounded-3xl max-w-2xl max-h-[90vh] overflow-auto shadow-2xl" onclick="event.stopPropagation()">
+        <img id="zoomedImg" src="" alt="Zoomed Diagram" class="w-full rounded-2xl">
     </div>
 </div>
 
 <?php if ($calculatorAllowed): ?>
 <!-- On-Screen Calculator -->
-<div id="calcModal" class="fixed bottom-4 right-4 bg-slate-900 text-white p-3.5 rounded-2xl shadow-2xl z-50 hidden w-60 border border-slate-800">
+<div id="calcModal" class="fixed bottom-4 right-4 bg-slate-900 text-white p-3.5 rounded-3xl shadow-2xl z-50 hidden w-60 border border-teal-500/30">
     <div class="flex justify-between items-center mb-2.5">
-        <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5 font-mono">
+        <span class="text-xs font-bold text-teal-300 flex items-center gap-1.5 font-mono">
             <i data-lucide="calculator" class="w-3.5 h-3.5 text-teal-400"></i>
             <span>Calculator</span>
         </span>
         <button type="button" onclick="toggleCalculator()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
     </div>
-    <input type="text" id="calcDisplay" readonly class="w-full bg-slate-800 text-right px-2.5 py-1.5 rounded-lg text-base font-mono mb-2 text-white border border-slate-700" value="0">
+    <input type="text" id="calcDisplay" readonly class="w-full bg-slate-800 text-right px-2.5 py-1.5 rounded-xl text-base font-mono mb-2 text-white border border-slate-700" value="0">
     <div class="grid grid-cols-4 gap-1 text-xs font-bold font-mono">
-        <button onclick="calcClear()" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750 text-rose-400">C</button>
-        <button onclick="calcInput('/')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750 text-teal-400">&divide;</button>
-        <button onclick="calcInput('*')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750 text-teal-400">&times;</button>
-        <button onclick="calcInput('-')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750 text-teal-400">-</button>
-        <button onclick="calcInput('7')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">7</button>
-        <button onclick="calcInput('8')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">8</button>
-        <button onclick="calcInput('9')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">9</button>
-        <button onclick="calcInput('+')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750 text-teal-400">+</button>
-        <button onclick="calcInput('4')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">4</button>
-        <button onclick="calcInput('5')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">5</button>
-        <button onclick="calcInput('6')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">6</button>
-        <button onclick="calcEqual()" class="row-span-2 p-1.5 bg-teal-600 text-white rounded hover:bg-teal-700 flex items-center justify-center">=</button>
-        <button onclick="calcInput('1')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">1</button>
-        <button onclick="calcInput('2')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">2</button>
-        <button onclick="calcInput('3')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">3</button>
-        <button onclick="calcInput('0')" class="col-span-2 p-1.5 bg-slate-800 rounded hover:bg-slate-750">0</button>
-        <button onclick="calcInput('.')" class="p-1.5 bg-slate-800 rounded hover:bg-slate-750">.</button>
+        <button onclick="calcClear()" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750 text-rose-400">C</button>
+        <button onclick="calcInput('/')" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750 text-teal-400">&divide;</button>
+        <button onclick="calcInput('*')" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750 text-teal-400">&times;</button>
+        <button onclick="calcInput('-')" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750 text-teal-400">-</button>
+        <button onclick="calcInput('7')" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750">7</button>
+        <button onclick="calcInput('8')" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750">8</button>
+        <button onclick="calcInput('9')" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750">9</button>
+        <button onclick="calcInput('+')" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750 text-teal-400">+</button>
+        <button onclick="calcInput('4')" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750">4</button>
+        <button onclick="calcInput('5')" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750">5</button>
+        <button onclick="calcInput('6')" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750">6</button>
+        <button onclick="calcEqual()" class="row-span-2 p-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center justify-center">=</button>
+        <button onclick="calcInput('1')" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750">1</button>
+        <button onclick="calcInput('2')" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750">2</button>
+        <button onclick="calcInput('3')" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750">3</button>
+        <button onclick="calcInput('0')" class="col-span-2 p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750">0</button>
+        <button onclick="calcInput('.')" class="p-1.5 bg-slate-800 rounded-lg hover:bg-slate-750">.</button>
     </div>
 </div>
 <?php endif; ?>
@@ -594,8 +624,8 @@ require_once __DIR__ . '/includes/header.php';
 
 <!-- Tab Switch Warning Modal -->
 <div id="cheatingModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-sm w-full p-5 text-center space-y-3.5 shadow-2xl border-2 border-rose-500">
-        <div class="w-12 h-12 mx-auto rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-5 text-center space-y-3.5 shadow-2xl border-2 border-rose-500">
+        <div class="w-12 h-12 mx-auto rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center">
             <i data-lucide="shield-alert" class="w-6 h-6"></i>
         </div>
         <div class="space-y-1">
@@ -604,10 +634,10 @@ require_once __DIR__ . '/includes/header.php';
                 You clicked away from this test window. Please stay on this page until you finish your test.
             </p>
         </div>
-        <div class="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-mono font-bold">
+        <div class="p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-mono font-bold">
             <span id="cheatModalCount">Warning 1 of 3</span>
         </div>
-        <button type="button" onclick="dismissCheatingModal()" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs">
+        <button type="button" onclick="dismissCheatingModal()" class="w-full py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs">
             Return to Test
         </button>
     </div>
@@ -615,18 +645,18 @@ require_once __DIR__ . '/includes/header.php';
 
 <!-- Live Proctor Direct Warning Modal -->
 <div id="proctorLiveWarningModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-sm w-full p-5 text-center space-y-3.5 shadow-2xl border-2 border-amber-500">
-        <div class="w-12 h-12 mx-auto rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-5 text-center space-y-3.5 shadow-2xl border-2 border-amber-500">
+        <div class="w-12 h-12 mx-auto rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center">
             <i data-lucide="video" class="w-6 h-6"></i>
         </div>
         <div class="space-y-1.5">
             <h3 class="text-sm font-black text-amber-600 uppercase tracking-wider">Live Proctor Notice</h3>
-            <p class="text-xs text-slate-700 leading-snug font-medium p-3 rounded-xl bg-amber-50 border border-amber-200 text-left" id="proctorLiveWarningMsg">
+            <p class="text-xs text-slate-700 leading-snug font-medium p-3 rounded-2xl bg-amber-50 border border-amber-200 text-left" id="proctorLiveWarningMsg">
                 The examination proctor is watching your camera live and flagged an activity.
             </p>
         </div>
         <p class="text-[11px] text-slate-500 font-medium">Please face your webcam directly and maintain focus on your screen.</p>
-        <button type="button" onclick="dismissProctorWarning()" class="w-full py-2.5 rounded-xl bg-[#103a71] hover:bg-[#0d2e5a] text-white font-bold text-xs shadow-xs">
+        <button type="button" onclick="dismissProctorWarning()" class="w-full py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs">
             Acknowledge &amp; Return to Test
         </button>
     </div>
@@ -697,11 +727,11 @@ function updateTimerDisplay() {
     if (display) display.innerText = str;
     if (container) {
         if (secondsRemaining < 180) {
-            container.className = "flex items-center gap-1 text-xs font-black uppercase text-white px-2 py-1 rounded-lg bg-rose-600 shadow-xs animate-pulse";
-            display.className = "font-mono text-sm sm:text-lg font-black text-white";
+            container.className = "flex items-center gap-2 px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-2xl bg-rose-950/80 border border-rose-500/50 text-white shadow-inner animate-pulse";
+            display.className = "font-mono text-base sm:text-xl font-black text-rose-400";
         } else if (secondsRemaining < 600) {
-            container.className = "flex items-center gap-1 text-xs font-black uppercase text-white px-2 py-1 rounded-lg bg-amber-600 shadow-xs";
-            display.className = "font-mono text-sm sm:text-lg font-black text-white";
+            container.className = "flex items-center gap-2 px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-2xl bg-amber-950/80 border border-amber-500/50 text-white shadow-inner";
+            display.className = "font-mono text-base sm:text-xl font-black text-amber-400";
         }
     }
 }
@@ -710,6 +740,13 @@ function renderCurrentQuestion() {
     const q = QUESTIONS[currentIndex];
     const headEl = document.getElementById('questionHeaderNumber');
     if (headEl) headEl.innerText = `Question ${currentIndex + 1} of ${QUESTIONS.length}`;
+
+    // Update progress bar
+    const progBar = document.getElementById('testProgressBar');
+    if (progBar) {
+        const pct = Math.round((Object.keys(userAnswers).length / QUESTIONS.length) * 100);
+        progBar.style.width = pct + '%';
+    }
 
     // Render stem text
     const stemEl = document.getElementById('questionStem');
@@ -727,7 +764,7 @@ function renderCurrentQuestion() {
         diagContainer.classList.add('hidden');
     }
 
-    // Render Options (CBT Radio Style)
+    // Render Options (CBT Radio Style with Glowing Medallions)
     const optContainer = document.getElementById('optionsContainer');
     optContainer.innerHTML = '';
 
@@ -739,16 +776,16 @@ function renderCurrentQuestion() {
         const isSelected = (currentPick === opt);
 
         const btn = document.createElement('div');
-        btn.className = `p-3 sm:p-3.5 rounded-xl border cursor-pointer transition-all flex items-center gap-2.5 sm:gap-3 select-none active:scale-[0.99] min-h-[48px] ${
+        btn.className = `p-3 sm:p-4 rounded-2xl border cursor-pointer transition-all flex items-center gap-3 sm:gap-3.5 select-none active:scale-[0.99] min-h-[50px] ${
             isSelected 
-            ? 'border-indigo-600 bg-indigo-50/90 text-indigo-950 font-semibold ring-2 ring-indigo-500/25 shadow-xs' 
-            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-800'
+            ? 'border-teal-500 bg-teal-50/90 text-teal-950 font-semibold ring-2 ring-teal-400/30 shadow-xs' 
+            : 'border-slate-200 hover:border-teal-200 hover:bg-slate-50/80 text-slate-800'
         }`;
         btn.onclick = () => selectOption(opt);
 
         btn.innerHTML = `
-            <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                isSelected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white text-slate-600'
+            <div class="w-6 h-6 rounded-xl border-2 flex items-center justify-center shrink-0 transition-all ${
+                isSelected ? 'border-teal-600 bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-xs' : 'border-slate-300 bg-white text-slate-600'
             }">
                 <span class="text-[11px] font-black uppercase font-mono">${opt.toUpperCase()}</span>
             </div>
@@ -825,7 +862,6 @@ function jumpToQuestion(idx) {
     currentIndex = idx;
     renderCurrentQuestion();
     renderPalette();
-    // If mobile palette is open, close it
     const m = document.getElementById('mobilePaletteModal');
     if (m && !m.classList.contains('hidden')) {
         m.classList.add('hidden');
@@ -850,10 +886,10 @@ function updateFlagButton() {
     const label = document.getElementById('flagLabel');
 
     if (isFlagged) {
-        btn.className = "px-3 sm:px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs uppercase flex items-center gap-1.5 transition-colors";
+        btn.className = "px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs uppercase flex items-center gap-1.5 transition-colors shadow-xs";
         label.innerText = "BOOKMARKED";
     } else {
-        btn.className = "px-3 sm:px-3.5 py-2 rounded-lg bg-slate-500 hover:bg-slate-600 text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-colors";
+        btn.className = "px-3.5 py-2.5 rounded-xl bg-slate-500 hover:bg-slate-600 text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-colors shadow-xs";
         label.innerText = "BOOKMARK";
     }
 }
@@ -878,9 +914,9 @@ function renderPalette() {
 
         let bgClass = 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200';
         if (isCurrent) {
-            bgClass = 'bg-[#103a71] text-white font-black ring-2 ring-indigo-400 shadow-sm';
+            bgClass = 'bg-teal-600 text-white font-black ring-2 ring-teal-300 shadow-sm';
         } else if (isAnswered) {
-            bgClass = 'bg-[#22c55e] text-white font-bold shadow-xs';
+            bgClass = 'bg-emerald-500 text-white font-bold shadow-xs';
         } else if (isFlagged) {
             bgClass = 'bg-amber-400 text-slate-900 font-bold';
         }
@@ -889,7 +925,7 @@ function renderPalette() {
         const dBtn = document.createElement('button');
         dBtn.type = 'button';
         dBtn.onclick = () => jumpToQuestion(idx);
-        dBtn.className = `h-9 w-full rounded-lg text-xs font-mono font-bold transition-all flex items-center justify-center relative ${bgClass}`;
+        dBtn.className = `h-9 w-full rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center relative ${bgClass}`;
         dBtn.innerText = idx + 1;
         if (isFlagged && !isCurrent && isAnswered) {
             const dot = document.createElement('span');
@@ -902,7 +938,7 @@ function renderPalette() {
         const mBtn = document.createElement('button');
         mBtn.type = 'button';
         mBtn.onclick = () => jumpToQuestion(idx);
-        mBtn.className = `h-9 rounded-lg text-xs font-mono font-bold transition-all flex items-center justify-center relative ${bgClass}`;
+        mBtn.className = `h-9 rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center relative ${bgClass}`;
         mBtn.innerText = idx + 1;
         if (isFlagged && !isCurrent && isAnswered) {
             const dot = document.createElement('span');
@@ -936,6 +972,13 @@ function renderPalette() {
     if (mobHeader) mobHeader.innerText = answeredCount;
     const mobCount = document.getElementById('mobileAnsweredCount');
     if (mobCount) mobCount.innerText = answeredCount;
+
+    // Update progress bar
+    const progBar = document.getElementById('testProgressBar');
+    if (progBar) {
+        const pct = Math.round((answeredCount / QUESTIONS.length) * 100);
+        progBar.style.width = pct + '%';
+    }
 }
 
 function toggleMobilePalette() {
@@ -963,7 +1006,7 @@ function confirmSubmit() {
 
     const noticeEl = document.getElementById('submitModalNotice');
     if (unanswered > 0) {
-        noticeEl.className = "p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs leading-relaxed space-y-1";
+        noticeEl.className = "p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs leading-relaxed space-y-1";
         noticeEl.innerHTML = `
             <div class="font-bold flex items-center gap-1.5 text-amber-800">
                 <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600"></i>
@@ -972,7 +1015,7 @@ function confirmSubmit() {
             <p>You still have <strong>${unanswered}</strong> question(s) without an answer. Submitting now will finalize your test and grade all unanswered questions as zero.</p>
         `;
     } else {
-        noticeEl.className = "p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs leading-relaxed space-y-1";
+        noticeEl.className = "p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs leading-relaxed space-y-1";
         noticeEl.innerHTML = `
             <div class="font-bold flex items-center gap-1.5 text-emerald-800">
                 <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>

@@ -1,7 +1,7 @@
 <?php
 /**
- * Question Search Engine
- * Premed Test Portal (PHP Edition)
+ * Academic Resources & Question Search - Clinical Medical Edition
+ * Apex Pre-Medical Sciences Examination Portal
  */
 
 $pageTitle = 'Academic Resources';
@@ -39,24 +39,24 @@ if (!empty($query)) {
 ?>
 
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-    <div class="text-center max-w-xl mx-auto">
-        <div class="w-12 h-12 mx-auto rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
-            <i data-lucide="search" class="w-6 h-6"></i>
+    <div class="text-center max-w-xl mx-auto space-y-2">
+        <div class="w-12 h-12 mx-auto rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center border border-teal-200/60 shadow-xs">
+            <i data-lucide="book-open-check" class="w-6 h-6"></i>
         </div>
-        <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Academic Resources</h1>
-        <p class="text-xs text-slate-500 mt-1">Search the question bank by keywords, topic names, or explanations.</p>
+        <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Academic Resources &amp; Search</h1>
+        <p class="text-xs text-slate-500">Query questions, scientific concepts, and step-by-step solutions across all pre-medical syllabi.</p>
     </div>
 
     <!-- Search Box Form -->
-    <form method="GET" action="question_search.php" class="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-3">
+    <form method="GET" action="question_search.php" class="bg-white rounded-3xl p-4 sm:p-6 border border-teal-100 shadow-sm flex flex-col sm:flex-row gap-3">
         <div class="relative flex-1">
-            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+            <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-teal-600 pointer-events-none">
                 <i data-lucide="search" class="w-4 h-4"></i>
             </span>
-            <input type="text" name="q" value="<?= htmlspecialchars($query) ?>" placeholder="Search terms (e.g. mitochondria, le chatelier, integration, heart)..." class="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <input type="text" name="q" value="<?= htmlspecialchars($query) ?>" placeholder="Search terms (e.g. velocity, acceleration, thermodynamics, kinematics, blood)..." class="w-full pl-11 pr-4 py-3 rounded-2xl border border-teal-100 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
         </div>
 
-        <select name="course_id" class="px-4 py-3 rounded-2xl border border-slate-200 text-xs font-bold bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <select name="course_id" class="px-4 py-3 rounded-2xl border border-teal-100 text-xs font-bold bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500">
             <option value="">All Subjects</option>
             <?php foreach ($courses as $c): ?>
             <option value="<?= htmlspecialchars($c['id']) ?>" <?= $c['id'] === $courseFilter ? 'selected' : '' ?>>
@@ -65,7 +65,7 @@ if (!empty($query)) {
             <?php endforeach; ?>
         </select>
 
-        <button type="submit" class="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-100 flex items-center justify-center gap-1.5 transition-colors">
+        <button type="submit" class="px-6 py-3 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-md shadow-teal-600/20 flex items-center justify-center gap-1.5 transition-all active:scale-95">
             <span>Search</span>
             <i data-lucide="arrow-right" class="w-4 h-4"></i>
         </button>
@@ -74,56 +74,56 @@ if (!empty($query)) {
     <!-- Results Section -->
     <?php if (!empty($query)): ?>
     <div class="space-y-4">
-        <div class="flex justify-between items-center text-xs text-slate-500">
-            <span>Found <strong><?= count($results) ?></strong> result(s) matching "<em><?= htmlspecialchars($query) ?></em>"</span>
+        <div class="flex justify-between items-center text-xs text-slate-500 font-mono">
+            <span>Results matching "<strong><?= htmlspecialchars($query) ?></strong>": <?= count($results) ?></span>
         </div>
 
         <?php if (empty($results)): ?>
-        <div class="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm">
-            <p class="text-sm font-bold text-slate-800">No matching questions found.</p>
-            <p class="text-xs text-slate-500 mt-1">Try another keyword or broader anatomical / medical term.</p>
+        <div class="bg-white rounded-3xl p-12 text-center border border-teal-100 shadow-xs space-y-2">
+            <p class="text-sm font-black text-slate-800">No matching questions found.</p>
+            <p class="text-xs text-slate-500">Try broader terms such as "acceleration", "force", "energy", or "gravity".</p>
         </div>
         <?php else: ?>
         <div class="space-y-4">
             <?php foreach ($results as $idx => $r): ?>
-            <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <div class="bg-white rounded-3xl p-6 border border-teal-100 shadow-sm space-y-4">
                 <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
                     <div class="flex items-center gap-2">
-                        <span class="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-black text-xs"><?= htmlspecialchars($r['course_code']) ?></span>
+                        <span class="px-2.5 py-0.5 rounded-lg bg-teal-50 border border-teal-200/60 text-teal-800 font-mono font-black text-xs"><?= htmlspecialchars($r['course_code']) ?></span>
                         <span class="text-xs font-medium text-slate-500"><?= htmlspecialchars($r['topic_name']) ?></span>
                     </div>
-                    <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                        Answer Key: Option <?= strtoupper($r['correct_option']) ?>
+                    <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        Answer: Option <?= strtoupper($r['correct_option']) ?>
                     </span>
                 </div>
 
-                <div class="text-sm font-semibold text-slate-900 leading-relaxed">
+                <div class="text-sm font-semibold text-slate-900 leading-relaxed math-content">
                     <?= $r['text'] ?>
                 </div>
 
                 <!-- Options Grid -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    <div class="p-2.5 rounded-xl border <?= strtolower($r['correct_option']) === 'a' ? 'border-emerald-300 bg-emerald-50 text-emerald-900 font-bold' : 'border-slate-100 bg-slate-50 text-slate-700' ?>">
+                    <div class="p-3 rounded-2xl border <?= strtolower($r['correct_option']) === 'a' ? 'border-emerald-300 bg-emerald-50 text-emerald-900 font-bold' : 'border-slate-100 bg-slate-50 text-slate-700' ?>">
                         A) <?= htmlspecialchars($r['a']) ?>
                     </div>
-                    <div class="p-2.5 rounded-xl border <?= strtolower($r['correct_option']) === 'b' ? 'border-emerald-300 bg-emerald-50 text-emerald-900 font-bold' : 'border-slate-100 bg-slate-50 text-slate-700' ?>">
+                    <div class="p-3 rounded-2xl border <?= strtolower($r['correct_option']) === 'b' ? 'border-emerald-300 bg-emerald-50 text-emerald-900 font-bold' : 'border-slate-100 bg-slate-50 text-slate-700' ?>">
                         B) <?= htmlspecialchars($r['b']) ?>
                     </div>
                     <?php if (!empty($r['c'])): ?>
-                    <div class="p-2.5 rounded-xl border <?= strtolower($r['correct_option']) === 'c' ? 'border-emerald-300 bg-emerald-50 text-emerald-900 font-bold' : 'border-slate-100 bg-slate-50 text-slate-700' ?>">
+                    <div class="p-3 rounded-2xl border <?= strtolower($r['correct_option']) === 'c' ? 'border-emerald-300 bg-emerald-50 text-emerald-900 font-bold' : 'border-slate-100 bg-slate-50 text-slate-700' ?>">
                         C) <?= htmlspecialchars($r['c']) ?>
                     </div>
                     <?php endif; ?>
                     <?php if (!empty($r['d'])): ?>
-                    <div class="p-2.5 rounded-xl border <?= strtolower($r['correct_option']) === 'd' ? 'border-emerald-300 bg-emerald-50 text-emerald-900 font-bold' : 'border-slate-100 bg-slate-50 text-slate-700' ?>">
+                    <div class="p-3 rounded-2xl border <?= strtolower($r['correct_option']) === 'd' ? 'border-emerald-300 bg-emerald-50 text-emerald-900 font-bold' : 'border-slate-100 bg-slate-50 text-slate-700' ?>">
                         D) <?= htmlspecialchars($r['d']) ?>
                     </div>
                     <?php endif; ?>
                 </div>
 
                 <?php if (!empty($r['explanation'])): ?>
-                <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-700 leading-relaxed">
-                    <strong class="text-slate-900">Explanation:</strong> <?= $r['explanation'] ?>
+                <div class="p-3.5 rounded-2xl bg-teal-50/50 border border-teal-100 text-xs text-slate-700 leading-relaxed math-content">
+                    <strong class="text-teal-900 font-bold">Solution:</strong> <?= $r['explanation'] ?>
                 </div>
                 <?php endif; ?>
             </div>
@@ -133,5 +133,19 @@ if (!empty($query)) {
     </div>
     <?php endif; ?>
 </div>
+
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+    if (typeof renderMathInElement === 'function') {
+        renderMathInElement(document.body, {
+            delimiters: [
+                {left: '$$', right: '$$', display: true},
+                {left: '$', right: '$', display: false}
+            ],
+            throwOnError: false
+        });
+    }
+});
+</script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

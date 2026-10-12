@@ -10,10 +10,15 @@ toClean.forEach(f => {
   if (fs.existsSync(f)) fs.unlinkSync(f);
 });
 
+console.log('0. Current status:');
+try {
+  console.log(git('status --short'));
+} catch (e) {}
+
 console.log('1. Adding and committing all modified files...');
 try {
   git('add -A');
-  git('commit -m "feat: mobile test interface layout, focused proctored window, fullscreen enforcement, tab security, and custom submit modal"');
+  git('commit -m "feat: rebuild entire student interface with clinical medical theme and futuristic proctor supervision pod"');
 } catch (e) {
   console.log('Commit note:', e.message);
 }
