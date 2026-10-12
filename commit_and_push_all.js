@@ -5,7 +5,7 @@ const GIT = 'C:\\tools\\mingit\\cmd\\git.exe';
 const git = (cmd) => execSync(`"${GIT}" -c credential.helper="" -c http.sslVerify=false ${cmd}`, { encoding: 'utf8' });
 
 // Clean all untracked js
-const toClean = ['check_git_remote.js', 'test_push_with_config.js', 'pull_and_push.js', 'do_push.js', 'git_commit_and_push.js'];
+const toClean = ['check_git_remote.js', 'test_push_with_config.js', 'pull_and_push.js', 'do_push.js', 'git_commit_and_push.js', 'list_files.js'];
 toClean.forEach(f => {
   if (fs.existsSync(f)) fs.unlinkSync(f);
 });
@@ -18,7 +18,7 @@ try {
 console.log('1. Adding and committing all modified files...');
 try {
   git('add -A');
-  git('commit -m "feat: rebuild entire student interface with clinical medical theme and futuristic proctor supervision pod"');
+  git('commit -m "feat: immediate result page delivery on exam submission and strict back-navigation lockout protection"');
 } catch (e) {
   console.log('Commit note:', e.message);
 }

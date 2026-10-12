@@ -133,5 +133,21 @@ if (!empty($sessionId)) {
     } catch (Exception $e) {}
 }
 
-header("Location: results.php?id=" . urlencode($resultId));
+// Store session completion states to strictly block browser back-navigation re-entry
+$testId = $_POST['test_id'] ?? '';
+$_SESSION['last_result_id'] = $resultId;
+$_SESSION['just_completed_course'] = $courseId;
+$_SESSION['just_completed_test'] = $testId;
+$_SESSION['last_completed_at'] = time();
+
+if (!isset($_SESSION['completed_sessions']) || !is_array($_SESSION['completed_sessions'])) {
+    $_SESSION['completed_sessions'] = [];
+}
+if (!empty($sessionId)) {
+    $_SESSION['completed_sessions'][$sessionId] = $resultId;
+}
+
+// Redirect immediately to the completed Results page
+header("Location: results.php?result_id=" . urlencode($resultId));
 exit;
+

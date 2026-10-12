@@ -73,6 +73,7 @@ foreach ($courses as $c) {
 
     <form method="GET" action="exam.php" id="practiceForm" class="space-y-6">
         <input type="hidden" name="mode" value="practice">
+        <input type="hidden" name="new" value="1">
 
         <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
 
