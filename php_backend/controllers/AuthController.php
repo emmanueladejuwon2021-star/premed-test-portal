@@ -15,7 +15,7 @@ class AuthController {
         $matricNo = strtoupper(trim(str_replace(' ', '', $input['matric_no'] ?? '')));
         if (empty($matricNo)) {
             http_response_code(400);
-            echo json_encode(['error' => 'Matriculation number is required']);
+            echo json_encode(['error' => 'Matriculation or JAMB Registration number is required']);
             return;
         }
 

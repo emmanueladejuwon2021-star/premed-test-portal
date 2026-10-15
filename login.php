@@ -67,9 +67,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
         if (empty($matricNo)) {
-            $error = 'Matriculation Number is required.';
+            $error = 'Matric Number or JAMB Reg Number is required.';
         } elseif (strlen($matricNo) < 4) {
-            $error = 'Please enter a valid Matriculation Number (minimum 4 characters).';
+            $error = 'Please enter a valid Matric Number or JAMB Reg Number (minimum 4 characters).';
         } elseif (empty($password)) {
             $error = 'Password is required to sign in.';
         } else {
@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $student = $stmt->fetch();
 
             if (!$student) {
-                $error = 'Matriculation number "' . htmlspecialchars($matricNo) . '" is not registered yet. Please click the "Register" tab to create your account.';
+                $error = 'Matric / JAMB Reg Number "' . htmlspecialchars($matricNo) . '" is not registered yet. Please click the "Register" tab to create your account.';
                 $activeTab = 'register';
             } else {
                 // Support both hashed and legacy plaintext passwords
@@ -126,13 +126,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (!preg_match("/^[a-zA-Z\s\-\'\.]+$/", $name)) {
             $error = 'Full Name may only contain alphabetic letters, hyphens, and spaces.';
         }
-        // 2. Validate Matriculation Number
+        // 2. Validate Matric / JAMB Reg Number
         elseif (empty($matricNo)) {
-            $error = 'Matriculation Number is required.';
-        } elseif (strlen($matricNo) < 4 || strlen($matricNo) > 20) {
-            $error = 'Matriculation Number must be between 4 and 20 characters long.';
+            $error = 'Matric Number or JAMB Reg Number is required.';
+        } elseif (strlen($matricNo) < 4 || strlen($matricNo) > 25) {
+            $error = 'Matric Number or JAMB Reg Number must be between 4 and 25 characters long.';
         } elseif (!preg_match('/^[A-Z0-9\/\-]+$/', $matricNo)) {
-            $error = 'Matriculation Number may only contain letters, numbers, slashes (/), or hyphens (-).';
+            $error = 'Matric / JAMB Reg Number may only contain letters, numbers, slashes (/), or hyphens (-).';
         }
         // 3. Validate Department
         elseif (!in_array($department, $allowedDepts, true)) {
@@ -157,12 +157,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // 6. Check Database for Existing Matriculation Number
+        // 6. Check Database for Existing Matric / JAMB Reg Number
         if (!$error) {
             $check = $db->prepare("SELECT id FROM students WHERE matric_no = ? LIMIT 1");
             $check->execute([$matricNo]);
             if ($check->fetch()) {
-                $error = 'Matriculation number "' . htmlspecialchars($matricNo) . '" is already registered. Please sign in below.';
+                $error = 'Matric / JAMB Reg Number "' . htmlspecialchars($matricNo) . '" is already registered. Please sign in below.';
                 $activeTab = 'login';
             } else {
                 $id = bin2hex(random_bytes(12));
@@ -232,12 +232,12 @@ require_once __DIR__ . '/includes/header.php';
             <input type="hidden" name="action" value="student_login">
 
             <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Matric Number</label>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Matric Number / JAMB Reg Number</label>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                         <i data-lucide="user-check" class="w-4 h-4"></i>
                     </span>
-                    <input type="text" name="matric_no" required placeholder="e.g. 230911024 or MED/2024/001" minlength="4" maxlength="20" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono uppercase bg-slate-50/50">
+                    <input type="text" name="matric_no" required placeholder="e.g. 230911024 or 202412345678AB" minlength="4" maxlength="25" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono uppercase bg-slate-50/50">
                 </div>
             </div>
 
@@ -280,13 +280,14 @@ require_once __DIR__ . '/includes/header.php';
             </div>
 
             <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Matriculation Number <span class="text-rose-500">*</span></label>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Matric Number / JAMB Reg Number <span class="text-rose-500">*</span></label>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                         <i data-lucide="hash" class="w-4 h-4"></i>
                     </span>
-                    <input type="text" name="matric_no" id="regMatric" required minlength="4" maxlength="20" placeholder="e.g. 230911024, DEN/2024/012" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono uppercase">
+                    <input type="text" name="matric_no" id="regMatric" required minlength="4" maxlength="25" placeholder="e.g. 230911024, 202412345678AB" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono uppercase">
                 </div>
+                <span class="text-[10px] text-slate-400 mt-0.5 block">Use your university Matric No or JAMB Registration Number</span>
             </div>
 
             <div>
@@ -443,9 +444,9 @@ function validateRegisterForm() {
         return showError('Please provide both your First Name and Surname.');
     }
 
-    // Matric validation
+    // Matric / JAMB validation
     if (matric.length < 4) {
-        return showError('Matriculation number is too short.');
+        return showError('Matric Number or JAMB Reg Number is too short.');
     }
 
     // Department validation
