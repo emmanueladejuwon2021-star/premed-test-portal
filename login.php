@@ -37,29 +37,30 @@ $allowedDepts = [
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'student_login';
-    $db = DB::connect();
 
     if ($action === 'admin_login') {
         $activeTab = 'admin';
-        $adminMatric = strtoupper(trim(str_replace(' ', '', $_POST['admin_matric'] ?? $_POST['admin_email'] ?? '')));
-        $adminPassword = $_POST['admin_password'] ?? '';
+        $adminMatric = strtoupper(trim(str_replace([' ', '-', '/'], '', $_POST['admin_matric'] ?? $_POST['admin_email'] ?? '')));
+        $adminPassword = trim($_POST['admin_password'] ?? '');
 
         if (empty($adminMatric) || empty($adminPassword)) {
             $error = 'Both Admin Matric Number and Password are required.';
-        } elseif (($adminMatric === '250811024' && $adminPassword === '12345678') || 
-                  (strtolower($adminMatric) === 'emmanueladejuwon2025@gmail.com' && $adminPassword === '123456789')) {
+        } elseif (($adminMatric === '250811024' && ($adminPassword === '12345678' || $adminPassword === '123456789')) || 
+                  (strtolower($adminMatric) === 'emmanueladejuwon2025@gmail.com' && ($adminPassword === '12345678' || $adminPassword === '123456789'))) {
             $_SESSION['admin'] = [
                 'matric_no' => '250811024',
                 'email' => 'admin@premedportal.edu',
                 'name' => 'System Administrator',
                 'logged_in_at' => time()
             ];
+            session_write_close();
             header('Location: admin_dashboard.php');
             exit;
         } else {
             $error = 'Invalid Administrator credentials. Access denied.';
         }
     } elseif ($action === 'student_login') {
+        $db = DB::connect();
         $activeTab = 'login';
         $matricNo = strtoupper(trim(str_replace(' ', '', $_POST['matric_no'] ?? '')));
         $password = trim($_POST['password'] ?? '');
@@ -105,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     } elseif ($action === 'student_register') {
+        $db = DB::connect();
         $activeTab = 'register';
         $name = trim($_POST['name'] ?? '');
         $matricNo = strtoupper(trim(str_replace(' ', '', $_POST['matric_no'] ?? '')));
@@ -226,7 +228,7 @@ require_once __DIR__ . '/includes/header.php';
         <?php endif; ?>
 
         <!-- 1. STUDENT SIGN IN FORM -->
-        <form id="loginSection" method="POST" action="login.php" class="space-y-4 <?= $activeTab === 'login' ? '' : 'hidden' ?>">
+        <form id="loginSection" method="POST" action="" class="space-y-4 <?= $activeTab === 'login' ? '' : 'hidden' ?>">
             <input type="hidden" name="action" value="student_login">
 
             <div>
@@ -263,7 +265,7 @@ require_once __DIR__ . '/includes/header.php';
         </form>
 
         <!-- 2. STUDENT REGISTRATION FORM (NEW STUDENTS WITH STRICT VALIDATION) -->
-        <form id="registerSection" method="POST" action="login.php" onsubmit="return validateRegisterForm()" class="space-y-4 <?= $activeTab === 'register' ? '' : 'hidden' ?>">
+        <form id="registerSection" method="POST" action="" onsubmit="return validateRegisterForm()" class="space-y-4 <?= $activeTab === 'register' ? '' : 'hidden' ?>">
             <input type="hidden" name="action" value="student_register">
 
             <div>
@@ -350,7 +352,7 @@ require_once __DIR__ . '/includes/header.php';
         </form>
 
         <!-- 3. ADMINISTRATOR SIGN IN FORM -->
-        <form id="adminSection" method="POST" action="login.php" class="space-y-4 <?= $activeTab === 'admin' ? '' : 'hidden' ?>">
+        <form id="adminSection" method="POST" action="" class="space-y-4 <?= $activeTab === 'admin' ? '' : 'hidden' ?>">
             <input type="hidden" name="action" value="admin_login">
 
             <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-start gap-2">
@@ -463,6 +465,15 @@ function validateRegisterForm() {
     errBox.classList.add('hidden');
     return true;
 }
+
+// Auto-switch tab on DOM ready based on URL param or PHP state
+document.addEventListener('DOMContentLoaded', function() {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab') || '<?= htmlspecialchars($activeTab) ?>';
+    if (tabParam === 'admin' || tabParam === 'register' || tabParam === 'login') {
+        showTab(tabParam);
+    }
+});
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
