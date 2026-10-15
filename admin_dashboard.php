@@ -92,19 +92,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: admin_dashboard.php?tab=questions');
         exit;
     }
-
-    // 5. Sync to Cloud
-    if ($action === 'sync_to_cloud') {
-        $gitPath = 'C:\\tools\\mingit\\cmd\\git.exe';
-        $cmd = "\"{$gitPath}\" add premed_portal.sqlite && \"{$gitPath}\" commit -m \"Local Admin Sync: update questions and portal database\" && \"{$gitPath}\" -c credential.helper=\"\" -c http.sslVerify=false push origin main 2>&1";
-        $output = shell_exec($cmd);
-
-        if ($output && (str_contains($output, 'main -> main') || str_contains($output, 'nothing to commit'))) {
-            $syncMsg = "Database successfully synced to GitHub & Vercel! Live website will refresh within 15 seconds.";
-        } else {
-            $syncMsg = "Sync command executed: " . htmlspecialchars(substr($output ?? '', 0, 200));
-        }
-    }
 }
 
 // Metrics
@@ -158,24 +145,23 @@ require_once __DIR__ . '/includes/header.php';
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
     
-    <!-- Local Admin Banner & Sync Button -->
+    <!-- Cloud Admin Banner -->
     <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border border-slate-800">
         <div>
             <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30 mb-3">
                 <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>
-                <span>Private Localhost Control Center (PC Only)</span>
+                <span>Cloud Administration Control Center</span>
             </div>
             <h1 class="text-2xl sm:text-3xl font-black tracking-tight">Admin Master Console</h1>
-            <p class="text-slate-400 text-xs mt-1 max-w-xl">You have complete local authority to author questions, control exam timers, and lock or unlock tests. Changes sync directly to the live cloud website.</p>
+            <p class="text-slate-400 text-xs mt-1 max-w-xl">You have full authority to author questions, control exam timers, manage registered students, and lock or unlock tests. All changes take effect live across the entire cloud test portal immediately.</p>
         </div>
 
-        <form method="POST" action="admin_dashboard.php" class="shrink-0">
-            <input type="hidden" name="action" value="sync_to_cloud">
-            <button type="submit" class="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-black text-xs shadow-lg shadow-indigo-900/50 flex items-center gap-2.5 transition-all">
-                <i data-lucide="cloud-upload" class="w-4 h-4 text-white"></i>
-                <span>Push Updates to Live Website</span>
-            </button>
-        </form>
+        <div class="shrink-0 flex items-center gap-3">
+            <span class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Live Cloud Connected</span>
+            </span>
+        </div>
     </div>
 
     <?php if ($syncMsg): ?>

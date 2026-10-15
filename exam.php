@@ -1184,33 +1184,16 @@ function startProctorStream(videoEl) {
                     frame: frameJpeg
                 });
 
-                // 1. Direct transmission to Local Admin Server on Port 8899
-                fetch('http://localhost:8899/api/proctor_frame', {
+                // Transmit proctoring frame directly to cloud server
+                fetch('log_proctor_frame.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: payload,
-                    mode: 'cors'
+                    body: payload
                 }).then(r => r.json()).then(res => {
                     if (res && res.warning) {
                         showProctorDirectWarning(res.warning);
                     }
                 }).catch(() => {});
-
-                // 2. Cloud DB sync (every 3rd frame ~1.5s or on infraction)
-                if (proctorTick % 3 === 0 || tabSwitchCount > 0) {
-                    fetch('log_proctor_frame.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: payload
-                    })
-                    .then(r => r.json())
-                    .then(res => {
-                        if (res && res.warning) {
-                            showProctorDirectWarning(res.warning);
-                        }
-                    })
-                    .catch(() => {});
-                }
             }
         } catch (e) {}
     }, 500);
