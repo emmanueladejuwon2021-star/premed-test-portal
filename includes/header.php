@@ -184,10 +184,18 @@ $pageTitle = $pageTitle ?? 'PreMed Portal';
             <span>Past Question Practice</span>
         </a>
 
+        <!-- Results -->
         <a href="history.php" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold <?= in_array($currentPage, ['results.php', 'history.php']) ? 'bg-teal-50 text-teal-800 font-bold' : 'text-slate-700 hover:bg-slate-50' ?>">
             <i data-lucide="bar-chart-3" class="w-4 h-4 text-teal-600"></i>
             <span>Results</span>
         </a>
+
+        <?php if ($isAdmin): ?>
+        <a href="admin_dashboard.php" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200">
+            <i data-lucide="shield" class="w-4 h-4 text-rose-600"></i>
+            <span>Admin Console</span>
+        </a>
+        <?php endif; ?>
 
         <!-- Student Profile & Logout in Mobile Menu -->
         <div class="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between">

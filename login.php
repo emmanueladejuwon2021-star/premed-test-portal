@@ -35,10 +35,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'student_login';
     $db = DB::connect();
 
-    if ($action === 'student_login') {
+    if ($action === 'admin_login') {
+        $activeTab = 'admin';
+        $adminEmail = strtolower(trim($_POST['admin_email'] ?? ''));
+        $adminPassword = $_POST['admin_password'] ?? '';
+
+        if (empty($adminEmail) || empty($adminPassword)) {
+            $error = 'Both Admin Email and Password are required.';
+        } elseif ($adminEmail === 'emmanueladejuwon2025@gmail.com' && $adminPassword === '123456789') {
+            $_SESSION['admin'] = [
+                'email' => 'emmanueladejuwon2025@gmail.com',
+                'name' => 'System Administrator',
+                'logged_in_at' => time()
+            ];
+            header('Location: admin_dashboard.php');
+            exit;
+        } else {
+            $error = 'Invalid Administrator credentials. Access denied.';
+        }
+    } elseif ($action === 'student_login') {
         $activeTab = 'login';
         $matricNo = strtoupper(trim(str_replace(' ', '', $_POST['matric_no'] ?? '')));
         $password = trim($_POST['password'] ?? '');
+
 
         if (empty($matricNo)) {
             $error = 'Matriculation Number is required.';
@@ -173,13 +192,16 @@ require_once __DIR__ . '/includes/header.php';
             <p class="text-xs text-slate-500 mt-0.5">Practice tests, past questions, and study tools</p>
         </div>
 
-        <!-- 2-Way Mode Switch Tabs (Sign In / Register) -->
+        <!-- 3-Way Mode Switch Tabs (Sign In / Register / Admin) -->
         <div class="flex bg-slate-100 p-1 rounded-xl mb-6 text-xs font-bold text-slate-600">
             <button type="button" id="tabLoginBtn" onclick="showTab('login')" class="flex-1 py-2 rounded-lg transition-all <?= $activeTab === 'login' ? 'bg-white shadow-xs text-teal-800 font-extrabold' : 'hover:text-slate-900' ?>">
                 Sign In
             </button>
             <button type="button" id="tabRegisterBtn" onclick="showTab('register')" class="flex-1 py-2 rounded-lg transition-all <?= $activeTab === 'register' ? 'bg-white shadow-xs text-teal-800 font-extrabold' : 'hover:text-slate-900' ?>">
-                Create Account
+                Register
+            </button>
+            <button type="button" id="tabAdminBtn" onclick="showTab('admin')" class="flex-1 py-2 rounded-lg transition-all <?= $activeTab === 'admin' ? 'bg-white shadow-xs text-rose-700 font-extrabold' : 'hover:text-slate-900' ?>">
+                Admin
             </button>
         </div>
 
@@ -319,6 +341,39 @@ require_once __DIR__ . '/includes/header.php';
                     <button type="button" onclick="showTab('login')" class="text-indigo-600 font-bold hover:underline">Sign In here</button>
                 </p>
             </div>
+        <!-- 3. ADMINISTRATOR SIGN IN FORM -->
+        <form id="adminSection" method="POST" action="login.php" class="space-y-4 <?= $activeTab === 'admin' ? '' : 'hidden' ?>">
+            <input type="hidden" name="action" value="admin_login">
+
+            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-start gap-2">
+                <i data-lucide="shield-alert" class="w-4 h-4 shrink-0 text-amber-600 mt-0.5"></i>
+                <span class="leading-relaxed">Restricted to authorized faculty administrators and test coordinators only.</span>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Admin Email</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                        <i data-lucide="mail" class="w-4 h-4"></i>
+                    </span>
+                    <input type="email" name="admin_email" required placeholder="admin@example.com" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/50">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                        <i data-lucide="lock" class="w-4 h-4"></i>
+                    </span>
+                    <input type="password" name="admin_password" required placeholder="Enter admin password" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/50">
+                </div>
+            </div>
+
+            <button type="submit" class="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm shadow-xs transition-all flex items-center justify-center gap-2">
+                <i data-lucide="shield-check" class="w-4 h-4"></i>
+                <span>Sign In as Admin</span>
+            </button>
         </form>
 
     </div>
@@ -328,27 +383,35 @@ require_once __DIR__ . '/includes/header.php';
 function showTab(type) {
     const loginSec = document.getElementById('loginSection');
     const registerSec = document.getElementById('registerSection');
+    const adminSec = document.getElementById('adminSection');
     const tabLogin = document.getElementById('tabLoginBtn');
     const tabRegister = document.getElementById('tabRegisterBtn');
+    const tabAdmin = document.getElementById('tabAdminBtn');
 
     loginSec.classList.add('hidden');
     registerSec.classList.add('hidden');
+    adminSec.classList.add('hidden');
 
-    tabLogin.className = "flex-1 py-2.5 rounded-xl transition-all hover:text-slate-900";
-    tabRegister.className = "flex-1 py-2.5 rounded-xl transition-all hover:text-slate-900";
+    tabLogin.className = "flex-1 py-2 rounded-lg transition-all hover:text-slate-900";
+    tabRegister.className = "flex-1 py-2 rounded-lg transition-all hover:text-slate-900";
+    tabAdmin.className = "flex-1 py-2 rounded-lg transition-all hover:text-slate-900";
 
     if (type === 'login') {
         loginSec.classList.remove('hidden');
-        tabLogin.className = "flex-1 py-2.5 rounded-xl bg-white shadow-sm text-indigo-700 font-bold transition-all";
+        tabLogin.className = "flex-1 py-2 rounded-lg bg-white shadow-xs text-teal-800 font-extrabold transition-all";
     } else if (type === 'register') {
         registerSec.classList.remove('hidden');
-        tabRegister.className = "flex-1 py-2.5 rounded-xl bg-white shadow-sm text-indigo-700 font-bold transition-all";
+        tabRegister.className = "flex-1 py-2 rounded-lg bg-white shadow-xs text-teal-800 font-extrabold transition-all";
+    } else if (type === 'admin') {
+        adminSec.classList.remove('hidden');
+        tabAdmin.className = "flex-1 py-2 rounded-lg bg-white shadow-xs text-rose-700 font-extrabold transition-all";
     }
 
     if (window.lucide) {
         lucide.createIcons();
     }
 }
+
 
 function validateRegisterForm() {
     const name = document.getElementById('regName').value.trim();
