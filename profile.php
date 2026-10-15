@@ -82,6 +82,7 @@ require_once __DIR__ . '/includes/header.php';
                 <option value="Pharmacy" <?= $student['department'] === 'Pharmacy' ? 'selected' : '' ?>>Pharmacy (PharmD)</option>
                 <option value="NACON Nursing" <?= $student['department'] === 'NACON Nursing' ? 'selected' : '' ?>>Nursing Science (BNSc)</option>
                 <option value="Medical Laboratory Science" <?= $student['department'] === 'Medical Laboratory Science' ? 'selected' : '' ?>>Medical Laboratory Science (BMLS)</option>
+                <option value="Radiography" <?= $student['department'] === 'Radiography' ? 'selected' : '' ?>>Radiography (B.Rad)</option>
                 <option value="Physiotherapy" <?= $student['department'] === 'Physiotherapy' ? 'selected' : '' ?>>Physiotherapy (BMR)</option>
                 <option value="Anatomy" <?= $student['department'] === 'Anatomy' ? 'selected' : '' ?>>Human Anatomy</option>
                 <option value="Physiology" <?= $student['department'] === 'Physiology' ? 'selected' : '' ?>>Human Physiology</option>

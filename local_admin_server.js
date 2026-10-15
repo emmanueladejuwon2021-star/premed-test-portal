@@ -26,6 +26,7 @@ const DEPARTMENTS = [
   'Pharmacy (PharmD)',
   'Nursing Science (BNSc)',
   'Medical Laboratory Science (BMLS)',
+  'Radiography (B.Rad)',
   'Physiotherapy (BMR)',
   'Human Anatomy',
   'Human Physiology',

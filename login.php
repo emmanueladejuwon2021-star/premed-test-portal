@@ -28,6 +28,7 @@ $allowedDepts = [
     'Physiotherapy',
     'Nursing',
     'NACON Nursing',
+    'Radiography',
     'Pharmacology',
     'Pharmacy',
     'Medical Laboratory Science',
