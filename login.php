@@ -106,6 +106,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+    } elseif ($action === 'update_bank') {
+        $db = DB::connect();
+        $accountNumber = trim($_POST['account_number'] ?? '');
+        $bank = trim($_POST['bank'] ?? '');
+        $accountName = trim($_POST['account_name'] ?? '');
+        $id = $_SESSION['student']['id'] ?? null;
+        // Validate fields
+        if (empty($accountNumber) || !preg_match('/^[0-9]{10,12}$/', $accountNumber)) {
+            $error = 'Account Number is required and must be 10-12 digits.';
+        } elseif (empty($bank) || mb_strlen($bank) < 2) {
+            $error = 'Bank is required and must be at least 2 characters.';
+        } elseif (empty($accountName) || mb_strlen($accountName) < 4) {
+            $error = 'Full Account Name is required and must be at least 4 characters.';
+        } else {
+            $stmt = $db->prepare("UPDATE students SET account_number = ?, bank = ?, account_name = ? WHERE id = ?");
+            $stmt->execute([$accountNumber, $bank, $accountName, $id]);
+            // Refresh session data
+            $stmt = $db->prepare("SELECT * FROM students WHERE id = ? LIMIT 1");
+            $stmt->execute([$id]);
+            $_SESSION['student'] = $stmt->fetch();
+            $success = 'Banking details saved successfully.';
+        }
     } elseif ($action === 'student_register') {
         $db = DB::connect();
         $activeTab = 'register';
@@ -146,6 +168,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Please enter a valid phone number (e.g. 08012345678).';
             }
         }
+        // Validate required banking details (required for cash prizes)
+        $accountNumber = trim($_POST['account_number'] ?? '');
+        if (empty($accountNumber) || !preg_match('/^[0-9]{10,12}$/', $accountNumber)) {
+            $error = 'Account Number is required and must be 10-12 digits.';
+        }
+        $bank = trim($_POST['bank'] ?? '');
+        if (empty($bank) || mb_strlen($bank) < 2) {
+            $error = 'Bank is required and must be at least 2 characters.';
+        }
+        $accountName = trim($_POST['account_name'] ?? '');
+        if (empty($accountName) || mb_strlen($accountName) < 4) {
+            $error = 'Full Account Name is required and must be at least 4 characters.';
+        }
 
         // 5. Validate Password & Confirmation
         if (!$error) {
@@ -169,10 +204,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $id = bin2hex(random_bytes(12));
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
                 $stmt = $db->prepare("
-                    INSERT INTO students (id, name, matric_no, password, department, phone, strength) 
-                    VALUES (?, ?, ?, ?, ?, ?, 'Clinical Sciences')
+                    INSERT INTO students (id, name, matric_no, password, department, phone, account_number, bank, account_name, strength) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Clinical Sciences')
                 ");
-                $stmt->execute([$id, $name, $matricNo, $hashedPassword, $department, $phone]);
+                $stmt->execute([$id, $name, $matricNo, $hashedPassword, $department, $phone, $accountNumber, $bank, $accountName]);
 
                 $fetchNew = $db->prepare("SELECT * FROM students WHERE id = ? LIMIT 1");
                 $fetchNew->execute([$id]);
@@ -315,6 +350,50 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="tel" name="phone" id="regPhone" placeholder="08012345678" maxlength="15" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
             </div>
+        <!-- Banking Details (optional, required for cash prizes) -->
+        <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Account Number</label>
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                    <i data-lucide="credit-card" class="w-4 h-4"></i>
+                </span>
+                <input type="text" name="account_number" id="regAccountNumber" placeholder="e.g. 0123456789" maxlength="12" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Bank</label>
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                    <i data-lucide="bank" class="w-4 h-4"></i>
+                </span>
+                <select name="bank" id="regBank" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                    <option value="" disabled selected>-- Select your Bank --</option>
+                    <option>Opay</option>
+                    <option>PalmPay</option>
+                    <option>Kuda</option>
+                    <option>Moniepoint</option>
+                    <option>SmartCash</option>
+                    <option>Access Bank</option>
+                    <option>GTBank</option>
+                    <option>FirstBank</option>
+                    <option>Zenith Bank</option>
+                    <option>UBA</option>
+                    <option>Stanbic IBTC</option>
+                    <option>Wema Bank</option>
+                    <option>FCMB</option>
+                    <option>Union Bank</option>
+                </select>
+            </div>
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Account Name</label>
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                    <i data-lucide="user" class="w-4 h-4"></i>
+                </span>
+                <input type="text" name="account_name" id="regAccountName" placeholder="e.g. John Doe" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+        </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -429,6 +508,9 @@ function validateRegisterForm() {
     const name = document.getElementById('regName').value.trim();
     const matric = document.getElementById('regMatric').value.trim();
     const dept = document.getElementById('regDept').value;
+    const accountNumber = document.getElementById('regAccountNumber').value.trim();
+    const bank = document.getElementById('regBank').value;
+    const accountName = document.getElementById('regAccountName').value.trim();
     const pass = document.getElementById('regPass').value;
     const confirm = document.getElementById('regConfirmPass').value;
     const errBox = document.getElementById('jsClientError');
@@ -455,6 +537,21 @@ function validateRegisterForm() {
         return showError('Please select your department.');
     }
 
+    // Account Number validation (10-12 digits)
+    if (!/^[0-9]{10,12}$/.test(accountNumber)) {
+        return showError('Account Number must be 10-12 digits.');
+    }
+
+    // Bank validation (minimum 2 characters)
+    if (!bank || bank.length < 2) {
+        return showError('Please select a valid bank.');
+    }
+
+    // Account Name validation (minimum 4 characters)
+    if (!accountName || accountName.length < 4) {
+        return showError('Full Account Name must be at least 4 characters.');
+    }
+
     // Password validation
     if (pass.length < 6) {
         return showError('Password must be at least 6 characters long.');
@@ -467,6 +564,7 @@ function validateRegisterForm() {
     errBox.classList.add('hidden');
     return true;
 }
+
 
 // Auto-switch tab on DOM ready based on URL param or PHP state
 document.addEventListener('DOMContentLoaded', function() {
