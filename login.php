@@ -12,6 +12,10 @@ if (!empty($_SESSION['student'])) {
     header('Location: index.php');
     exit;
 }
+if (!empty($_SESSION['admin'])) {
+    header('Location: admin_dashboard.php');
+    exit;
+}
 
 $error = null;
 $success = null;
@@ -37,14 +41,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'admin_login') {
         $activeTab = 'admin';
-        $adminEmail = strtolower(trim($_POST['admin_email'] ?? ''));
+        $adminMatric = strtoupper(trim(str_replace(' ', '', $_POST['admin_matric'] ?? $_POST['admin_email'] ?? '')));
         $adminPassword = $_POST['admin_password'] ?? '';
 
-        if (empty($adminEmail) || empty($adminPassword)) {
-            $error = 'Both Admin Email and Password are required.';
-        } elseif ($adminEmail === 'emmanueladejuwon2025@gmail.com' && $adminPassword === '123456789') {
+        if (empty($adminMatric) || empty($adminPassword)) {
+            $error = 'Both Admin Matric Number and Password are required.';
+        } elseif (($adminMatric === '250811024' && $adminPassword === '12345678') || 
+                  (strtolower($adminMatric) === 'emmanueladejuwon2025@gmail.com' && $adminPassword === '123456789')) {
             $_SESSION['admin'] = [
-                'email' => 'emmanueladejuwon2025@gmail.com',
+                'matric_no' => '250811024',
+                'email' => 'admin@premedportal.edu',
                 'name' => 'System Administrator',
                 'logged_in_at' => time()
             ];
@@ -341,6 +347,8 @@ require_once __DIR__ . '/includes/header.php';
                     <button type="button" onclick="showTab('login')" class="text-indigo-600 font-bold hover:underline">Sign In here</button>
                 </p>
             </div>
+        </form>
+
         <!-- 3. ADMINISTRATOR SIGN IN FORM -->
         <form id="adminSection" method="POST" action="login.php" class="space-y-4 <?= $activeTab === 'admin' ? '' : 'hidden' ?>">
             <input type="hidden" name="action" value="admin_login">
@@ -351,12 +359,12 @@ require_once __DIR__ . '/includes/header.php';
             </div>
 
             <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Admin Email</label>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Admin Matric / ID</label>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="mail" class="w-4 h-4"></i>
+                        <i data-lucide="shield" class="w-4 h-4"></i>
                     </span>
-                    <input type="email" name="admin_email" required placeholder="admin@example.com" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/50">
+                    <input type="text" name="admin_matric" required placeholder="e.g. 250811024" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/50 font-mono">
                 </div>
             </div>
 

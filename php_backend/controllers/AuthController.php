@@ -122,6 +122,7 @@ class AuthController {
         $submittedKey = trim($input['adminKey'] ?? '');
 
         $validAdminIds = [
+            '250811024',
             'default-admin-key-first-class',
             'emmanueladejuwon2021@gmail.com',
             'emmanuel',
@@ -130,6 +131,7 @@ class AuthController {
         ];
 
         $validKeys = [
+            '12345678',
             '20252026',
             'polymath-master-key',
             'default-admin-key-first-class'
