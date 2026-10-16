@@ -119,6 +119,16 @@ class TursoStatement {
 
         $results = $this->pdo->executePipeline($requests);
 
+        // Check for error in pipeline response
+        if (!empty($results[0]['error'])) {
+            $msg = $results[0]['error']['message'] ?? json_encode($results[0]['error']);
+            throw new Exception("Turso Database Execution Error: " . $msg);
+        }
+        if (!empty($results[0]['response']['error'])) {
+            $msg = $results[0]['response']['error']['message'] ?? json_encode($results[0]['response']['error']);
+            throw new Exception("Turso Database Execution Error: " . $msg);
+        }
+
         if (!empty($results[0]['response']['result'])) {
             $res = $results[0]['response']['result'];
             $cols = $res['cols'] ?? [];

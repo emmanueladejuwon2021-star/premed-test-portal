@@ -33,20 +33,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
         http_response_code(400);
         echo json_encode(['ok' => false, 'error' => 'Full Account Name is required and must be at least 4 characters.']);
         exit;
-    } else {
-        $upStmt = $db->prepare("UPDATE students SET account_number = ?, bank = ?, account_name = ? WHERE id = ?");
-        $upStmt->execute([$accountNumber, $bank, $accountName, $studentId]);
+        try {
+            $upStmt = $db->prepare("UPDATE students SET account_number = ?, bank = ?, account_name = ? WHERE id = ?");
+            $upStmt->execute([$accountNumber, $bank, $accountName, $studentId]);
 
-        // Refresh session
-        $freshStmt = $db->prepare("SELECT * FROM students WHERE id = ? LIMIT 1");
-        $freshStmt->execute([$studentId]);
-        $updatedStudent = $freshStmt->fetch();
-        if ($updatedStudent) {
-            $_SESSION['student'] = $updatedStudent;
+            // Refresh session & serverless auth cookie
+            $freshStmt = $db->prepare("SELECT * FROM students WHERE id = ? LIMIT 1");
+            $freshStmt->execute([$studentId]);
+            $updatedStudent = $freshStmt->fetch();
+            if ($updatedStudent) {
+                $_SESSION['student'] = $updatedStudent;
+                set_student_auth_cookie($updatedStudent);
+                session_write_close();
+            }
+
+            echo json_encode(['ok' => true, 'message' => 'Banking details successfully verified and saved!']);
+            exit;
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'error' => 'Failed to save banking details: ' . $e->getMessage()]);
+            exit;
         }
-
-        echo json_encode(['ok' => true, 'message' => 'Banking details successfully verified and saved!']);
-        exit;
     }
 }
 

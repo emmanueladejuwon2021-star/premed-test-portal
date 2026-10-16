@@ -48,12 +48,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Both Admin Matric Number and Password are required.';
         } elseif (($adminMatric === '250811024' && ($adminPassword === '12345678' || $adminPassword === '123456789')) || 
                   (strtolower($adminMatric) === 'emmanueladejuwon2025@gmail.com' && ($adminPassword === '12345678' || $adminPassword === '123456789'))) {
-            $_SESSION['admin'] = [
+            $adminData = [
                 'matric_no' => '250811024',
                 'email' => 'admin@premedportal.edu',
                 'name' => 'System Administrator',
                 'logged_in_at' => time()
             ];
+            $_SESSION['admin'] = $adminData;
+            set_admin_auth_cookie($adminData);
             session_write_close();
             header('Location: admin_dashboard.php');
             exit;
@@ -66,7 +68,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $matricNo = strtoupper(trim(str_replace(' ', '', $_POST['matric_no'] ?? '')));
         $password = trim($_POST['password'] ?? '');
 
-
         if (empty($matricNo)) {
             $error = 'Matric Number or JAMB Reg Number is required.';
         } elseif (strlen($matricNo) < 4) {
@@ -74,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (empty($password)) {
             $error = 'Password is required to sign in.';
         } else {
-            $stmt = $db->prepare("SELECT * FROM students WHERE matric_no = ? LIMIT 1");
+            $stmt = $db->prepare("SELECT * FROM students WHERE UPPER(TRIM(matric_no)) = ? LIMIT 1");
             $stmt->execute([$matricNo]);
             $student = $stmt->fetch();
 
@@ -82,25 +83,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Matric / JAMB Reg Number "' . htmlspecialchars($matricNo) . '" is not registered yet. Please click the "Register" tab to create your account.';
                 $activeTab = 'register';
             } else {
-                // Support both hashed and legacy plaintext passwords
-                $stored = $student['password'];
+                $stored = $student['password'] ?? '';
                 $valid = false;
-                if (strlen($stored) > 50 && str_starts_with($stored, '$2y$')) {
-                    $valid = password_verify($password, $stored);
-                } else {
-                    $valid = ($stored === $password);
+                if (password_verify($password, $stored)) {
+                    $valid = true;
+                } elseif ($stored === $password) {
+                    $valid = true;
                     // Auto-upgrade plaintext to hash on successful login
-                    if ($valid) {
-                        $hashed = password_hash($password, PASSWORD_DEFAULT);
-                        $up = $db->prepare("UPDATE students SET password = ? WHERE id = ?");
-                        $up->execute([$hashed, $student['id']]);
-                        $student['password'] = $hashed;
-                    }
+                    $hashed = password_hash($password, PASSWORD_DEFAULT);
+                    $up = $db->prepare("UPDATE students SET password = ? WHERE id = ?");
+                    $up->execute([$hashed, $student['id']]);
+                    $student['password'] = $hashed;
                 }
                 if (!$valid) {
                     $error = 'Incorrect password credentials. Please verify your password and try again.';
                 } else {
                     $_SESSION['student'] = $student;
+                    set_student_auth_cookie($student);
+                    session_write_close();
                     header('Location: index.php');
                     exit;
                 }
@@ -195,26 +195,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // 6. Check Database for Existing Matric / JAMB Reg Number
         if (!$error) {
-            $check = $db->prepare("SELECT id FROM students WHERE matric_no = ? LIMIT 1");
+            $check = $db->prepare("SELECT id FROM students WHERE UPPER(TRIM(matric_no)) = ? LIMIT 1");
             $check->execute([$matricNo]);
             if ($check->fetch()) {
                 $error = 'Matric / JAMB Reg Number "' . htmlspecialchars($matricNo) . '" is already registered. Please sign in below.';
                 $activeTab = 'login';
             } else {
-                $id = bin2hex(random_bytes(12));
-                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $db->prepare("
-                    INSERT INTO students (id, name, matric_no, password, department, phone, account_number, bank, account_name, strength) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Clinical Sciences')
-                ");
-                $stmt->execute([$id, $name, $matricNo, $hashedPassword, $department, $phone, $accountNumber, $bank, $accountName]);
+                try {
+                    $id = bin2hex(random_bytes(12));
+                    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                    $stmt = $db->prepare("
+                        INSERT INTO students (id, name, matric_no, password, department, phone, account_number, bank, account_name, strength) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Clinical Sciences')
+                    ");
+                    $stmt->execute([$id, $name, $matricNo, $hashedPassword, $department, $phone, $accountNumber, $bank, $accountName]);
 
-                $fetchNew = $db->prepare("SELECT * FROM students WHERE id = ? LIMIT 1");
-                $fetchNew->execute([$id]);
-                $_SESSION['student'] = $fetchNew->fetch();
+                    $fetchNew = $db->prepare("SELECT * FROM students WHERE id = ? LIMIT 1");
+                    $fetchNew->execute([$id]);
+                    $newStudent = $fetchNew->fetch();
 
-                header('Location: index.php');
-                exit;
+                    if ($newStudent) {
+                        $_SESSION['student'] = $newStudent;
+                        set_student_auth_cookie($newStudent);
+                        session_write_close();
+                        header('Location: index.php');
+                        exit;
+                    } else {
+                        $error = 'Account was created but could not be immediately loaded. Please sign in with your matric number and password.';
+                        $activeTab = 'login';
+                    }
+                } catch (Exception $e) {
+                    $error = 'Registration could not be completed: ' . $e->getMessage();
+                    $activeTab = 'register';
+                }
             }
         }
     }

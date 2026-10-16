@@ -10,9 +10,11 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/turso.php';
 require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../includes/auth_helper.php';
 
 class DB {
     private static mixed $connection = null;
+    private static bool $migrated = false;
 
     public static function connect(): mixed {
         if (self::$connection !== null) {
@@ -36,9 +38,43 @@ class DB {
 
         try {
             self::$connection = new TursoPDO($url, $token);
+            self::ensureSchema(self::$connection);
+            restore_auth_sessions(self::$connection);
             return self::$connection;
         } catch (Exception $e) {
             die("Turso Cloud Database Connection Error: " . htmlspecialchars($e->getMessage()));
         }
+    }
+
+    public static function ensureSchema(TursoPDO $pdo): void {
+        if (self::$migrated) {
+            return;
+        }
+        self::$migrated = true;
+
+        $columnsToAdd = [
+            'phone' => 'TEXT',
+            'account_number' => 'TEXT',
+            'bank' => 'TEXT',
+            'account_name' => 'TEXT',
+            'strength' => 'TEXT'
+        ];
+
+        foreach ($columnsToAdd as $col => $type) {
+            try {
+                $pdo->exec("ALTER TABLE students ADD COLUMN {$col} {$type}");
+            } catch (Exception $e) {
+                // If column already exists (duplicate column name), that's completely expected
+            }
+        }
+    }
+}
+
+// Auto-initialize DB connection, run schema check, and restore sessions if credentials are present
+if (!empty(getenv('TURSO_AUTH_TOKEN')) || !empty(getenv('TURSO_TOKEN'))) {
+    try {
+        DB::connect();
+    } catch (Exception $e) {
+        // Silently continue if DB connection cannot be established immediately
     }
 }
