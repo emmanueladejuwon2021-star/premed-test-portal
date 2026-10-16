@@ -13,7 +13,8 @@ try {
 $currentPage = basename($_SERVER['PHP_SELF'] ?? '');
 $currentUri = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 $cleanUri = trim($currentUri, '/');
-$isPublicPage = in_array($currentPage, ['login.php', 'admin_login.php', 'index.php']) && ($cleanUri === 'login' || $cleanUri === 'login.php' || $cleanUri === 'admin_login' || $cleanUri === 'admin_login.php' || $cleanUri === '' || in_array($currentPage, ['login.php', 'admin_login.php']));
+$cleanUri = preg_replace('/\.php$/', '', $cleanUri);
+$isPublicPage = in_array($cleanUri, ['', 'login', 'admin_login']) || in_array($currentPage, ['login.php', 'admin_login.php']);
 
 if (!$isPublicPage && empty($_SESSION['student']) && empty($_SESSION['admin'])) {
     header('Location: login.php');
