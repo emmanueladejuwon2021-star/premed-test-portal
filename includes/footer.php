@@ -5,10 +5,17 @@
     <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
         <p>&copy; <?= date('Y') ?> Premed Test Portal &bull; All Rights Reserved</p>
         <div class="flex items-center gap-4">
+            <?php if (!empty($_SESSION['admin'])): ?>
+            <a href="admin_dashboard.php" class="hover:text-indigo-600 transition-colors flex items-center gap-1 font-semibold text-indigo-700">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                <span>Admin Console</span>
+            </a>
+            <?php else: ?>
             <a href="login.php?tab=admin" class="hover:text-rose-600 transition-colors flex items-center gap-1 font-semibold">
                 <i data-lucide="shield" class="w-3.5 h-3.5"></i>
                 <span>Admin Login</span>
             </a>
+            <?php endif; ?>
         </div>
     </div>
 </footer>

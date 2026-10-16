@@ -6,7 +6,8 @@
 
 require_once __DIR__ . '/config/db.php';
 
-if (empty($_SESSION['student'])) {
+$isAdmin = !empty($_SESSION['admin']);
+if (empty($_SESSION['student']) && !$isAdmin) {
     header('Location: login.php');
     exit;
 }
@@ -19,32 +20,57 @@ $db = DB::connect();
 // Support result_id, id, or fallback to the student's last completed result
 $resultId = $_GET['result_id'] ?? $_GET['id'] ?? ($_SESSION['last_result_id'] ?? '');
 
-$student = $_SESSION['student'];
-
-// If no direct result ID was provided, attempt to retrieve the latest result for this student
-if (empty($resultId)) {
-    $latestStmt = $db->prepare("SELECT id FROM results WHERE student_id = ? ORDER BY created_at DESC LIMIT 1");
-    $latestStmt->execute([$student['id']]);
-    $latest = $latestStmt->fetch();
-    if ($latest && !empty($latest['id'])) {
-        $resultId = $latest['id'];
+if ($isAdmin) {
+    if (empty($resultId)) {
+        header('Location: admin_dashboard.php?tab=results');
+        exit;
     }
-}
+    $stmt = $db->prepare("
+        SELECT r.*, c.code as course_code, c.title as course_title, s.name as student_name, s.matric_no, s.department
+        FROM results r
+        LEFT JOIN courses c ON r.course_id = c.id
+        LEFT JOIN students s ON r.student_id = s.id
+        WHERE r.id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$resultId]);
+    $res = $stmt->fetch();
+    if ($res) {
+        $student = [
+            'id' => $res['student_id'],
+            'name' => $res['student_name'] ?? 'Candidate',
+            'matric_no' => $res['matric_no'] ?? 'N/A',
+            'department' => $res['department'] ?? 'Pre-Medical Sciences'
+        ];
+    }
+} else {
+    $student = $_SESSION['student'];
 
-if (empty($resultId)) {
-    header('Location: history.php');
-    exit;
-}
+    // If no direct result ID was provided, attempt to retrieve the latest result for this student
+    if (empty($resultId)) {
+        $latestStmt = $db->prepare("SELECT id FROM results WHERE student_id = ? ORDER BY created_at DESC LIMIT 1");
+        $latestStmt->execute([$student['id']]);
+        $latest = $latestStmt->fetch();
+        if ($latest && !empty($latest['id'])) {
+            $resultId = $latest['id'];
+        }
+    }
 
-$stmt = $db->prepare("
-    SELECT r.*, c.code as course_code, c.title as course_title
-    FROM results r
-    LEFT JOIN courses c ON r.course_id = c.id
-    WHERE r.id = ? AND r.student_id = ?
-    LIMIT 1
-");
-$stmt->execute([$resultId, $student['id']]);
-$res = $stmt->fetch();
+    if (empty($resultId)) {
+        header('Location: history.php');
+        exit;
+    }
+
+    $stmt = $db->prepare("
+        SELECT r.*, c.code as course_code, c.title as course_title
+        FROM results r
+        LEFT JOIN courses c ON r.course_id = c.id
+        WHERE r.id = ? AND r.student_id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([$resultId, $student['id']]);
+    $res = $stmt->fetch();
+}
 
 if (!$res) {
     echo "<div class='max-w-2xl mx-auto p-8 my-12 bg-white rounded-3xl border border-teal-200 text-center space-y-4 shadow-sm'>
@@ -128,6 +154,26 @@ $isFromBackNav = isset($_GET['notice']) && $_GET['notice'] === 'already_complete
 ?>
 
 <div class="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-6" id="resultsApp">
+
+    <?php if ($isAdmin): ?>
+    <!-- Admin Inspection Mode Banner -->
+    <div class="p-4 rounded-3xl bg-slate-900 border border-slate-700 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+        <div class="flex items-center gap-3.5">
+            <div class="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-400 flex items-center justify-center shrink-0">
+                <i data-lucide="shield-check" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <span class="inline-block text-[10px] uppercase font-bold tracking-wider text-indigo-300 bg-indigo-500/20 px-2.5 py-0.5 rounded-full border border-indigo-400/30 mb-1">Faculty Inspection Mode</span>
+                <h4 class="text-sm font-black text-white">Inspecting Candidate Submission: <?= htmlspecialchars($student['name']) ?> (<?= htmlspecialchars($student['matric_no']) ?>)</h4>
+                <p class="text-xs text-slate-400 mt-0.5">Course: <?= htmlspecialchars($res['course_code'] ?? '') ?> &bull; Submitted: <?= htmlspecialchars($res['created_at'] ?? '') ?></p>
+            </div>
+        </div>
+        <a href="admin_dashboard.php?tab=results" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider shrink-0 transition-all flex items-center gap-2">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>Back to Admin Console</span>
+        </a>
+    </div>
+    <?php endif; ?>
 
     <!-- Notice Banner if User Tried to Navigate Back into the Completed Exam -->
     <?php if ($isFromBackNav): ?>

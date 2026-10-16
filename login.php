@@ -76,10 +76,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $adminMatric = strtoupper(trim(str_replace([' ', '-', '/'], '', $_POST['admin_matric'] ?? $_POST['admin_email'] ?? '')));
         $adminPassword = trim($_POST['admin_password'] ?? '');
 
+        $envPass = getenv('ADMIN_PASSWORD') ?: getenv('ADMIN_PASS');
+        $passMatch = ($adminPassword === '12345678' || $adminPassword === '123456789' || (!empty($envPass) && $adminPassword === $envPass));
+
+        $envMatric = strtoupper(trim(getenv('ADMIN_MATRIC') ?: ''));
+        $matricMatch = ($adminMatric === '250811024' || 
+                        strtolower($adminMatric) === 'emmanueladejuwon2025@gmail.com' || 
+                        (!empty($envMatric) && $adminMatric === $envMatric));
+
         if (empty($adminMatric) || empty($adminPassword)) {
             $error = 'Both Admin Matric Number and Password are required.';
-        } elseif (($adminMatric === '250811024' && ($adminPassword === '12345678' || $adminPassword === '123456789')) || 
-                  (strtolower($adminMatric) === 'emmanueladejuwon2025@gmail.com' && ($adminPassword === '12345678' || $adminPassword === '123456789'))) {
+        } elseif ($matricMatch && $passMatch) {
             $adminData = [
                 'matric_no' => '250811024',
                 'email' => 'admin@premedportal.edu',
