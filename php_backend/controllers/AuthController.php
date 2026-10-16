@@ -74,7 +74,10 @@ class AuthController {
         $name = trim($input['name'] ?? '');
         $password = trim($input['password'] ?? '');
         if (empty($password)) {
-            $password = '123456'; // temporary default, will be hashed
+            // Require explicit password for new registrations instead of weak default
+            http_response_code(400);
+            echo json_encode(['error' => 'Password is required for new student registration']);
+            return;
         }
         $department = trim($input['department'] ?? 'Medicine & Surgery');
         $strength = trim($input['strength'] ?? 'Biology');
@@ -121,21 +124,12 @@ class AuthController {
         $submittedMatric = strtolower(trim($input['matricNo'] ?? ''));
         $submittedKey = trim($input['adminKey'] ?? '');
 
-        $validAdminIds = [
-            '250811024',
-            'default-admin-key-first-class',
-            'emmanueladejuwon2021@gmail.com',
-            'emmanuel',
-            'manuel',
-            'admin'
-        ];
+        // Load admin credentials from environment (comma-separated)
+        $adminIdsEnv = getenv('ADMIN_IDS') ?: 'admin,emmanuel';
+        $adminKeysEnv = getenv('ADMIN_KEYS') ?: 'polymath-master-key';
 
-        $validKeys = [
-            '12345678',
-            '20252026',
-            'polymath-master-key',
-            'default-admin-key-first-class'
-        ];
+        $validAdminIds = array_map('trim', explode(',', $adminIdsEnv));
+        $validKeys = array_map('trim', explode(',', $adminKeysEnv));
 
         if (in_array($submittedMatric, $validAdminIds, true) && in_array($submittedKey, $validKeys, true)) {
             $token = AuthHelper::generateToken([
