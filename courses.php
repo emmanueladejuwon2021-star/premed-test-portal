@@ -38,7 +38,27 @@ $stmt = $db->query("
     GROUP BY c.id
     ORDER BY c.code ASC
 ");
-$courses = $stmt->fetchAll();
+$courses = $stmt ? $stmt->fetchAll() : [];
+
+// Synthesize active assessments if no explicit tests are live
+$activeAssessments = $liveTests;
+if (empty($activeAssessments)) {
+    foreach ($courses as $c) {
+        if (empty($c['is_locked']) && (int)$c['questions_count'] > 0) {
+            $activeAssessments[] = [
+                'id' => null,
+                'course_id' => $c['id'],
+                'course_code' => $c['code'],
+                'course_title' => $c['title'],
+                'title' => $c['title'] . ' Official Assessment',
+                'duration' => 30,
+                'question_limit' => min(30, (int)$c['questions_count']),
+                'topic_ids' => '[]',
+                'is_course_sitting' => true
+            ];
+        }
+    }
+}
 ?>
 
 <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
@@ -49,9 +69,9 @@ $courses = $stmt->fetchAll();
             <div>
                 <div class="flex items-center gap-2.5">
                     <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Active Tests &amp; Exams</h1>
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold <?= count($liveTests) > 0 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-xs' : 'bg-slate-100 text-slate-600' ?>">
-                        <span class="w-2 h-2 rounded-full <?= count($liveTests) > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400' ?>"></span>
-                        <span><?= count($liveTests) ?> Active</span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold <?= count($activeAssessments) > 0 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-xs' : 'bg-slate-100 text-slate-600' ?>">
+                        <span class="w-2 h-2 rounded-full <?= count($activeAssessments) > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400' ?>"></span>
+                        <span><?= count($activeAssessments) ?> Active</span>
                     </span>
                 </div>
                 <p class="text-xs text-slate-500 mt-1">Official timed evaluations and practice simulations scheduled for candidates.</p>
@@ -63,14 +83,15 @@ $courses = $stmt->fetchAll();
             </a>
         </div>
 
-        <?php if (!empty($liveTests)): ?>
+        <?php if (!empty($activeAssessments)): ?>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <?php foreach ($liveTests as $t): 
+            <?php foreach ($activeAssessments as $t): 
                 $topicScope = 'All Topics';
                 $rawTopics = json_decode($t['topic_ids'] ?? '[]', true);
-                if (is_array($rawTopics) && !in_array('ALL', $rawTopics)) {
+                if (is_array($rawTopics) && !in_array('ALL', $rawTopics) && count($rawTopics) > 0) {
                     $topicScope = count($rawTopics) . ' Specific Topics';
                 }
+                $examUrl = !empty($t['id']) ? 'exam.php?test_id=' . urlencode($t['id']) : 'exam.php?course_id=' . urlencode($t['course_id']);
             ?>
             <div class="bg-white rounded-3xl p-5 sm:p-6 border border-teal-100 shadow-xs hover:shadow-md hover:border-teal-300 transition-all flex flex-col justify-between space-y-4">
                 <div>
@@ -103,7 +124,7 @@ $courses = $stmt->fetchAll();
                     </div>
                 </div>
 
-                <a href="exam.php?test_id=<?= urlencode($t['id']) ?>" class="w-full py-3 px-4 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95">
+                <a href="<?= $examUrl ?>" class="w-full py-3 px-4 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95">
                     <span>Enter Exam</span>
                     <i data-lucide="arrow-right" class="w-4 h-4"></i>
                 </a>
@@ -135,7 +156,9 @@ $courses = $stmt->fetchAll();
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <?php foreach ($courses as $c): ?>
+            <?php foreach ($courses as $c): 
+                $canEnter = empty($c['is_locked']) && (int)$c['questions_count'] > 0;
+            ?>
             <div class="bg-white rounded-3xl p-5 border border-teal-100 shadow-xs hover:border-teal-300 hover:shadow-md transition-all flex flex-col justify-between space-y-3">
                 <div>
                     <div class="flex items-center justify-between mb-2">
@@ -150,14 +173,22 @@ $courses = $stmt->fetchAll();
                     <h3 class="text-sm font-black text-slate-900 leading-snug"><?= htmlspecialchars($c['title']) ?></h3>
                 </div>
 
-                <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                     <span class="text-xs font-bold text-teal-700 font-mono">
                         <?= (int)$c['questions_count'] ?> Questions
                     </span>
-                    <a href="practice.php?course_id=<?= urlencode($c['id']) ?>" class="px-3.5 py-1.5 rounded-xl border border-teal-200 hover:bg-teal-50 hover:text-teal-700 font-bold text-xs text-slate-700 transition-colors flex items-center gap-1">
-                        <span>Practice</span>
-                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
-                    </a>
+                    <div class="flex items-center gap-1.5">
+                        <a href="practice.php?course_id=<?= urlencode($c['id']) ?>" class="px-3 py-1.5 rounded-xl border border-teal-200 hover:bg-teal-50 hover:text-teal-700 font-bold text-xs text-slate-700 transition-colors flex items-center gap-1">
+                            <span>Practice</span>
+                            <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                        </a>
+                        <?php if ($canEnter): ?>
+                        <a href="exam.php?course_id=<?= urlencode($c['id']) ?>" class="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1">
+                            <span>Enter Exam</span>
+                            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                        </a>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
             <?php endforeach; ?>

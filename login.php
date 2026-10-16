@@ -17,8 +17,8 @@ if (!empty($_SESSION['admin'])) {
     exit;
 }
 
-$error = null;
-$success = null;
+$error = !empty($_GET['error']) ? htmlspecialchars($_GET['error']) : null;
+$success = !empty($_GET['success']) ? htmlspecialchars($_GET['success']) : null;
 $activeTab = $_GET['tab'] ?? 'login'; // 'login', 'register'
 
 // Approved Department Whitelist

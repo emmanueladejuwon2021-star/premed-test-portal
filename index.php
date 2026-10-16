@@ -98,6 +98,34 @@ $examStmt = $db->query("
 ");
 $liveTest = $examStmt ? $examStmt->fetch() : null;
 
+// Fallback to active unlocked courses with questions if no explicit test is scheduled
+if (!$liveTest) {
+    $fallbackCourse = $db->query("
+        SELECT c.*, c.code AS course_code, c.title AS course_title,
+               COUNT(q.id) as question_count
+        FROM courses c
+        JOIN topics t ON c.id = t.course_id
+        JOIN questions q ON t.id = q.topic_id
+        WHERE c.is_locked = 0
+        GROUP BY c.id
+        HAVING question_count > 0
+        ORDER BY c.code ASC
+        LIMIT 1
+    ");
+    $unlockedCourse = $fallbackCourse ? $fallbackCourse->fetch() : null;
+    if ($unlockedCourse) {
+        $liveTest = [
+            'id' => null,
+            'course_id' => $unlockedCourse['id'],
+            'course_code' => $unlockedCourse['course_code'],
+            'title' => $unlockedCourse['title'] . ' Official Assessment',
+            'duration' => 30,
+            'question_limit' => min(30, (int)$unlockedCourse['question_count']),
+            'is_course_exam' => true
+        ];
+    }
+}
+
 // Recent 5 test results
 $recentStmt = $db->prepare("
     SELECT r.*, c.code AS course_code, c.title AS course_title 
@@ -195,7 +223,8 @@ $firstName = htmlspecialchars(explode(' ', $student['name'] ?? 'Student')[0]);
             </div>
         </div>
 
-        <a href="exam.php?test_id=<?= urlencode($liveTest['id']) ?>" class="w-full sm:w-auto px-6 py-3 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-wider shadow-md shadow-teal-600/20 transition-all flex items-center justify-center gap-2 shrink-0 active:scale-95">
+        <?php $examUrl = !empty($liveTest['id']) ? 'exam.php?test_id=' . urlencode($liveTest['id']) : 'exam.php?course_id=' . urlencode($liveTest['course_id']); ?>
+        <a href="<?= $examUrl ?>" class="w-full sm:w-auto px-6 py-3 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase tracking-wider shadow-md shadow-teal-600/20 transition-all flex items-center justify-center gap-2 shrink-0 active:scale-95">
             <span>Enter Exam Room</span>
             <i data-lucide="arrow-right" class="w-4 h-4"></i>
         </a>

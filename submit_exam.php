@@ -14,8 +14,26 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $db = DB::connect();
 $student = $_SESSION['student'] ?? null;
 
+// Graceful session restoration via signed student token
+if (!$student && !empty($_POST['student_token'])) {
+    $tokenData = verify_student_token($_POST['student_token']);
+    if ($tokenData && !empty($tokenData['id'])) {
+        try {
+            $sStmt = $db->prepare("SELECT * FROM students WHERE id = ? LIMIT 1");
+            $sStmt->execute([$tokenData['id']]);
+            $found = $sStmt->fetch();
+            if ($found) {
+                $student = $found;
+                $_SESSION['student'] = $student;
+                set_student_auth_cookie($student);
+            }
+        } catch (Exception $e) {}
+    }
+}
+
 if (!$student) {
-    die("Student authentication session lost. Please log in again.");
+    header('Location: login.php?error=' . urlencode('Your examination session expired. Please log in again to review your results or take an exam.'));
+    exit;
 }
 
 $courseId = $_POST['course_id'] ?? '';

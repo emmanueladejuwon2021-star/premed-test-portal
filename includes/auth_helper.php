@@ -50,6 +50,36 @@ if (!function_exists('clear_student_auth_cookie')) {
     }
 }
 
+if (!function_exists('generate_student_token')) {
+    function generate_student_token(array $student): string {
+        $secret = get_auth_secret();
+        $payload = json_encode([
+            'id' => $student['id'],
+            'matric_no' => $student['matric_no'] ?? '',
+            'exp' => time() + (86400 * 2)
+        ]);
+        $b64 = rtrim(strtr(base64_encode($payload), '+/', '-_'), '=');
+        $sig = hash_hmac('sha256', $b64, $secret);
+        return $b64 . '.' . $sig;
+    }
+}
+
+if (!function_exists('verify_student_token')) {
+    function verify_student_token(string $token): ?array {
+        $secret = get_auth_secret();
+        $parts = explode('.', $token);
+        if (count($parts) !== 2) return null;
+        [$b64, $sig] = $parts;
+        if (!hash_equals(hash_hmac('sha256', $b64, $secret), $sig)) return null;
+        $json = base64_decode(strtr($b64, '-_', '+/'));
+        $data = json_decode($json, true);
+        if (is_array($data) && !empty($data['id']) && (!isset($data['exp']) || $data['exp'] > time())) {
+            return $data;
+        }
+        return null;
+    }
+}
+
 if (!function_exists('set_admin_auth_cookie')) {
     function set_admin_auth_cookie(array $admin): void {
         $secret = get_auth_secret();

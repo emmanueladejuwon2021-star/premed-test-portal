@@ -37,7 +37,15 @@ if (!$isRetry && !empty($_SESSION['last_result_id'])) {
 $courseId = $_GET['course_id'] ?? '';
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
 $duration = isset($_GET['duration']) ? (int)$_GET['duration'] : 30;
-$topicFilters = $_GET['topics'] ?? [];
+
+$rawTopicInput = $_GET['topics'] ?? ($_GET['topic_ids'] ?? []);
+if (is_array($rawTopicInput)) {
+    $topicFilters = array_values(array_filter($rawTopicInput, function($t) {
+        return !empty($t) && strtoupper(trim((string)$t)) !== 'ALL';
+    }));
+} else {
+    $topicFilters = [];
+}
 
 // If test_id is provided, load specific test settings & course
 if (!empty($testId)) {
@@ -49,8 +57,10 @@ if (!empty($testId)) {
         $limit = (int)$test['question_limit'];
         $duration = (int)$test['duration'];
         $rawTopics = json_decode($test['topic_ids'] ?? '[]', true);
-        if (!empty($rawTopics) && is_array($rawTopics) && !in_array('ALL', $rawTopics)) {
-            $topicFilters = $rawTopics;
+        if (!empty($rawTopics) && is_array($rawTopics)) {
+            $topicFilters = array_values(array_filter($rawTopics, function($t) {
+                return !empty($t) && strtoupper(trim((string)$t)) !== 'ALL';
+            }));
         }
     }
 }
@@ -129,6 +139,14 @@ if ($test) {
     if (isset($test['shuffle_options'])) $shuffleOptions = (int)$test['shuffle_options'];
 }
 
+// Practice mode: allow flexible studying without penalizing tab switches
+$isPractice = (isset($_GET['mode']) && $_GET['mode'] === 'practice');
+if ($isPractice) {
+    $enforceFullscreen = 0;
+    $antiCheatBlur = 0;
+    $maxTabSwitches = 999;
+}
+
 // Randomize and constrain to item volume limit
 if ($shuffleQuestions) {
     shuffle($questions);
@@ -148,7 +166,7 @@ foreach ($questions as $idx => $q) {
         'b' => $q['b'],
         'c' => $q['c'],
         'd' => $q['d'],
-        'diagram_url' => $q['diagram_url']
+        'diagram_url' => $q['diagram_url'] ?? null
     ];
 }
 
@@ -637,6 +655,7 @@ require_once __DIR__ . '/includes/header.php';
     <input type="hidden" name="course_id" value="<?= htmlspecialchars($courseId) ?>">
     <input type="hidden" name="test_id" value="<?= htmlspecialchars($testId) ?>">
     <input type="hidden" name="session_id" value="<?= htmlspecialchars($sessionId) ?>">
+    <input type="hidden" name="student_token" value="<?= htmlspecialchars(generate_student_token($student)) ?>">
     <input type="hidden" name="answers_json" id="answersJsonInput" value="">
     <input type="hidden" name="question_ids_json" id="questionIdsJsonInput" value="">
     <input type="hidden" name="tab_switches" id="tabSwitchesInput" value="0">
