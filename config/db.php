@@ -9,6 +9,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/turso.php';
+require_once __DIR__ . '/../includes/csrf.php';
 
 class DB {
     private static mixed $connection = null;
