@@ -431,12 +431,13 @@ require_once __DIR__ . '/includes/header.php';
                         <th class="px-6 py-3">Matric No</th>
                         <th class="px-6 py-3">Department</th>
                         <th class="px-6 py-3">Phone</th>
+                        <th class="px-6 py-3">Bank Details</th>
                         <th class="px-6 py-3 text-center">Tests Completed</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     <?php if (empty($students)): ?>
-                    <tr><td colspan="5" class="py-8 text-center text-slate-400">No registered students yet.</td></tr>
+                    <tr><td colspan="6" class="py-8 text-center text-slate-400">No registered students yet.</td></tr>
                     <?php else: ?>
                     <?php foreach ($students as $st): ?>
                     <tr class="hover:bg-slate-50/70">
@@ -444,6 +445,17 @@ require_once __DIR__ . '/includes/header.php';
                         <td class="px-6 py-3 font-mono text-slate-500"><?= htmlspecialchars($st['matric_no']) ?></td>
                         <td class="px-6 py-3 text-slate-700 font-medium"><?= htmlspecialchars($st['department']) ?></td>
                         <td class="px-6 py-3 text-slate-500"><?= htmlspecialchars($st['phone'] ?? '—') ?></td>
+                        <td class="px-6 py-3">
+                            <?php if (!empty($st['account_number'])): ?>
+                                <div class="space-y-0.5">
+                                    <div class="font-mono font-bold text-slate-900"><?= htmlspecialchars($st['account_number']) ?></div>
+                                    <div class="text-[11px] text-indigo-600 font-semibold"><?= htmlspecialchars($st['bank'] ?? '') ?></div>
+                                    <div class="text-[10px] text-slate-500"><?= htmlspecialchars($st['account_name'] ?? '') ?></div>
+                                </div>
+                            <?php else: ?>
+                                <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Not Provided</span>
+                            <?php endif; ?>
+                        </td>
                         <td class="px-6 py-3 text-center font-bold text-indigo-600"><?= (int)$st['tests_count'] ?></td>
                     </tr>
                     <?php endforeach; ?>

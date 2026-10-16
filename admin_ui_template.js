@@ -1417,18 +1417,30 @@ function renderStudentsTab(ctx) {
               <th class="p-3.5">Matric No</th>
               <th class="p-3.5">Candidate Name</th>
               <th class="p-3.5">Department</th>
+              <th class="p-3.5">Bank Details</th>
               <th class="p-3.5">Registered</th>
               <th class="p-3.5 text-right">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
             ${students.length === 0 ? `
-              <tr><td colspan="5" class="p-6 text-center text-slate-400">No candidates found in cloud database.</td></tr>
+              <tr><td colspan="6" class="p-6 text-center text-slate-400">No candidates found in cloud database.</td></tr>
             ` : students.map(s => `
               <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
                 <td class="p-3.5 font-mono font-bold text-brand-600 dark:text-brand-400">${escapeHtml(s.matric_no)}</td>
                 <td class="p-3.5 font-bold text-slate-900 dark:text-white">${escapeHtml(s.name)}</td>
                 <td class="p-3.5 text-slate-600 dark:text-slate-300">${escapeHtml(s.department || 'Premedical')}</td>
+                <td class="p-3.5">
+                  ${s.account_number ? `
+                    <div class="space-y-0.5">
+                      <div class="font-mono font-bold text-slate-900 dark:text-white">${escapeHtml(s.account_number)}</div>
+                      <div class="text-[11px] text-brand-600 dark:text-brand-400 font-semibold">${escapeHtml(s.bank || '')}</div>
+                      <div class="text-[10px] text-slate-400">${escapeHtml(s.account_name || '')}</div>
+                    </div>
+                  ` : `
+                    <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">Not Provided</span>
+                  `}
+                </td>
                 <td class="p-3.5 text-slate-400 font-mono text-[11px]">${escapeHtml(s.created_at || '-')}</td>
                 <td class="p-3.5 text-right">
                   <form method="POST" action="/action/delete_student" onsubmit="return confirm('Delete candidate &quot;${escapeHtml(s.name)}&quot;?');">
