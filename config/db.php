@@ -52,21 +52,66 @@ class DB {
         }
         self::$migrated = true;
 
-        $columnsToAdd = [
+        // 1. Ensure students columns exist
+        $studentCols = [
+            'email' => 'TEXT',
             'phone' => 'TEXT',
             'account_number' => 'TEXT',
             'bank' => 'TEXT',
             'account_name' => 'TEXT',
             'strength' => 'TEXT'
         ];
-
-        foreach ($columnsToAdd as $col => $type) {
+        foreach ($studentCols as $col => $type) {
             try {
                 $pdo->exec("ALTER TABLE students ADD COLUMN {$col} {$type}");
-            } catch (Exception $e) {
-                // If column already exists (duplicate column name), that's completely expected
-            }
+            } catch (Exception $e) {}
         }
+
+        // 2. Ensure results proctoring columns exist
+        $resultCols = [
+            'tab_switches' => 'INTEGER DEFAULT 0',
+            'is_flagged_cheating' => 'INTEGER DEFAULT 0',
+            'cheating_log' => 'TEXT'
+        ];
+        foreach ($resultCols as $col => $type) {
+            try {
+                $pdo->exec("ALTER TABLE results ADD COLUMN {$col} {$type}");
+            } catch (Exception $e) {}
+        }
+
+        // 3. Ensure courses lock status exists
+        try {
+            $pdo->exec("ALTER TABLE courses ADD COLUMN is_locked INTEGER DEFAULT 0");
+        } catch (Exception $e) {}
+
+        // 4. Ensure questions explanation & diagram columns exist
+        try {
+            $pdo->exec("ALTER TABLE questions ADD COLUMN diagram_url TEXT");
+        } catch (Exception $e) {}
+        try {
+            $pdo->exec("ALTER TABLE questions ADD COLUMN explanation TEXT");
+        } catch (Exception $e) {}
+
+        // 5. Ensure exam_sessions table exists
+        try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS exam_sessions (
+                id TEXT PRIMARY KEY,
+                student_id TEXT,
+                course_id TEXT,
+                test_id TEXT,
+                status TEXT DEFAULT 'IN_PROGRESS',
+                tab_switches INTEGER DEFAULT 0,
+                cheating_log TEXT,
+                total_score INTEGER DEFAULT 0,
+                total_questions INTEGER DEFAULT 0,
+                percentage REAL DEFAULT 0,
+                grade TEXT,
+                ip_address TEXT,
+                user_agent TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )");
+        } catch (Exception $e) {}
     }
 }
 

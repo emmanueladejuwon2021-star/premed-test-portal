@@ -31,8 +31,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($name)) {
         $error = 'Full name is required.';
     } else {
-        $upd = $db->prepare("UPDATE students SET name = ?, department = ?, phone = ?, email = ?, strength = ?, account_number = ?, bank = ?, account_name = ? WHERE id = ?");
-        $upd->execute([$name, $department, $phone, $email, $strength, $accountNumber, $bank, $accountName, $student['id']]);
+        try {
+            $upd = $db->prepare("UPDATE students SET name = ?, department = ?, phone = ?, email = ?, strength = ?, account_number = ?, bank = ?, account_name = ? WHERE id = ?");
+            $upd->execute([$name, $department, $phone, $email, $strength, $accountNumber, $bank, $accountName, $student['id']]);
+        } catch (Exception $e) {
+            try {
+                $upd = $db->prepare("UPDATE students SET name = ?, department = ?, phone = ?, account_number = ?, bank = ?, account_name = ? WHERE id = ?");
+                $upd->execute([$name, $department, $phone, $accountNumber, $bank, $accountName, $student['id']]);
+            } catch (Exception $e2) {
+                $upd = $db->prepare("UPDATE students SET name = ?, department = ? WHERE id = ?");
+                $upd->execute([$name, $department, $student['id']]);
+            }
+        }
 
         // Refresh session
         $ref = $db->prepare("SELECT * FROM students WHERE id = ? LIMIT 1");
