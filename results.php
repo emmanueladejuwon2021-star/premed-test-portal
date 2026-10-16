@@ -432,29 +432,68 @@ $isFromBackNav = isset($_GET['notice']) && $_GET['notice'] === 'already_complete
             </div>
             <?php endif; ?>
 
-            <!-- Answer Comparison Grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                
-                <!-- Candidate's Choice -->
-                <div class="p-3 rounded-2xl border <?= $status === 'correct' ? 'border-emerald-200 bg-emerald-50/60 text-emerald-950' : ($status === 'skipped' ? 'border-amber-200 bg-amber-50/60 text-amber-950' : 'border-rose-200 bg-rose-50/70 text-rose-950') ?>">
-                    <span class="font-bold uppercase tracking-wider text-[10px] block opacity-70 mb-0.5">Your Response</span>
-                    <span class="font-semibold">
-                        <?php if (empty($userAns)): ?>
-                            <span class="text-amber-800 font-bold italic">No answer submitted (Skipped)</span>
-                        <?php else: ?>
-                            Option <?= strtoupper($userAns) ?>: <?= htmlspecialchars($q[$userAns] ?? '') ?>
+            <!-- Comprehensive 4-Option Corrections Grid -->
+            <div class="space-y-2 pt-1">
+                <div class="flex items-center justify-between text-[11px] font-bold">
+                    <span class="uppercase tracking-wider text-slate-400">All Examination Options &bull; Question Review</span>
+                    <?php if ($status === 'correct'): ?>
+                    <span class="text-emerald-700 flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> You scored this item</span>
+                    <?php elseif ($status === 'skipped'): ?>
+                    <span class="text-amber-700 flex items-center gap-1"><i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> Question skipped</span>
+                    <?php else: ?>
+                    <span class="text-rose-700 flex items-center gap-1"><i data-lucide="x-circle" class="w-3.5 h-3.5"></i> Review correct key below</span>
+                    <?php endif; ?>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                    <?php 
+                    $optKeys = ['a', 'b', 'c', 'd'];
+                    foreach ($optKeys as $k):
+                        $isThisCorrect = ($k === $correctAns);
+                        $isThisUserPick = ($k === $userAns);
+                        
+                        if ($isThisCorrect && $isThisUserPick) {
+                            $cardStyle = 'border-2 border-emerald-500 bg-emerald-50/90 text-emerald-950 shadow-xs ring-1 ring-emerald-500/20';
+                            $badge = '<span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Your Pick &bull; Correct</span>';
+                            $letterBadge = 'bg-emerald-600 text-white';
+                        } elseif ($isThisCorrect) {
+                            $cardStyle = 'border-2 border-emerald-500 bg-emerald-50/80 text-emerald-950 shadow-xs ring-1 ring-emerald-500/20';
+                            $badge = '<span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0"><i data-lucide="check" class="w-3 h-3"></i> Accredited Key</span>';
+                            $letterBadge = 'bg-emerald-600 text-white';
+                        } elseif ($isThisUserPick) {
+                            $cardStyle = 'border-2 border-rose-400 bg-rose-50/80 text-rose-950 shadow-xs';
+                            $badge = '<span class="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0"><i data-lucide="x" class="w-3 h-3"></i> Your Choice &bull; Incorrect</span>';
+                            $letterBadge = 'bg-rose-600 text-white';
+                        } else {
+                            $cardStyle = 'border border-slate-200 bg-white/80 text-slate-700 hover:border-slate-300';
+                            $badge = '';
+                            $letterBadge = 'bg-slate-100 text-slate-700 border border-slate-200';
+                        }
+                    ?>
+                    <div class="p-3.5 rounded-2xl flex items-start justify-between gap-3 transition-all <?= $cardStyle ?>">
+                        <div class="flex items-start gap-2.5 min-w-0">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-xl text-xs font-black uppercase shrink-0 font-mono <?= $letterBadge ?>">
+                                <?= strtoupper($k) ?>
+                            </span>
+                            <div class="math-content text-xs leading-relaxed pt-0.5">
+                                <?= $q[$k] ?>
+                            </div>
+                        </div>
+                        <?php if (!empty($badge)): ?>
+                        <div class="shrink-0 pt-0.5">
+                            <?= $badge ?>
+                        </div>
                         <?php endif; ?>
-                    </span>
+                    </div>
+                    <?php endforeach; ?>
                 </div>
 
-                <!-- Ground-Truth Correct Key -->
-                <div class="p-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 text-emerald-950">
-                    <span class="font-bold uppercase tracking-wider text-[10px] block opacity-70 mb-0.5">Accredited Key</span>
-                    <span class="font-semibold">
-                        Option <?= strtoupper($correctAns) ?>: <?= htmlspecialchars($q[$correctAns] ?? '') ?>
-                    </span>
+                <?php if ($status === 'skipped'): ?>
+                <div class="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium flex items-center gap-2">
+                    <i data-lucide="info" class="w-4 h-4 text-amber-600 shrink-0"></i>
+                    <span>This item was not answered during your test session. The verified correct answer is <strong>Option <?= strtoupper($correctAns) ?></strong>.</span>
                 </div>
-
+                <?php endif; ?>
             </div>
 
             <!-- Detailed Explanation & KaTeX Solution -->

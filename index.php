@@ -264,14 +264,17 @@ $firstName = htmlspecialchars(explode(' ', $student['name'] ?? 'Student')[0]);
                 </div>
             </a>
 
-            <!-- Card 3: Study Room -->
-            <a href="active_study.php" class="group bg-white hover:bg-teal-50/40 border border-teal-100 hover:border-teal-400 p-5 rounded-3xl transition-all shadow-xs hover:shadow-md flex items-start gap-4">
-                <div class="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 border border-teal-200/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
-                    <i data-lucide="sparkles" class="w-6 h-6"></i>
+            <!-- Card 3: Study Room (Locked) -->
+            <a href="active_study.php" class="group bg-white hover:bg-slate-50 border border-slate-200 hover:border-amber-300 p-5 rounded-3xl transition-all shadow-xs hover:shadow-md flex items-start gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                    <i data-lucide="lock" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h3 class="text-sm font-black text-slate-900 group-hover:text-teal-700 transition-colors">AI Study Lab</h3>
-                    <p class="text-xs text-slate-500 mt-1 leading-relaxed">Paste your notes, test comprehension with AI flash questions and summaries.</p>
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-sm font-black text-slate-900 group-hover:text-amber-800 transition-colors">AI Study Lab</h3>
+                        <span class="text-[9px] font-black uppercase text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">Locked</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-1 leading-relaxed">AI Clinical Tutor is currently locked during active examinations. Focus on official tests &amp; past questions.</p>
                 </div>
             </a>
 

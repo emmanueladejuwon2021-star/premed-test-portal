@@ -104,10 +104,11 @@ $pageTitle = $pageTitle ?? 'PreMed Portal';
                     <span>Tests</span>
                 </a>
 
-                <!-- Study Room -->
-                <a href="active_study.php" class="px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 <?= $currentPage === 'active_study.php' ? 'bg-teal-50 text-teal-800 font-bold shadow-xs border border-teal-200/50' : 'hover:bg-slate-100 hover:text-slate-900' ?>">
-                    <i data-lucide="sparkles" class="w-4 h-4 text-teal-600"></i>
+                <!-- Study Room (Locked) -->
+                <a href="active_study.php" class="px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 <?= $currentPage === 'active_study.php' ? 'bg-amber-50 text-amber-800 font-bold shadow-xs border border-amber-200/50' : 'hover:bg-slate-100 hover:text-slate-900' ?>">
+                    <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-500"></i>
                     <span>Study Room</span>
+                    <span class="text-[9px] font-black uppercase text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded-md leading-none">Locked</span>
                 </a>
 
                 <!-- Academic Resources -->
@@ -176,9 +177,12 @@ $pageTitle = $pageTitle ?? 'PreMed Portal';
             <span>Tests</span>
         </a>
 
-        <a href="active_study.php" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold <?= $currentPage === 'active_study.php' ? 'bg-teal-50 text-teal-800 font-bold' : 'text-slate-700 hover:bg-slate-50' ?>">
-            <i data-lucide="sparkles" class="w-4 h-4 text-teal-600"></i>
-            <span>Study Room</span>
+        <a href="active_study.php" class="flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold <?= $currentPage === 'active_study.php' ? 'bg-amber-50 text-amber-800 font-bold' : 'text-slate-700 hover:bg-slate-50' ?>">
+            <div class="flex items-center gap-3">
+                <i data-lucide="lock" class="w-4 h-4 text-amber-500"></i>
+                <span>Study Room</span>
+            </div>
+            <span class="text-[9px] font-black uppercase text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">Locked</span>
         </a>
 
         <a href="question_search.php" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold <?= $currentPage === 'question_search.php' ? 'bg-teal-50 text-teal-800 font-bold' : 'text-slate-700 hover:bg-slate-50' ?>">
