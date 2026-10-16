@@ -78,7 +78,7 @@ $pageTitle = $pageTitle ?? 'PreMed Portal';
 
             <!-- 1. Left Brand / Logo with Medical Cross Emblem -->
             <a href="index.php" class="flex items-center gap-2.5 shrink-0 group">
-                <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-700 text-white flex items-center justify-center shadow-md shadow-teal-500/20 group-hover:scale-105 transition-transform">
+                <div id="secretBrandCross" class="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-700 text-white flex items-center justify-center shadow-md shadow-teal-500/20 group-hover:scale-105 transition-transform cursor-pointer select-none" title="">
                     <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 6v12m-6-6h12"></path>
                         <path d="M4 12h2l2 4 4-8 3 6h5" stroke-width="1.8" stroke="currentColor" opacity="0.8"></path>
@@ -246,6 +246,25 @@ $pageTitle = $pageTitle ?? 'PreMed Portal';
                     menu.classList.add('hidden');
                     if (closedIcon) closedIcon.classList.remove('hidden');
                     if (openIcon) openIcon.classList.add('hidden');
+                }
+            });
+        }
+
+        // Secret Knock on Header Brand Logo (5 rapid taps)
+        let hKnock = 0;
+        let hLastTime = 0;
+        const brandCross = document.getElementById('secretBrandCross');
+        if (brandCross) {
+            brandCross.addEventListener('click', function(e) {
+                const now = Date.now();
+                if (now - hLastTime > 2500) hKnock = 0;
+                hLastTime = now;
+                hKnock++;
+                if (hKnock >= 5) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    hKnock = 0;
+                    window.location.href = 'login.php?portal=faculty';
                 }
             });
         }

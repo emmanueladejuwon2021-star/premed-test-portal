@@ -21,6 +21,26 @@ $error = !empty($_GET['error']) ? htmlspecialchars($_GET['error']) : null;
 $success = !empty($_GET['success']) ? htmlspecialchars($_GET['success']) : null;
 $activeTab = $_GET['tab'] ?? 'login'; // 'login', 'register'
 
+// Stealth Faculty Portal Detection (Secret URL param or 60-day stealth cookie)
+$portalParam = strtolower(trim($_GET['portal'] ?? ($_GET['access'] ?? ($_GET['gate'] ?? ($_GET['staff'] ?? '')))));
+$hasSecretParam = in_array($portalParam, ['faculty', 'director', 'admin', 'apex', 'staff', 'dean', '1']);
+$hasStealthCookie = !empty($_COOKIE['premed_admin_stealth']);
+$isStealthUnlocked = $hasSecretParam || $hasStealthCookie || ($activeTab === 'admin');
+
+if ($hasSecretParam) {
+    $activeTab = 'admin';
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || 
+               (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    setcookie('premed_admin_stealth', '1', [
+        'expires' => time() + (86400 * 60), // 60 days
+        'path' => '/',
+        'domain' => '',
+        'secure' => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+}
+
 // Approved Department Whitelist
 $allowedDepts = [
     'Medicine & Surgery',
@@ -73,33 +93,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'admin_login') {
         $activeTab = 'admin';
-        $adminMatric = strtoupper(trim(str_replace([' ', '-', '/'], '', $_POST['admin_matric'] ?? $_POST['admin_email'] ?? '')));
-        $adminPassword = trim($_POST['admin_password'] ?? '');
+        $isStealthUnlocked = true;
 
-        $envPass = getenv('ADMIN_PASSWORD') ?: getenv('ADMIN_PASS');
-        $passMatch = ($adminPassword === '12345678' || $adminPassword === '123456789' || (!empty($envPass) && $adminPassword === $envPass));
-
-        $envMatric = strtoupper(trim(getenv('ADMIN_MATRIC') ?: ''));
-        $matricMatch = ($adminMatric === '250811024' || 
-                        strtolower($adminMatric) === 'emmanueladejuwon2025@gmail.com' || 
-                        (!empty($envMatric) && $adminMatric === $envMatric));
-
-        if (empty($adminMatric) || empty($adminPassword)) {
-            $error = 'Both Admin Matric Number and Password are required.';
-        } elseif ($matricMatch && $passMatch) {
-            $adminData = [
-                'matric_no' => '250811024',
-                'email' => 'admin@premedportal.edu',
-                'name' => 'System Administrator',
-                'logged_in_at' => time()
-            ];
-            $_SESSION['admin'] = $adminData;
-            set_admin_auth_cookie($adminData);
-            session_write_close();
-            header('Location: admin_dashboard.php');
-            exit;
+        $lockUntil = $_SESSION['admin_locked_until'] ?? 0;
+        if (time() < $lockUntil) {
+            $waitMin = ceil(($lockUntil - time()) / 60);
+            $error = "Security Lockout: Too many failed administrator attempts. Please wait {$waitMin} minute(s) before trying again.";
         } else {
-            $error = 'Invalid Administrator credentials. Access denied.';
+            $adminMatric = strtoupper(trim(str_replace([' ', '-', '/'], '', $_POST['admin_matric'] ?? $_POST['admin_email'] ?? '')));
+            $adminPassword = trim($_POST['admin_password'] ?? '');
+
+            $envPass = getenv('ADMIN_PASSWORD') ?: getenv('ADMIN_PASS');
+            $passMatch = ($adminPassword === '12345678' || $adminPassword === '123456789' || (!empty($envPass) && $adminPassword === $envPass));
+
+            $envMatric = strtoupper(trim(getenv('ADMIN_MATRIC') ?: ''));
+            $matricMatch = ($adminMatric === '250811024' || 
+                            strtolower($adminMatric) === 'emmanueladejuwon2025@gmail.com' || 
+                            (!empty($envMatric) && $adminMatric === $envMatric));
+
+            if (empty($adminMatric) || empty($adminPassword)) {
+                $error = 'Both Admin Matric Number and Password are required.';
+            } elseif ($matricMatch && $passMatch) {
+                unset($_SESSION['admin_fail_count'], $_SESSION['admin_locked_until']);
+                $adminData = [
+                    'matric_no' => '250811024',
+                    'email' => 'admin@premedportal.edu',
+                    'name' => 'System Administrator',
+                    'logged_in_at' => time()
+                ];
+                $_SESSION['admin'] = $adminData;
+                set_admin_auth_cookie($adminData);
+                session_write_close();
+                header('Location: admin_dashboard.php');
+                exit;
+            } else {
+                $_SESSION['admin_fail_count'] = ($_SESSION['admin_fail_count'] ?? 0) + 1;
+                if ($_SESSION['admin_fail_count'] >= 5) {
+                    $_SESSION['admin_locked_until'] = time() + 900; // 15-minute lockout
+                    $error = 'Security Alert: Maximum failed attempts exceeded. Access has been locked for 15 minutes.';
+                } else {
+                    $remaining = 5 - $_SESSION['admin_fail_count'];
+                    $error = "Invalid Administrator credentials. Access denied. ({$remaining} attempt(s) remaining).";
+                }
+            }
         }
     } elseif ($action === 'student_login') {
         $db = DB::connect();
@@ -310,17 +346,17 @@ require_once __DIR__ . '/includes/header.php';
 <div class="min-h-[85vh] flex items-center justify-center px-4 py-8">
     <div class="max-w-md w-full bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-md">
         
-        <!-- Brand Header -->
+        <!-- Brand Header with Secret Knock Trigger -->
         <div class="text-center mb-6">
-            <div class="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-teal-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-teal-900/20 mb-3">
+            <div id="secretBrandLogo" class="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-teal-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-teal-900/20 mb-3 cursor-pointer select-none active:scale-95 transition-transform" title="">
                 <i data-lucide="graduation-cap" class="w-6 h-6"></i>
             </div>
-            <span class="inline-block text-[10px] uppercase font-bold tracking-widest text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200 mb-1 font-mono">Student Access</span>
+            <span id="secretKnockBadge" class="inline-block text-[10px] uppercase font-bold tracking-widest text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200 mb-1 font-mono">Student Access</span>
             <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">PreMed Student Portal</h1>
             <p class="text-xs text-slate-500 mt-0.5">Practice tests, past questions, and study tools</p>
         </div>
 
-        <!-- 3-Way Mode Switch Tabs (Sign In / Register / Admin) -->
+        <!-- Mode Switch Tabs (Sign In / Register / Faculty [Stealth]) -->
         <div class="flex bg-slate-100 p-1 rounded-xl mb-6 text-xs font-bold text-slate-600">
             <button type="button" id="tabLoginBtn" onclick="showTab('login')" class="flex-1 py-2 rounded-lg transition-all <?= $activeTab === 'login' ? 'bg-white shadow-xs text-teal-800 font-extrabold' : 'hover:text-slate-900' ?>">
                 Sign In
@@ -328,8 +364,11 @@ require_once __DIR__ . '/includes/header.php';
             <button type="button" id="tabRegisterBtn" onclick="showTab('register')" class="flex-1 py-2 rounded-lg transition-all <?= $activeTab === 'register' ? 'bg-white shadow-xs text-teal-800 font-extrabold' : 'hover:text-slate-900' ?>">
                 Register
             </button>
-            <button type="button" id="tabAdminBtn" onclick="showTab('admin')" class="flex-1 py-2 rounded-lg transition-all <?= $activeTab === 'admin' ? 'bg-white shadow-xs text-rose-700 font-extrabold' : 'hover:text-slate-900' ?>">
-                Admin
+            <button type="button" id="tabAdminBtn" onclick="showTab('admin')" class="flex-1 py-2 rounded-lg transition-all <?= $isStealthUnlocked ? '' : 'hidden' ?> <?= $activeTab === 'admin' ? 'bg-white shadow-xs text-rose-700 font-extrabold' : 'hover:text-slate-900 text-slate-500' ?>">
+                <span class="flex items-center justify-center gap-1">
+                    <i data-lucide="shield" class="w-3.5 h-3.5 text-rose-600"></i>
+                    <span>Faculty</span>
+                </span>
             </button>
         </div>
 
@@ -559,7 +598,10 @@ function showTab(type) {
 
     tabLogin.className = "flex-1 py-2 rounded-lg transition-all hover:text-slate-900";
     tabRegister.className = "flex-1 py-2 rounded-lg transition-all hover:text-slate-900";
-    tabAdmin.className = "flex-1 py-2 rounded-lg transition-all hover:text-slate-900";
+    if (tabAdmin) {
+        const isHidden = tabAdmin.classList.contains('hidden');
+        tabAdmin.className = "flex-1 py-2 rounded-lg transition-all hover:text-slate-900 text-slate-500" + (isHidden ? " hidden" : "");
+    }
 
     if (type === 'login') {
         loginSec.classList.remove('hidden');
@@ -568,12 +610,48 @@ function showTab(type) {
         registerSec.classList.remove('hidden');
         tabRegister.className = "flex-1 py-2 rounded-lg bg-white shadow-xs text-teal-800 font-extrabold transition-all";
     } else if (type === 'admin') {
+        if (tabAdmin) tabAdmin.classList.remove('hidden');
         adminSec.classList.remove('hidden');
-        tabAdmin.className = "flex-1 py-2 rounded-lg bg-white shadow-xs text-rose-700 font-extrabold transition-all";
+        if (tabAdmin) tabAdmin.className = "flex-1 py-2 rounded-lg bg-white shadow-xs text-rose-700 font-extrabold transition-all";
     }
 
     if (window.lucide) {
         lucide.createIcons();
+    }
+}
+
+// Secret Knock on Emblem / Brand Header (5 rapid taps or 1.5s press)
+let knockCount = 0;
+let lastKnockTime = 0;
+let pressTimer = null;
+
+function unlockFacultyAdmin() {
+    const tabAdmin = document.getElementById('tabAdminBtn');
+    if (tabAdmin) {
+        tabAdmin.classList.remove('hidden');
+        showTab('admin');
+        // Drop 60-day stealth cookie so user's phone stays authorized
+        document.cookie = "premed_admin_stealth=1; max-age=" + (86400 * 60) + "; path=/; SameSite=Lax";
+        if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
+        const badge = document.getElementById('secretKnockBadge');
+        if (badge) {
+            badge.innerText = 'Faculty Portal Unlocked';
+            badge.className = 'inline-block text-[10px] uppercase font-bold tracking-widest text-rose-800 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-300 mb-1 font-mono animate-bounce';
+        }
+    }
+}
+
+function handleSecretKnock() {
+    const now = Date.now();
+    if (now - lastKnockTime > 2500) {
+        knockCount = 0;
+    }
+    lastKnockTime = now;
+    knockCount++;
+
+    if (knockCount >= 5) {
+        knockCount = 0;
+        unlockFacultyAdmin();
     }
 }
 
@@ -645,6 +723,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const tabParam = params.get('tab') || '<?= htmlspecialchars($activeTab) ?>';
     if (tabParam === 'admin' || tabParam === 'register' || tabParam === 'login') {
         showTab(tabParam);
+    }
+
+    const brandLogo = document.getElementById('secretBrandLogo');
+    if (brandLogo) {
+        brandLogo.addEventListener('click', handleSecretKnock);
+
+        // Mobile touch hold / long press (1.5 seconds)
+        brandLogo.addEventListener('touchstart', function(e) {
+            pressTimer = setTimeout(unlockFacultyAdmin, 1500);
+        }, { passive: true });
+        brandLogo.addEventListener('touchend', function() {
+            clearTimeout(pressTimer);
+        });
+        brandLogo.addEventListener('touchmove', function() {
+            clearTimeout(pressTimer);
+        });
     }
 });
 </script>
