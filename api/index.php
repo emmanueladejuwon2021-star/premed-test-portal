@@ -4,12 +4,21 @@
  * Premed Test Portal
  */
 
+require_once __DIR__ . '/../config/db.php';
+
 $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
 $path = parse_url($requestUri, PHP_URL_PATH);
 $path = trim($path, '/');
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+}
+
+// Ensure database connection and session restoration on serverless entry
+try {
+    $db = DB::connect();
+} catch (Exception $e) {
+    // Database connection error will be handled by individual scripts if needed
 }
 
 // Default route

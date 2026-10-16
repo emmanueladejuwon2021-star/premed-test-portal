@@ -6,12 +6,13 @@
 
 require_once __DIR__ . '/config/db.php';
 
+$db = DB::connect();
+
 if (empty($_SESSION['student'])) {
     header('Location: login.php');
     exit;
 }
 
-$db = DB::connect();
 $studentId = $_SESSION['student']['id'] ?? '';
 
 // Handle Direct AJAX/POST Bank Details Update
@@ -29,10 +30,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
         http_response_code(400);
         echo json_encode(['ok' => false, 'error' => 'Bank is required and must be selected from the approved list.']);
         exit;
-    } elseif (empty($accountName) || mb_strlen($accountName) < 4) {
+    } elseif (empty($accountName) || mb_strlen($accountName) < 3) {
         http_response_code(400);
-        echo json_encode(['ok' => false, 'error' => 'Full Account Name is required and must be at least 4 characters.']);
+        echo json_encode(['ok' => false, 'error' => 'Full Account Name is required and must be at least 3 characters.']);
         exit;
+    } else {
         try {
             $upStmt = $db->prepare("UPDATE students SET account_number = ?, bank = ?, account_name = ? WHERE id = ?");
             $upStmt->execute([$accountNumber, $bank, $accountName, $studentId]);
@@ -65,6 +67,10 @@ if ($freshStudent) {
     $_SESSION['student'] = $freshStudent;
 }
 $student = $_SESSION['student'];
+$accNum = trim($student['account_number'] ?? '');
+$accBank = trim($student['bank'] ?? '');
+$accName = trim($student['account_name'] ?? '');
+$needsBankDetails = (empty($accNum) || empty($accBank) || empty($accName));
 
 $pageTitle = 'Home';
 require_once __DIR__ . '/includes/header.php';
@@ -108,6 +114,25 @@ $firstName = htmlspecialchars(explode(' ', $student['name'] ?? 'Student')[0]);
 ?>
 
 <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
+
+    <?php if ($needsBankDetails): ?>
+    <!-- Bank Details Required Alert Banner -->
+    <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-teal-500/10 border border-amber-300/40 text-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
+        <div class="flex items-start sm:items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0">
+                <i data-lucide="award" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h4 class="text-xs font-black uppercase tracking-wider text-amber-900">Bank Details Required for Cash Prizes & Verification</h4>
+                <p class="text-xs text-slate-600 mt-0.5 leading-relaxed">Top scorers receive cash awards directly into their bank account. Please link your account number now.</p>
+            </div>
+        </div>
+        <button type="button" onclick="document.getElementById('bankModal').classList.remove('hidden')" class="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase tracking-wider shrink-0 shadow-sm transition-all flex items-center gap-2">
+            <i data-lucide="credit-card" class="w-4 h-4"></i>
+            <span>Complete Bank Details</span>
+        </button>
+    </div>
+    <?php endif; ?>
 
     <!-- 1. Clinical Welcome Hero Banner -->
     <div class="bg-gradient-to-br from-slate-950 via-teal-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-teal-500/20 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -332,9 +357,6 @@ $firstName = htmlspecialchars(explode(' ', $student['name'] ?? 'Student')[0]);
 </div>
 
 <!-- ================= MODAL: BANKING DETAILS REQUIRED DIALOG ================= -->
-<?php
-$needsBankDetails = empty($student['account_number']) || empty($student['bank']) || empty($student['account_name']);
-?>
 <div id="bankModal" class="<?= $needsBankDetails ? '' : 'hidden' ?> fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="relative bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-5 shadow-2xl border border-teal-100 animate-in fade-in zoom-in-95 duration-200">
         
@@ -379,7 +401,13 @@ $needsBankDetails = empty($student['account_number']) || empty($student['bank'])
                     <select name="bank" id="modalBank" required class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
                         <option value="" disabled <?= empty($student['bank']) ? 'selected' : '' ?>>-- Select your Bank --</option>
                         <?php 
-                        $bankList = ['Opay', 'PalmPay', 'Kuda', 'Moniepoint', 'SmartCash', 'Access Bank', 'GTBank', 'FirstBank', 'Zenith Bank', 'UBA', 'Stanbic IBTC', 'Wema Bank', 'FCMB', 'Union Bank'];
+                        $bankList = [
+                            'Opay', 'PalmPay', 'Kuda Bank', 'Moniepoint', 'SmartCash PSB',
+                            'Access Bank', 'GTBank', 'FirstBank', 'Zenith Bank', 'UBA',
+                            'Stanbic IBTC', 'Wema Bank', 'FCMB', 'Union Bank', 'Fidelity Bank',
+                            'Polaris Bank', 'Sterling Bank', 'Ecobank', 'Keystone Bank',
+                            'Unity Bank', 'Providus Bank', 'Jaiz Bank', 'Taj Bank', 'Heritage Bank', 'Other Bank'
+                        ];
                         foreach ($bankList as $b): 
                         ?>
                         <option value="<?= $b ?>" <?= ($student['bank'] ?? '') === $b ? 'selected' : '' ?>><?= $b ?></option>
@@ -454,8 +482,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            if (accName.length < 4) {
-                errText.innerText = 'Full Account Name must be at least 4 characters long.';
+            if (accName.length < 3) {
+                errText.innerText = 'Full Account Name must be at least 3 characters long.';
                 errBox.classList.remove('hidden');
                 return;
             }

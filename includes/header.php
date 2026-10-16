@@ -6,6 +6,10 @@
 
 require_once __DIR__ . '/../config/db.php';
 
+try {
+    DB::connect();
+} catch (Exception $e) {}
+
 $currentPage = basename($_SERVER['PHP_SELF'] ?? '');
 $currentUri = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 $cleanUri = trim($currentUri, '/');

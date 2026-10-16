@@ -39,6 +39,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ref->execute([$student['id']]);
         $_SESSION['student'] = $ref->fetch();
         $student = $_SESSION['student'];
+        if (function_exists('set_student_auth_cookie') && $student) {
+            set_student_auth_cookie($student);
+        }
         $success = 'Profile & bank details updated successfully!';
     }
 }
@@ -130,7 +133,13 @@ require_once __DIR__ . '/includes/header.php';
                     <select name="bank" class="w-full px-4 py-3 rounded-2xl border border-teal-100 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
                         <option value="" disabled <?= empty($student['bank']) ? 'selected' : '' ?>>-- Select Bank --</option>
                         <?php 
-                        $bankList = ['Opay', 'PalmPay', 'Kuda', 'Moniepoint', 'SmartCash', 'Access Bank', 'GTBank', 'FirstBank', 'Zenith Bank', 'UBA', 'Stanbic IBTC', 'Wema Bank', 'FCMB', 'Union Bank'];
+                        $bankList = [
+                            'Opay', 'PalmPay', 'Kuda Bank', 'Moniepoint', 'SmartCash PSB',
+                            'Access Bank', 'GTBank', 'FirstBank', 'Zenith Bank', 'UBA',
+                            'Stanbic IBTC', 'Wema Bank', 'FCMB', 'Union Bank', 'Fidelity Bank',
+                            'Polaris Bank', 'Sterling Bank', 'Ecobank', 'Keystone Bank',
+                            'Unity Bank', 'Providus Bank', 'Jaiz Bank', 'Taj Bank', 'Heritage Bank', 'Other Bank'
+                        ];
                         foreach ($bankList as $b): 
                         ?>
                         <option value="<?= $b ?>" <?= ($student['bank'] ?? '') === $b ? 'selected' : '' ?>><?= $b ?></option>

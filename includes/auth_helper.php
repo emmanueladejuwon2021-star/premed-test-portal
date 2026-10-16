@@ -90,7 +90,7 @@ if (!function_exists('clear_admin_auth_cookie')) {
 }
 
 if (!function_exists('restore_auth_sessions')) {
-    function restore_auth_sessions(TursoPDO $db): void {
+    function restore_auth_sessions($db): void {
         $secret = get_auth_secret();
 
         // 1. Restore Student Session if missing

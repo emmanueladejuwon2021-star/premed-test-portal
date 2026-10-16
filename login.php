@@ -33,7 +33,39 @@ $allowedDepts = [
     'Pharmacy',
     'Medical Laboratory Science',
     'Physiology',
-    'Anatomy'
+    'Anatomy',
+    'Medical Biochemistry',
+    'Public Health',
+    'Other Medical / Health Sciences'
+];
+
+// Comprehensive Nigerian Banks Whitelist
+$allowedBanks = [
+    'Opay',
+    'PalmPay',
+    'Kuda Bank',
+    'Moniepoint',
+    'SmartCash PSB',
+    'Access Bank',
+    'GTBank',
+    'FirstBank',
+    'Zenith Bank',
+    'UBA',
+    'Stanbic IBTC',
+    'Wema Bank',
+    'FCMB',
+    'Union Bank',
+    'Fidelity Bank',
+    'Polaris Bank',
+    'Sterling Bank',
+    'Ecobank',
+    'Keystone Bank',
+    'Unity Bank',
+    'Providus Bank',
+    'Jaiz Bank',
+    'Taj Bank',
+    'Heritage Bank',
+    'Other Bank'
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -65,7 +97,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'student_login') {
         $db = DB::connect();
         $activeTab = 'login';
-        $matricNo = strtoupper(trim(str_replace(' ', '', $_POST['matric_no'] ?? '')));
+        $rawMatric = $_POST['matric_no'] ?? '';
+        $matricNo = strtoupper(trim(str_replace(' ', '', $rawMatric)));
+        $cleanMatric = strtoupper(trim(str_replace([' ', '-', '/'], '', $rawMatric)));
         $password = trim($_POST['password'] ?? '');
 
         if (empty($matricNo)) {
@@ -75,22 +109,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (empty($password)) {
             $error = 'Password is required to sign in.';
         } else {
-            $stmt = $db->prepare("SELECT * FROM students WHERE UPPER(TRIM(matric_no)) = ? LIMIT 1");
-            $stmt->execute([$matricNo]);
+            $stmt = $db->prepare("
+                SELECT * FROM students 
+                WHERE UPPER(TRIM(COALESCE(matric_no, ''))) = ? 
+                   OR UPPER(TRIM(COALESCE(matric_no, ''))) = ? 
+                   OR REPLACE(REPLACE(REPLACE(UPPER(COALESCE(matric_no, '')), ' ', ''), '-', ''), '/', '') = ? 
+                LIMIT 1
+            ");
+            $stmt->execute([$matricNo, $cleanMatric, $cleanMatric]);
             $student = $stmt->fetch();
 
             if (!$student) {
                 $error = 'Matric / JAMB Reg Number "' . htmlspecialchars($matricNo) . '" is not registered yet. Please click the "Register" tab to create your account.';
                 $activeTab = 'register';
             } else {
-                $stored = $student['password'] ?? '';
+                $stored = trim($student['password'] ?? '');
                 $valid = false;
-                if (password_verify($password, $stored)) {
+                if (password_verify($password, $stored) || password_verify(trim($password), $stored)) {
                     $valid = true;
-                } elseif ($stored === $password) {
+                } elseif ($stored === $password || $stored === trim($password)) {
                     $valid = true;
                     // Auto-upgrade plaintext to hash on successful login
-                    $hashed = password_hash($password, PASSWORD_DEFAULT);
+                    $hashed = password_hash(trim($password), PASSWORD_DEFAULT);
                     $up = $db->prepare("UPDATE students SET password = ? WHERE id = ?");
                     $up->execute([$hashed, $student['id']]);
                     $student['password'] = $hashed;
@@ -117,22 +157,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Account Number is required and must be 10-12 digits.';
         } elseif (empty($bank) || mb_strlen($bank) < 2) {
             $error = 'Bank is required and must be at least 2 characters.';
-        } elseif (empty($accountName) || mb_strlen($accountName) < 4) {
-            $error = 'Full Account Name is required and must be at least 4 characters.';
+        } elseif (empty($accountName) || mb_strlen($accountName) < 3) {
+            $error = 'Full Account Name is required and must be at least 3 characters.';
         } else {
             $stmt = $db->prepare("UPDATE students SET account_number = ?, bank = ?, account_name = ? WHERE id = ?");
             $stmt->execute([$accountNumber, $bank, $accountName, $id]);
             // Refresh session data
             $stmt = $db->prepare("SELECT * FROM students WHERE id = ? LIMIT 1");
             $stmt->execute([$id]);
-            $_SESSION['student'] = $stmt->fetch();
+            $fresh = $stmt->fetch();
+            if ($fresh) {
+                $_SESSION['student'] = $fresh;
+                set_student_auth_cookie($fresh);
+                session_write_close();
+            }
             $success = 'Banking details saved successfully.';
         }
     } elseif ($action === 'student_register') {
         $db = DB::connect();
         $activeTab = 'register';
         $name = trim($_POST['name'] ?? '');
-        $matricNo = strtoupper(trim(str_replace(' ', '', $_POST['matric_no'] ?? '')));
+        $rawMatric = $_POST['matric_no'] ?? '';
+        $matricNo = strtoupper(trim(str_replace(' ', '', $rawMatric)));
+        $cleanMatric = strtoupper(trim(str_replace([' ', '-', '/'], '', $rawMatric)));
         $department = trim($_POST['department'] ?? '');
         $phone = trim($_POST['phone'] ?? '');
         $password = trim($_POST['password'] ?? '');
@@ -142,25 +189,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $nameWords = preg_split('/\s+/', $name, -1, PREG_SPLIT_NO_EMPTY);
         if (empty($name)) {
             $error = 'Full Name is required.';
-        } elseif (mb_strlen($name) < 4) {
-            $error = 'Full Name must be at least 4 characters long.';
+        } elseif (mb_strlen($name) < 3) {
+            $error = 'Full Name must be at least 3 characters long.';
         } elseif (count($nameWords) < 2) {
-            $error = 'Please enter both your First Name and Surname.';
-        } elseif (!preg_match("/^[a-zA-Z\s\-\'\.]+$/", $name)) {
-            $error = 'Full Name may only contain alphabetic letters, hyphens, and spaces.';
+            $error = 'Please enter both your First Name and Surname (e.g. Adebayo Johnson).';
         }
+
         // 2. Validate Matric / JAMB Reg Number
         elseif (empty($matricNo)) {
             $error = 'Matric Number or JAMB Reg Number is required.';
         } elseif (strlen($matricNo) < 4 || strlen($matricNo) > 25) {
             $error = 'Matric Number or JAMB Reg Number must be between 4 and 25 characters long.';
-        } elseif (!preg_match('/^[A-Z0-9\/\-]+$/', $matricNo)) {
-            $error = 'Matric / JAMB Reg Number may only contain letters, numbers, slashes (/), or hyphens (-).';
         }
+
         // 3. Validate Department
-        elseif (!in_array($department, $allowedDepts, true)) {
-            $error = 'Please select a valid approved medical department from the list.';
+        elseif (empty($department)) {
+            $error = 'Please select your department from the dropdown list.';
         }
+
         // 4. Validate Phone Number (if provided)
         elseif (!empty($phone)) {
             $cleanPhone = preg_replace('/[\s\-\(\)]/', '', $phone);
@@ -168,21 +214,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Please enter a valid phone number (e.g. 08012345678).';
             }
         }
-        // Validate required banking details (required for cash prizes)
+
+        // 5. Banking Details (OPTIONAL at registration)
         $accountNumber = trim($_POST['account_number'] ?? '');
-        if (empty($accountNumber) || !preg_match('/^[0-9]{10,12}$/', $accountNumber)) {
-            $error = 'Account Number is required and must be 10-12 digits.';
-        }
         $bank = trim($_POST['bank'] ?? '');
-        if (empty($bank) || mb_strlen($bank) < 2) {
-            $error = 'Bank is required and must be at least 2 characters.';
-        }
         $accountName = trim($_POST['account_name'] ?? '');
-        if (empty($accountName) || mb_strlen($accountName) < 4) {
-            $error = 'Full Account Name is required and must be at least 4 characters.';
+
+        if (!$error && (!empty($accountNumber) || !empty($bank) || !empty($accountName))) {
+            if (empty($accountNumber) || !preg_match('/^[0-9]{10,12}$/', $accountNumber)) {
+                $error = 'If providing banking details, Account Number must be 10 to 12 digits.';
+            } elseif (empty($bank) || mb_strlen($bank) < 2) {
+                $error = 'If providing banking details, please select your bank.';
+            } elseif (empty($accountName) || mb_strlen($accountName) < 3) {
+                $error = 'If providing banking details, Full Account Name must be at least 3 characters.';
+            }
         }
 
-        // 5. Validate Password & Confirmation
+        // 6. Validate Password & Confirmation
         if (!$error) {
             if (empty($password)) {
                 $error = 'Password is required.';
@@ -193,22 +241,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // 6. Check Database for Existing Matric / JAMB Reg Number
+        // 7. Check Database for Existing Matric / JAMB Reg Number
         if (!$error) {
-            $check = $db->prepare("SELECT id FROM students WHERE UPPER(TRIM(matric_no)) = ? LIMIT 1");
-            $check->execute([$matricNo]);
+            $check = $db->prepare("
+                SELECT id FROM students 
+                WHERE UPPER(TRIM(COALESCE(matric_no, ''))) = ? 
+                   OR UPPER(TRIM(COALESCE(matric_no, ''))) = ? 
+                   OR REPLACE(REPLACE(REPLACE(UPPER(COALESCE(matric_no, '')), ' ', ''), '-', ''), '/', '') = ? 
+                LIMIT 1
+            ");
+            $check->execute([$matricNo, $cleanMatric, $cleanMatric]);
             if ($check->fetch()) {
                 $error = 'Matric / JAMB Reg Number "' . htmlspecialchars($matricNo) . '" is already registered. Please sign in below.';
                 $activeTab = 'login';
             } else {
                 try {
                     $id = bin2hex(random_bytes(12));
-                    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                    $hashedPassword = password_hash(trim($password), PASSWORD_DEFAULT);
                     $stmt = $db->prepare("
                         INSERT INTO students (id, name, matric_no, password, department, phone, account_number, bank, account_name, strength) 
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Clinical Sciences')
                     ");
-                    $stmt->execute([$id, $name, $matricNo, $hashedPassword, $department, $phone, $accountNumber, $bank, $accountName]);
+                    $stmt->execute([
+                        $id, 
+                        $name, 
+                        $matricNo, 
+                        $hashedPassword, 
+                        $department, 
+                        $phone, 
+                        $accountNumber ?: null, 
+                        $bank ?: null, 
+                        $accountName ?: null
+                    ]);
 
                     $fetchNew = $db->prepare("SELECT * FROM students WHERE id = ? LIMIT 1");
                     $fetchNew->execute([$id]);
@@ -286,7 +350,7 @@ require_once __DIR__ . '/includes/header.php';
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                         <i data-lucide="user-check" class="w-4 h-4"></i>
                     </span>
-                    <input type="text" name="matric_no" required placeholder="e.g. 230911024 or 202412345678AB" minlength="4" maxlength="25" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono uppercase bg-slate-50/50">
+                    <input type="text" name="matric_no" required placeholder="e.g. 230911024 or 202412345678AB" minlength="4" maxlength="25" value="<?= htmlspecialchars($_POST['matric_no'] ?? '') ?>" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono uppercase bg-slate-50/50">
                 </div>
             </div>
 
@@ -323,7 +387,7 @@ require_once __DIR__ . '/includes/header.php';
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                         <i data-lucide="id-card" class="w-4 h-4"></i>
                     </span>
-                    <input type="text" name="name" id="regName" required minlength="4" placeholder="Firstname & Surname" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" name="name" id="regName" required minlength="4" placeholder="Firstname & Surname" value="<?= htmlspecialchars($_POST['name'] ?? '') ?>" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <span class="text-[10px] text-slate-400 mt-0.5 block">Must include both first name and surname</span>
             </div>
@@ -334,7 +398,7 @@ require_once __DIR__ . '/includes/header.php';
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                         <i data-lucide="hash" class="w-4 h-4"></i>
                     </span>
-                    <input type="text" name="matric_no" id="regMatric" required minlength="4" maxlength="25" placeholder="e.g. 230911024, 202412345678AB" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono uppercase">
+                    <input type="text" name="matric_no" id="regMatric" required minlength="4" maxlength="25" placeholder="e.g. 230911024, 202412345678AB" value="<?= htmlspecialchars($_POST['matric_no'] ?? '') ?>" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono uppercase">
                 </div>
                 <span class="text-[10px] text-slate-400 mt-0.5 block">Use your university Matric No or JAMB Registration Number</span>
             </div>
@@ -346,9 +410,9 @@ require_once __DIR__ . '/includes/header.php';
                         <i data-lucide="building" class="w-4 h-4"></i>
                     </span>
                     <select name="department" id="regDept" required class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                        <option value="" disabled selected>-- Select your Department --</option>
+                        <option value="" disabled <?= empty($_POST['department']) ? 'selected' : '' ?>>-- Select your Department --</option>
                         <?php foreach ($allowedDepts as $dept): ?>
-                        <option value="<?= htmlspecialchars($dept) ?>"><?= htmlspecialchars($dept) ?></option>
+                        <option value="<?= htmlspecialchars($dept) ?>" <?= (($_POST['department'] ?? '') === $dept) ? 'selected' : '' ?>><?= htmlspecialchars($dept) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -360,53 +424,43 @@ require_once __DIR__ . '/includes/header.php';
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                         <i data-lucide="phone" class="w-4 h-4"></i>
                     </span>
-                    <input type="tel" name="phone" id="regPhone" placeholder="08012345678" maxlength="15" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="tel" name="phone" id="regPhone" placeholder="08012345678" maxlength="15" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
             </div>
-        <!-- Banking Details (optional, required for cash prizes) -->
-        <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Account Number</label>
-            <div class="relative">
-                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                    <i data-lucide="credit-card" class="w-4 h-4"></i>
-                </span>
-                <input type="text" name="account_number" id="regAccountNumber" placeholder="e.g. 0123456789" maxlength="12" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+
+            <!-- Banking Details (optional, required for cash prizes) -->
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Account Number (Optional)</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                        <i data-lucide="credit-card" class="w-4 h-4"></i>
+                    </span>
+                    <input type="text" name="account_number" id="regAccountNumber" placeholder="e.g. 0123456789" maxlength="12" value="<?= htmlspecialchars($_POST['account_number'] ?? '') ?>" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
+                </div>
             </div>
-        </div>
-        <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Bank</label>
-            <div class="relative">
-                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                    <i data-lucide="bank" class="w-4 h-4"></i>
-                </span>
-                <select name="bank" id="regBank" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                    <option value="" disabled selected>-- Select your Bank --</option>
-                    <option>Opay</option>
-                    <option>PalmPay</option>
-                    <option>Kuda</option>
-                    <option>Moniepoint</option>
-                    <option>SmartCash</option>
-                    <option>Access Bank</option>
-                    <option>GTBank</option>
-                    <option>FirstBank</option>
-                    <option>Zenith Bank</option>
-                    <option>UBA</option>
-                    <option>Stanbic IBTC</option>
-                    <option>Wema Bank</option>
-                    <option>FCMB</option>
-                    <option>Union Bank</option>
-                </select>
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Bank (Optional)</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                        <i data-lucide="building-2" class="w-4 h-4"></i>
+                    </span>
+                    <select name="bank" id="regBank" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                        <option value="" <?= empty($_POST['bank']) ? 'selected' : '' ?>>-- Select your Bank (Optional) --</option>
+                        <?php foreach ($allowedBanks as $b): ?>
+                        <option value="<?= htmlspecialchars($b) ?>" <?= (($_POST['bank'] ?? '') === $b) ? 'selected' : '' ?>><?= htmlspecialchars($b) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
             </div>
-        </div>
-        <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Account Name</label>
-            <div class="relative">
-                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                    <i data-lucide="user" class="w-4 h-4"></i>
-                </span>
-                <input type="text" name="account_name" id="regAccountName" placeholder="e.g. John Doe" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Account Name (Optional)</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                        <i data-lucide="user" class="w-4 h-4"></i>
+                    </span>
+                    <input type="text" name="account_name" id="regAccountName" placeholder="e.g. John Doe" value="<?= htmlspecialchars($_POST['account_name'] ?? '') ?>" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
             </div>
-        </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -531,6 +585,7 @@ function validateRegisterForm() {
     const showError = (msg) => {
         errBox.innerText = msg;
         errBox.classList.remove('hidden');
+        errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return false;
     };
 
@@ -550,19 +605,17 @@ function validateRegisterForm() {
         return showError('Please select your department.');
     }
 
-    // Account Number validation (10-12 digits)
-    if (!/^[0-9]{10,12}$/.test(accountNumber)) {
-        return showError('Account Number must be 10-12 digits.');
-    }
-
-    // Bank validation (minimum 2 characters)
-    if (!bank || bank.length < 2) {
-        return showError('Please select a valid bank.');
-    }
-
-    // Account Name validation (minimum 4 characters)
-    if (!accountName || accountName.length < 4) {
-        return showError('Full Account Name must be at least 4 characters.');
+    // Banking Details (Optional during initial registration, verified only if supplied)
+    if (accountNumber || bank || accountName) {
+        if (!/^[0-9]{10,12}$/.test(accountNumber)) {
+            return showError('If providing banking details, Account Number must be 10-12 digits.');
+        }
+        if (!bank || bank.length < 2) {
+            return showError('If providing banking details, please select your bank.');
+        }
+        if (!accountName || accountName.length < 3) {
+            return showError('If providing banking details, Full Account Name must be at least 3 characters.');
+        }
     }
 
     // Password validation
