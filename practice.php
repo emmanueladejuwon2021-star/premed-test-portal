@@ -16,12 +16,12 @@ require_once __DIR__ . '/includes/header.php';
 
 $db = DB::connect();
 
-// Fetch all available courses
+// Fetch all available courses with past questions count
 $stmt = $db->query("
     SELECT c.*, COUNT(q.id) as q_count 
     FROM courses c
     LEFT JOIN topics t ON c.id = t.course_id
-    LEFT JOIN questions q ON t.id = q.topic_id
+    LEFT JOIN questions q ON t.id = q.topic_id AND (q.bank_type = 'past' OR q.bank_type IS NULL OR q.bank_type = '')
     GROUP BY c.id
     ORDER BY c.code ASC
 ");
@@ -29,14 +29,14 @@ $courses = $stmt->fetchAll();
 
 $selectedCourseId = $_GET['course_id'] ?? ($courses[0]['id'] ?? '');
 
-// Fetch topics for the selected course
+// Fetch topics for the selected course with past questions count
 $topics = [];
 $totalCourseQuestions = 0;
 if (!empty($selectedCourseId)) {
     $tStmt = $db->prepare("
         SELECT t.*, COUNT(q.id) as q_count 
         FROM topics t
-        LEFT JOIN questions q ON t.id = q.topic_id
+        LEFT JOIN questions q ON t.id = q.topic_id AND (q.bank_type = 'past' OR q.bank_type IS NULL OR q.bank_type = '')
         WHERE t.course_id = ?
         GROUP BY t.id
         ORDER BY t.name ASC

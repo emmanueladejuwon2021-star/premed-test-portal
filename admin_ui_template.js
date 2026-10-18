@@ -1002,6 +1002,11 @@ function renderTestsTab(ctx) {
               <span>Shuffle Choices</span>
             </label>
 
+            <label class="p-2.5 rounded-xl border border-indigo-300 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 flex items-center gap-2 cursor-pointer text-xs font-bold" title="Optionally draw questions from Past Question Bank if Test Question Bank is low">
+              <input type="checkbox" name="include_past_questions" value="1" class="rounded text-indigo-600">
+              <span>Include Past Bank Qs</span>
+            </label>
+
             <label class="p-2.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 flex items-center gap-2 cursor-pointer text-xs font-black">
               <input type="checkbox" name="is_live" value="1" checked class="rounded text-emerald-600">
               <span>Make Live Now</span>
@@ -1037,6 +1042,7 @@ function renderTestsTab(ctx) {
             const courseObj = courses.find(c => c.id === t.course_id);
             const courseCode = courseObj ? courseObj.code : (t.course_code || 'EXAM');
             const isLive = (t.is_live === 1);
+            const includesPast = (t.include_past_questions === 1);
 
             return `
             <div class="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
@@ -1048,6 +1054,9 @@ function renderTestsTab(ctx) {
                   <h4 class="text-sm font-extrabold text-slate-900 dark:text-white truncate">${escapeHtml(t.title)}</h4>
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${isLive ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}">
                     ${isLive ? '● Live on Portal' : 'Offline / Hidden'}
+                  </span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${includesPast ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200' : 'bg-slate-100 text-slate-600'}">
+                    ${includesPast ? '📚 Includes Past Bank' : '⏱️ Test Bank Only'}
                   </span>
                 </div>
 
