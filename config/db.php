@@ -84,12 +84,16 @@ class DB {
             $pdo->exec("ALTER TABLE courses ADD COLUMN is_locked INTEGER DEFAULT 0");
         } catch (Exception $e) {}
 
-        // 4. Ensure questions explanation & diagram columns exist
+        // 4. Ensure questions explanation, diagram & bank_type columns exist
         try {
             $pdo->exec("ALTER TABLE questions ADD COLUMN diagram_url TEXT");
         } catch (Exception $e) {}
         try {
             $pdo->exec("ALTER TABLE questions ADD COLUMN explanation TEXT");
+        } catch (Exception $e) {}
+        try {
+            $pdo->exec("ALTER TABLE questions ADD COLUMN bank_type TEXT DEFAULT 'past'");
+            $pdo->exec("UPDATE questions SET bank_type = 'past' WHERE bank_type IS NULL OR bank_type = ''");
         } catch (Exception $e) {}
 
         // 5. Ensure exam_sessions table exists
@@ -402,10 +406,10 @@ class DB {
                 $existing = $chk->fetch();
 
                 if (!$existing) {
-                    $insertQ = $pdo->prepare("INSERT INTO questions (id, topic_id, text, a, b, c, d, correct_option, explanation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $insertQ = $pdo->prepare("INSERT INTO questions (id, topic_id, text, a, b, c, d, correct_option, explanation, bank_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'past')");
                     $insertQ->execute([$q['id'], $topicId, $q['text'], $q['a'], $q['b'], $q['c'], $q['d'], $q['correct_option'], $q['explanation']]);
                 } else {
-                    $updQ = $pdo->prepare("UPDATE questions SET text = ?, a = ?, b = ?, c = ?, d = ?, correct_option = ?, explanation = ? WHERE id = ?");
+                    $updQ = $pdo->prepare("UPDATE questions SET text = ?, a = ?, b = ?, c = ?, d = ?, correct_option = ?, explanation = ?, bank_type = 'past' WHERE id = ?");
                     $updQ->execute([$q['text'], $q['a'], $q['b'], $q['c'], $q['d'], $q['correct_option'], $q['explanation'], $existing['id']]);
                 }
             }
@@ -623,10 +627,10 @@ class DB {
                 $existing = $chk->fetch();
 
                 if (!$existing) {
-                    $insertQ = $pdo->prepare("INSERT INTO questions (id, topic_id, text, a, b, c, d, correct_option, explanation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $insertQ = $pdo->prepare("INSERT INTO questions (id, topic_id, text, a, b, c, d, correct_option, explanation, bank_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'past')");
                     $insertQ->execute([$q['id'], $topicId, $q['text'], $q['a'], $q['b'], $q['c'], $q['d'], $q['correct_option'], $q['explanation']]);
                 } else {
-                    $updQ = $pdo->prepare("UPDATE questions SET text = ?, a = ?, b = ?, c = ?, d = ?, correct_option = ?, explanation = ? WHERE id = ?");
+                    $updQ = $pdo->prepare("UPDATE questions SET text = ?, a = ?, b = ?, c = ?, d = ?, correct_option = ?, explanation = ?, bank_type = 'past' WHERE id = ?");
                     $updQ->execute([$q['text'], $q['a'], $q['b'], $q['c'], $q['d'], $q['correct_option'], $q['explanation'], $existing['id']]);
                 }
             }

@@ -168,6 +168,229 @@ if (isset($_GET['export'])) {
     }
 }
 
+/**
+ * Smart MCQ Question Parser
+ * Supports:
+ * 1. Natural Question Text (Word / PDF / WhatsApp / ChatGPT copy-paste):
+ *    - Numbered ("1.", "1)", "**1**", "Q1.", etc.) or unnumbered questions
+ *    - Option markers: A., B., C., D. or (A), (B), [A], Option A:
+ *    - Answer keys: "Answer: A", "**Answer: A.**", "Ans: B", "Correct: C", "Key: D"
+ *    - Solutions: "Explanation: ...", "Solution: ...", "Rationale: ..." or text following Answer
+ * 2. Standard CSV / TSV format
+ * 3. JSON format
+ */
+function parse_smart_questions(string $rawPayload): array {
+    $rawPayload = trim($rawPayload);
+    if (empty($rawPayload)) return [];
+
+    // 1. JSON Array check
+    $jsonData = json_decode($rawPayload, true);
+    if (is_array($jsonData)) {
+        $parsed = [];
+        foreach ($jsonData as $item) {
+            $qText = trim($item['text'] ?? $item['question'] ?? $item['prompt'] ?? '');
+            $qA = trim($item['a'] ?? $item['option_a'] ?? $item['opt_a'] ?? '');
+            $qB = trim($item['b'] ?? $item['option_b'] ?? $item['opt_b'] ?? '');
+            $qC = trim($item['c'] ?? $item['option_c'] ?? $item['opt_c'] ?? '');
+            $qD = trim($item['d'] ?? $item['option_d'] ?? $item['opt_d'] ?? '');
+            $qAns = strtoupper(trim($item['correct'] ?? $item['correct_option'] ?? $item['answer'] ?? 'A'));
+            $qExp = trim($item['explanation'] ?? $item['solution'] ?? $item['rationale'] ?? '');
+
+            if (!empty($qText) && !empty($qA) && !empty($qB)) {
+                $parsed[] = [
+                    'text' => $qText,
+                    'a' => $qA,
+                    'b' => $qB,
+                    'c' => $qC,
+                    'd' => $qD,
+                    'correct_option' => in_array($qAns, ['A', 'B', 'C', 'D']) ? $qAns : 'A',
+                    'explanation' => $qExp
+                ];
+            }
+        }
+        if (!empty($parsed)) return $parsed;
+    }
+
+    // 2. Smart Natural Text Parser (State Machine)
+    $lines = preg_split("/\r\n|\n|\r/", $rawPayload);
+    $questions = [];
+    $current = null;
+    $state = 'IDLE';
+
+    $finalizeCurrent = function() use (&$questions, &$current) {
+        if ($current && !empty(trim($current['text'])) && !empty(trim($current['a'])) && !empty(trim($current['b']))) {
+            $cleanText = preg_replace('/^\s*(?:\*\*)?(?:Question\s*|Q\s*)?\d+[\.\)\]\:]?(?:\s*\[[^\]]+\])?(?:\*\*)?\s*/i', '', trim($current['text']));
+            if (empty($cleanText)) {
+                $cleanText = trim($current['text']);
+            }
+            $ans = strtoupper(trim($current['correct_option'] ?: 'A'));
+            if (!in_array($ans, ['A', 'B', 'C', 'D'])) $ans = 'A';
+
+            $questions[] = [
+                'text' => $cleanText,
+                'a' => trim($current['a']),
+                'b' => trim($current['b']),
+                'c' => trim($current['c']),
+                'd' => trim($current['d']),
+                'correct_option' => $ans,
+                'explanation' => trim($current['explanation'])
+            ];
+        }
+        $current = null;
+    };
+
+    foreach ($lines as $line) {
+        $trimmed = trim($line);
+        if ($trimmed === '') {
+            if ($current) {
+                if ($state === 'IN_PROMPT') {
+                    $current['text'] .= "\n";
+                } elseif ($state === 'IN_EXPLANATION') {
+                    $current['explanation'] .= "\n";
+                }
+            }
+            continue;
+        }
+
+        // Detect New Question Number: "1.", "1)", "**1**", "Q1.", "Question 1:", "**1 [revised]**"
+        if (preg_match('/^\s*(?:\*\*)?(?:Question\s*|Q\s*)?(\d+)[\.\)\]\:]?(?:\s*\[[^\]]+\])?(?:\*\*)?\s+(.*)$/i', $trimmed, $m)
+            && ($state === 'IN_EXPLANATION' || $state === 'IDLE' || ($state !== 'IN_PROMPT' && !empty($current['correct_option'])))) {
+            $finalizeCurrent();
+            $state = 'IN_PROMPT';
+            $current = [
+                'text' => $m[2],
+                'a' => '',
+                'b' => '',
+                'c' => '',
+                'd' => '',
+                'correct_option' => '',
+                'explanation' => ''
+            ];
+            continue;
+        }
+
+        // Detect Options: A., B., C., D. (also handles (A), A), **A.**, Option A:, etc.)
+        if (preg_match('/^\s*(?:\*\*)?(?:\(?([A-D])[\.\)\:\]]|\bOption\s*([A-D])\:?)(?:\*\*)?\s*(.*)$/i', $trimmed, $optMatch)) {
+            $optLetter = strtoupper($optMatch[1] ?: $optMatch[2]);
+            $optContent = $optMatch[3];
+
+            if ($current === null) {
+                $state = 'IN_PROMPT';
+                $current = ['text' => 'Question', 'a' => '', 'b' => '', 'c' => '', 'd' => '', 'correct_option' => '', 'explanation' => ''];
+            }
+
+            if ($optLetter === 'A') {
+                $state = 'IN_OPT_A';
+                $current['a'] = $optContent;
+                continue;
+            } elseif ($optLetter === 'B') {
+                $state = 'IN_OPT_B';
+                $current['b'] = $optContent;
+                continue;
+            } elseif ($optLetter === 'C') {
+                $state = 'IN_OPT_C';
+                $current['c'] = $optContent;
+                continue;
+            } elseif ($optLetter === 'D') {
+                $state = 'IN_OPT_D';
+                $current['d'] = $optContent;
+                continue;
+            }
+        }
+
+        // Detect Answer / Key Line: "Answer: A.", "**Answer: B.**", "Ans: C", "Correct: D", "Key: A"
+        if (preg_match('/^\s*(?:\*\*)?(?:Answer|Ans|Correct(?:\s*Option)?|Key)\s*[\:\-\.]?\s*(?:\*\*)?\s*\(?([A-D])\)?(?:\.|\b)(?:\*\*)?(.*)$/i', $trimmed, $ansMatch)) {
+            if ($current === null) {
+                $current = ['text' => 'Question', 'a' => '', 'b' => '', 'c' => '', 'd' => '', 'correct_option' => '', 'explanation' => ''];
+            }
+            $current['correct_option'] = strtoupper($ansMatch[1]);
+            $state = 'IN_EXPLANATION';
+            $trail = trim($ansMatch[2] ?? '');
+            if (!empty($trail)) {
+                $current['explanation'] .= ($current['explanation'] ? "\n" : "") . $trail;
+            }
+            continue;
+        }
+
+        // Detect Explanation Header: "Explanation: ...", "Solution: ...", "Rationale: ..."
+        if (preg_match('/^\s*(?:\*\*)?(?:Explanation|Solution|Rationale|Reason)\s*[\:\-]\s*(?:\*\*)?(.*)$/i', $trimmed, $expMatch)) {
+            $state = 'IN_EXPLANATION';
+            if ($current) {
+                $current['explanation'] .= ($current['explanation'] ? "\n" : "") . trim($expMatch[1]);
+            }
+            continue;
+        }
+
+        // Append to current state
+        if ($current) {
+            if ($state === 'IN_PROMPT') {
+                $current['text'] .= ($current['text'] ? "\n" : "") . $trimmed;
+            } elseif ($state === 'IN_OPT_A') {
+                $current['a'] .= ($current['a'] ? " " : "") . $trimmed;
+            } elseif ($state === 'IN_OPT_B') {
+                $current['b'] .= ($current['b'] ? " " : "") . $trimmed;
+            } elseif ($state === 'IN_OPT_C') {
+                $current['c'] .= ($current['c'] ? " " : "") . $trimmed;
+            } elseif ($state === 'IN_OPT_D') {
+                $current['d'] .= ($current['d'] ? " " : "") . $trimmed;
+            } elseif ($state === 'IN_EXPLANATION') {
+                $current['explanation'] .= ($current['explanation'] ? "\n" : "") . $trimmed;
+            }
+        } else {
+            $state = 'IN_PROMPT';
+            $current = [
+                'text' => $trimmed,
+                'a' => '',
+                'b' => '',
+                'c' => '',
+                'd' => '',
+                'correct_option' => '',
+                'explanation' => ''
+            ];
+        }
+    }
+    $finalizeCurrent();
+
+    if (!empty($questions)) {
+        return $questions;
+    }
+
+    // 3. Fallback CSV Parser
+    $csvQuestions = [];
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if (empty($line) || str_starts_with($line, '#')) continue;
+        $row = str_getcsv($line);
+        if (isset($row[0]) && in_array(strtolower(trim($row[0])), ['question', 'question prompt', 'text', 's/n'])) continue;
+
+        if (count($row) >= 3) {
+            $qText = trim($row[0] ?? '');
+            $qA = trim($row[1] ?? '');
+            $qB = trim($row[2] ?? '');
+            $qC = trim($row[3] ?? '');
+            $qD = trim($row[4] ?? '');
+            $qAns = strtoupper(trim($row[5] ?? 'A'));
+            $qExp = trim($row[6] ?? '');
+
+            if (!in_array($qAns, ['A', 'B', 'C', 'D'])) $qAns = 'A';
+
+            if (!empty($qText) && !empty($qA)) {
+                $csvQuestions[] = [
+                    'text' => $qText,
+                    'a' => $qA,
+                    'b' => $qB,
+                    'c' => $qC,
+                    'd' => $qD,
+                    'correct_option' => $qAns,
+                    'explanation' => $qExp
+                ];
+            }
+        }
+    }
+
+    return $csvQuestions;
+}
+
 // ==========================================
 // 2. PRODUCTION ACTIONS (POST)
 // ==========================================
@@ -261,9 +484,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 5. Add Single Question
+    // 4b. Add New Topic to Subject
+    if ($action === 'add_topic') {
+        $courseId = $_POST['course_id'] ?? '';
+        $name = trim($_POST['name'] ?? '');
+        if (empty($courseId) || empty($name)) {
+            $feedbackError = "Both Subject and Topic Name are required.";
+        } else {
+            try {
+                $tid = 'topic_' . bin2hex(random_bytes(6));
+                $db->prepare("INSERT INTO topics (id, course_id, name, question_count) VALUES (?, ?, ?, 0)")->execute([$tid, $courseId, $name]);
+                header("Location: admin_dashboard.php?tab=deployments&msg=" . urlencode("Topic '{$name}' created successfully!"));
+                exit;
+            } catch (Exception $e) {
+                $feedbackError = "Failed to create topic: " . $e->getMessage();
+            }
+        }
+    }
+
+    // 4c. Update / Rename Existing Topic
+    if ($action === 'update_topic') {
+        $topicId = $_POST['topic_id'] ?? '';
+        $name = trim($_POST['name'] ?? '');
+        if (empty($topicId) || empty($name)) {
+            $feedbackError = "Topic name cannot be empty.";
+        } else {
+            try {
+                $db->prepare("UPDATE topics SET name = ? WHERE id = ?")->execute([$name, $topicId]);
+                header("Location: admin_dashboard.php?tab=deployments&msg=" . urlencode("Topic renamed to '{$name}'!"));
+                exit;
+            } catch (Exception $e) {
+                $feedbackError = "Failed to update topic: " . $e->getMessage();
+            }
+        }
+    }
+
+    // 4d. Delete Topic (Re-assigns or cleans up questions safely)
+    if ($action === 'delete_topic') {
+        $topicId = $_POST['topic_id'] ?? '';
+        try {
+            $tStmt = $db->prepare("SELECT course_id, name FROM topics WHERE id = ?");
+            $tStmt->execute([$topicId]);
+            $topic = $tStmt->fetch();
+            if ($topic) {
+                $courseId = $topic['course_id'];
+                $otherStmt = $db->prepare("SELECT id FROM topics WHERE course_id = ? AND id != ? LIMIT 1");
+                $otherStmt->execute([$courseId, $topicId]);
+                $other = $otherStmt->fetch();
+
+                if ($other) {
+                    $db->prepare("UPDATE questions SET topic_id = ? WHERE topic_id = ?")->execute([$other['id'], $topicId]);
+                } else {
+                    $db->prepare("DELETE FROM questions WHERE topic_id = ?")->execute([$topicId]);
+                }
+                $db->prepare("DELETE FROM topics WHERE id = ?")->execute([$topicId]);
+                header("Location: admin_dashboard.php?tab=deployments&msg=" . urlencode("Topic '{$topic['name']}' deleted."));
+                exit;
+            }
+        } catch (Exception $e) {
+            $feedbackError = "Failed to delete topic: " . $e->getMessage();
+        }
+    }
+
+    // 5. Add Single Question (Supports Topic & Past vs Test Bank Type)
     if ($action === 'add_question') {
         $courseId = $_POST['course_id'] ?? '';
+        $topicId = $_POST['topic_id'] ?? '';
+        $newTopicName = trim($_POST['new_topic_name'] ?? '');
+        $bankType = ($_POST['bank_type'] ?? '') === 'test' ? 'test' : 'past';
         $text = trim($_POST['text'] ?? '');
         $optA = trim($_POST['a'] ?? '');
         $optB = trim($_POST['b'] ?? '');
@@ -276,22 +564,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $feedbackError = "Question text, target subject, and at least Options A and B are required.";
         } else {
             try {
-                // Find or create topic
-                $tStmt = $db->prepare("SELECT id FROM topics WHERE course_id = ? LIMIT 1");
-                $tStmt->execute([$courseId]);
-                $topic = $tStmt->fetch();
-                $topicId = $topic ? $topic['id'] : null;
-
-                if (!$topicId) {
+                // If admin typed a new topic on the fly, create it
+                if (!empty($newTopicName)) {
                     $topicId = 'topic_' . bin2hex(random_bytes(6));
-                    $db->prepare("INSERT INTO topics (id, course_id, name) VALUES (?, ?, 'Clinical & Theoretical Curriculum')")->execute([$topicId, $courseId]);
+                    $db->prepare("INSERT INTO topics (id, course_id, name, question_count) VALUES (?, ?, ?, 0)")->execute([$topicId, $courseId, $newTopicName]);
+                } elseif (empty($topicId)) {
+                    $tStmt = $db->prepare("SELECT id FROM topics WHERE course_id = ? LIMIT 1");
+                    $tStmt->execute([$courseId]);
+                    $topic = $tStmt->fetch();
+                    $topicId = $topic ? $topic['id'] : null;
+
+                    if (!$topicId) {
+                        $topicId = 'topic_' . bin2hex(random_bytes(6));
+                        $db->prepare("INSERT INTO topics (id, course_id, name, question_count) VALUES (?, ?, 'General Curriculum', 0)")->execute([$topicId, $courseId]);
+                    }
                 }
 
                 $qid = 'q_' . bin2hex(random_bytes(8));
-                $ins = $db->prepare("INSERT INTO questions (id, topic_id, text, a, b, c, d, correct_option, explanation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $ins->execute([$qid, $topicId, $text, $optA, $optB, $optC, $optD, $correct, $explanation]);
+                $ins = $db->prepare("INSERT INTO questions (id, topic_id, text, a, b, c, d, correct_option, explanation, bank_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $ins->execute([$qid, $topicId, $text, $optA, $optB, $optC, $optD, $correct, $explanation, $bankType]);
 
-                header("Location: admin_dashboard.php?tab=questions&msg=" . urlencode("Question added successfully to the question bank!"));
+                // Update topic count
+                $cnt = $db->prepare("SELECT COUNT(*) FROM questions WHERE topic_id = ?");
+                $cnt->execute([$topicId]);
+                $totalQ = (int)$cnt->fetchColumn();
+                $db->prepare("UPDATE topics SET question_count = ? WHERE id = ?")->execute([$totalQ, $topicId]);
+
+                $bankName = $bankType === 'test' ? 'Test Question Bank' : 'Past Question Bank';
+                header("Location: admin_dashboard.php?tab=questions&bank_type={$bankType}&filter_course=" . urlencode($courseId) . "&msg=" . urlencode("Question added successfully to {$bankName}!"));
                 exit;
             } catch (Exception $e) {
                 $feedbackError = "Failed to add question: " . $e->getMessage();
@@ -299,9 +599,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 6. Edit Existing Question
+    // 6. Edit Existing Question (Supports Topic & Past vs Test Bank Type)
     if ($action === 'edit_question') {
         $qid = $_POST['question_id'] ?? '';
+        $topicId = $_POST['topic_id'] ?? '';
+        $bankType = ($_POST['bank_type'] ?? '') === 'test' ? 'test' : 'past';
         $text = trim($_POST['text'] ?? '');
         $optA = trim($_POST['a'] ?? '');
         $optB = trim($_POST['b'] ?? '');
@@ -314,8 +616,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $feedbackError = "Question text and minimum Options A and B are mandatory.";
         } else {
             try {
-                $up = $db->prepare("UPDATE questions SET text = ?, a = ?, b = ?, c = ?, d = ?, correct_option = ?, explanation = ? WHERE id = ?");
-                $up->execute([$text, $optA, $optB, $optC, $optD, $correct, $explanation, $qid]);
+                if (!empty($topicId)) {
+                    $up = $db->prepare("UPDATE questions SET text = ?, a = ?, b = ?, c = ?, d = ?, correct_option = ?, explanation = ?, topic_id = ?, bank_type = ? WHERE id = ?");
+                    $up->execute([$text, $optA, $optB, $optC, $optD, $correct, $explanation, $topicId, $bankType, $qid]);
+                } else {
+                    $up = $db->prepare("UPDATE questions SET text = ?, a = ?, b = ?, c = ?, d = ?, correct_option = ?, explanation = ?, bank_type = ? WHERE id = ?");
+                    $up->execute([$text, $optA, $optB, $optC, $optD, $correct, $explanation, $bankType, $qid]);
+                }
                 header("Location: admin_dashboard.php?tab=questions&msg=" . urlencode("Question updated successfully!"));
                 exit;
             } catch (Exception $e) {
@@ -336,80 +643,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // 8. Bulk Import Questions (JSON or CSV)
+    // 7b. Fast 1-Click Move between Past and Test Question Bank
+    if ($action === 'switch_bank_type') {
+        $qid = $_POST['question_id'] ?? '';
+        $targetType = ($_POST['target_type'] ?? '') === 'test' ? 'test' : 'past';
+        try {
+            $db->prepare("UPDATE questions SET bank_type = ? WHERE id = ?")->execute([$targetType, $qid]);
+            $label = $targetType === 'test' ? 'Test Question Bank' : 'Past Question Bank';
+            header("Location: admin_dashboard.php?tab=questions&bank_type={$targetType}&msg=" . urlencode("Question moved to {$label}!"));
+            exit;
+        } catch (Exception $e) {
+            $feedbackError = "Failed to move question: " . $e->getMessage();
+        }
+    }
+
+    // 8. Smart Bulk Import Questions (Natural Text, Word, PDF, CSV, or JSON)
     if ($action === 'bulk_import_questions') {
         $courseId = $_POST['course_id'] ?? '';
+        $topicId = $_POST['topic_id'] ?? '';
+        $newTopicName = trim($_POST['new_topic_name'] ?? '');
+        $bankType = ($_POST['bank_type'] ?? '') === 'test' ? 'test' : 'past';
         $rawPayload = trim($_POST['raw_data'] ?? '');
 
         if (empty($courseId) || empty($rawPayload)) {
-            $feedbackError = "Please select a target course and paste valid question data.";
+            $feedbackError = "Please select a target course and paste question text.";
         } else {
             try {
-                // Ensure target topic exists
-                $tStmt = $db->prepare("SELECT id FROM topics WHERE course_id = ? LIMIT 1");
-                $tStmt->execute([$courseId]);
-                $topic = $tStmt->fetch();
-                $topicId = $topic ? $topic['id'] : null;
-
-                if (!$topicId) {
+                // Ensure target topic exists or create on the fly
+                if (!empty($newTopicName)) {
                     $topicId = 'topic_' . bin2hex(random_bytes(6));
-                    $db->prepare("INSERT INTO topics (id, course_id, name) VALUES (?, ?, 'Clinical Curriculum')")->execute([$topicId, $courseId]);
+                    $db->prepare("INSERT INTO topics (id, course_id, name, question_count) VALUES (?, ?, ?, 0)")->execute([$topicId, $courseId, $newTopicName]);
+                } elseif (empty($topicId)) {
+                    $tStmt = $db->prepare("SELECT id FROM topics WHERE course_id = ? ORDER BY id ASC LIMIT 1");
+                    $tStmt->execute([$courseId]);
+                    $topic = $tStmt->fetch();
+                    $topicId = $topic ? $topic['id'] : null;
+
+                    if (!$topicId) {
+                        $topicId = 'topic_' . bin2hex(random_bytes(6));
+                        $db->prepare("INSERT INTO topics (id, course_id, name, question_count) VALUES (?, ?, 'General Curriculum', 0)")->execute([$topicId, $courseId]);
+                    }
                 }
 
-                $importedCount = 0;
-                $ins = $db->prepare("INSERT INTO questions (id, topic_id, text, a, b, c, d, correct_option, explanation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $parsedList = parse_smart_questions($rawPayload);
 
-                // Try JSON parsing first
-                $jsonData = json_decode($rawPayload, true);
-                if (is_array($jsonData)) {
-                    foreach ($jsonData as $item) {
-                        $qText = trim($item['text'] ?? $item['question'] ?? '');
-                        $qA = trim($item['a'] ?? $item['option_a'] ?? '');
-                        $qB = trim($item['b'] ?? $item['option_b'] ?? '');
-                        $qC = trim($item['c'] ?? $item['option_c'] ?? '');
-                        $qD = trim($item['d'] ?? $item['option_d'] ?? '');
-                        $qAns = strtoupper(trim($item['correct'] ?? $item['correct_option'] ?? $item['answer'] ?? 'A'));
-                        $qExp = trim($item['explanation'] ?? $item['rationale'] ?? '');
-
-                        if (!empty($qText) && !empty($qA) && !empty($qB)) {
-                            $qid = 'q_' . bin2hex(random_bytes(8));
-                            $ins->execute([$qid, $topicId, $qText, $qA, $qB, $qC, $qD, $qAns, $qExp]);
-                            $importedCount++;
-                        }
-                    }
+                if (empty($parsedList)) {
+                    $feedbackError = "Could not detect any questions. Please check the sample format provided below the text box.";
                 } else {
-                    // Fallback to CSV / TSV lines
-                    $lines = preg_split("/\r\n|\n|\r/", $rawPayload);
-                    foreach ($lines as $line) {
-                        $line = trim($line);
-                        if (empty($line) || str_starts_with($line, '#')) continue;
+                    $importedCount = 0;
+                    $ins = $db->prepare("INSERT INTO questions (id, topic_id, text, a, b, c, d, correct_option, explanation, bank_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
-                        $row = str_getcsv($line);
-                        // Skip header line if present
-                        if (isset($row[0]) && in_array(strtolower(trim($row[0])), ['question', 'question prompt', 'text', 's/n'])) continue;
-
-                        if (count($row) >= 3) {
-                            $qText = trim($row[0] ?? '');
-                            $qA = trim($row[1] ?? '');
-                            $qB = trim($row[2] ?? '');
-                            $qC = trim($row[3] ?? '');
-                            $qD = trim($row[4] ?? '');
-                            $qAns = strtoupper(trim($row[5] ?? 'A'));
-                            $qExp = trim($row[6] ?? '');
-
-                            if (!in_array($qAns, ['A', 'B', 'C', 'D'])) $qAns = 'A';
-
-                            if (!empty($qText) && !empty($qA)) {
-                                $qid = 'q_' . bin2hex(random_bytes(8));
-                                $ins->execute([$qid, $topicId, $qText, $qA, $qB, $qC, $qD, $qAns, $qExp]);
-                                $importedCount++;
-                            }
-                        }
+                    foreach ($parsedList as $item) {
+                        $qid = 'q_' . bin2hex(random_bytes(8));
+                        $ins->execute([
+                            $qid,
+                            $topicId,
+                            $item['text'],
+                            $item['a'],
+                            $item['b'],
+                            $item['c'],
+                            $item['d'],
+                            $item['correct_option'],
+                            $item['explanation'],
+                            $bankType
+                        ]);
+                        $importedCount++;
                     }
-                }
 
-                header("Location: admin_dashboard.php?tab=questions&msg=" . urlencode("Successfully imported {$importedCount} questions into the course bank!"));
-                exit;
+                    // Update topic question count
+                    $cnt = $db->prepare("SELECT COUNT(*) FROM questions WHERE topic_id = ?");
+                    $cnt->execute([$topicId]);
+                    $totalQ = (int)$cnt->fetchColumn();
+                    $db->prepare("UPDATE topics SET question_count = ? WHERE id = ?")->execute([$totalQ, $topicId]);
+
+                    $bankLabel = $bankType === 'test' ? 'Test Question Bank' : 'Past Question Bank';
+                    header("Location: admin_dashboard.php?tab=questions&bank_type={$bankType}&filter_course=" . urlencode($courseId) . "&msg=" . urlencode("Successfully parsed and imported {$importedCount} questions into {$bankLabel}!"));
+                    exit;
+                }
             } catch (Exception $e) {
                 $feedbackError = "Bulk import encountered an error: " . $e->getMessage();
             }
@@ -462,8 +772,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $tab = $_GET['tab'] ?? 'deployments';
 $feedbackMsg = $_GET['msg'] ?? $feedbackMsg;
 
-// Top Statistics
+// Top Statistics & Question Bank Counts
 $totalQuestions = (int)$db->query("SELECT COUNT(*) FROM questions")->fetchColumn();
+$totalPastQuestions = (int)$db->query("SELECT COUNT(*) FROM questions WHERE bank_type = 'past' OR bank_type IS NULL OR bank_type = ''")->fetchColumn();
+$totalTestQuestions = (int)$db->query("SELECT COUNT(*) FROM questions WHERE bank_type = 'test'")->fetchColumn();
+
 $totalStudents = (int)$db->query("SELECT COUNT(*) FROM students")->fetchColumn();
 $studentsWithBank = (int)$db->query("SELECT COUNT(*) FROM students WHERE account_number IS NOT NULL AND TRIM(account_number) != ''")->fetchColumn();
 $bankPct = $totalStudents > 0 ? round(($studentsWithBank / $totalStudents) * 100) : 0;
@@ -473,10 +786,13 @@ $avgScore = (float)$db->query("SELECT COALESCE(AVG(percentage), 0) FROM results"
 $totalCourses = (int)$db->query("SELECT COUNT(*) FROM courses")->fetchColumn();
 $activeUnlockedCourses = (int)$db->query("SELECT COUNT(*) FROM courses WHERE is_locked = 0")->fetchColumn();
 
-// 1. All Courses with live Question & Submission Counts
+// 1. All Courses with live Question & Topic Breakdown
 $courses = $db->query("
     SELECT c.*, 
+           COUNT(DISTINCT t.id) as topics_count,
            COUNT(DISTINCT q.id) as q_count,
+           SUM(CASE WHEN q.bank_type = 'test' THEN 1 ELSE 0 END) as test_q_count,
+           SUM(CASE WHEN q.bank_type != 'test' OR q.bank_type IS NULL THEN 1 ELSE 0 END) as past_q_count,
            COUNT(DISTINCT r.id) as sub_count
     FROM courses c
     LEFT JOIN topics t ON c.id = t.course_id
@@ -486,12 +802,33 @@ $courses = $db->query("
     ORDER BY c.created_at DESC
 ")->fetchAll();
 
-// 2. Question Bank Query with filtering
+// 1b. Fetch all Topics with course information and question bank breakdown
+$topicsStmt = $db->query("
+    SELECT t.*, c.code as course_code, c.title as course_title,
+           SUM(CASE WHEN q.bank_type = 'test' THEN 1 ELSE 0 END) as test_q_count,
+           SUM(CASE WHEN q.bank_type != 'test' OR q.bank_type IS NULL THEN 1 ELSE 0 END) as past_q_count,
+           COUNT(q.id) as total_q_count
+    FROM topics t
+    JOIN courses c ON t.course_id = c.id
+    LEFT JOIN questions q ON t.id = q.topic_id
+    GROUP BY t.id
+    ORDER BY c.code ASC, t.name ASC
+");
+$allTopics = $topicsStmt ? $topicsStmt->fetchAll() : [];
+
+$topicsByCourse = [];
+foreach ($allTopics as $top) {
+    $topicsByCourse[$top['course_id']][] = $top;
+}
+
+// 2. Question Bank Query with filtering (Course, Topic, Bank Type, Keyword)
 $selectedCourseFilter = $_GET['filter_course'] ?? '';
+$selectedTopicFilter = $_GET['filter_topic'] ?? '';
+$selectedBankType = $_GET['bank_type'] ?? ''; // '', 'past', 'test'
 $searchQuestionKeyword = trim($_GET['q_search'] ?? '');
 
 $qSql = "
-    SELECT q.*, c.code as course_code, c.title as course_title, t.name as topic_name
+    SELECT q.*, c.id as course_id, c.code as course_code, c.title as course_title, t.id as topic_id, t.name as topic_name
     FROM questions q
     JOIN topics t ON q.topic_id = t.id
     JOIN courses c ON t.course_id = c.id
@@ -503,13 +840,22 @@ if (!empty($selectedCourseFilter)) {
     $qSql .= " AND c.id = ? ";
     $qParams[] = $selectedCourseFilter;
 }
+if (!empty($selectedTopicFilter)) {
+    $qSql .= " AND q.topic_id = ? ";
+    $qParams[] = $selectedTopicFilter;
+}
+if ($selectedBankType === 'past') {
+    $qSql .= " AND (q.bank_type = 'past' OR q.bank_type IS NULL OR q.bank_type = '') ";
+} elseif ($selectedBankType === 'test') {
+    $qSql .= " AND q.bank_type = 'test' ";
+}
 if (!empty($searchQuestionKeyword)) {
     $qSql .= " AND (q.text LIKE ? OR q.explanation LIKE ?) ";
     $qParams[] = '%' . $searchQuestionKeyword . '%';
     $qParams[] = '%' . $searchQuestionKeyword . '%';
 }
 
-$qSql .= " ORDER BY q.created_at DESC LIMIT 100";
+$qSql .= " ORDER BY q.created_at DESC LIMIT 150";
 $qStmt = $db->prepare($qSql);
 $qStmt->execute($qParams);
 $questionsList = $qStmt->fetchAll();
@@ -873,77 +1219,105 @@ require_once __DIR__ . '/includes/header.php';
             </form>
         </div>
 
-        <!-- Assessments Table -->
+        <!-- Assessments & Curriculum Topics Table -->
         <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h2 class="text-base font-black text-slate-900">Configured Assessments &amp; Exam Timers</h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Control time limits, question allotments, and lock or unlock examinations for candidate sittings.</p>
+                    <h2 class="text-base font-black text-slate-900 flex items-center gap-2">
+                        <i data-lucide="book-open" class="w-5 h-5 text-indigo-600"></i>
+                        <span>Course &amp; Curriculum Topic Manager</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Edit subject parameters, manage individual curriculum topics, monitor question allocations, and control live status.</p>
                 </div>
-                <a href="?export=questions_csv" class="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-2">
-                    <i data-lucide="download" class="w-4 h-4"></i>
-                    <span>Export Entire Question Bank (CSV)</span>
-                </a>
+                <div class="flex items-center gap-2">
+                    <a href="?export=questions_csv" class="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-2">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Export Entire Question Bank (CSV)</span>
+                    </a>
+                </div>
             </div>
 
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs">
                     <thead class="bg-slate-50 border-b border-slate-200 uppercase font-black text-slate-500">
                         <tr>
-                            <th class="px-6 py-3.5">Code</th>
-                            <th class="px-6 py-3.5">Course Title</th>
-                            <th class="px-6 py-3.5 text-center">Questions Available</th>
-                            <th class="px-6 py-3.5 text-center">Exam Duration</th>
-                            <th class="px-6 py-3.5 text-center">Allotment</th>
-                            <th class="px-6 py-3.5 text-center">Candidate Status</th>
-                            <th class="px-6 py-3.5 text-right">Actions</th>
+                            <th class="px-5 py-3.5">Code</th>
+                            <th class="px-5 py-3.5">Course Title</th>
+                            <th class="px-5 py-3.5 text-center">Curriculum Topics</th>
+                            <th class="px-5 py-3.5 text-center">Question Bank Allocation</th>
+                            <th class="px-5 py-3.5 text-center">Duration</th>
+                            <th class="px-5 py-3.5 text-center">Allotment</th>
+                            <th class="px-5 py-3.5 text-center">Status</th>
+                            <th class="px-5 py-3.5 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         <?php if (empty($courses)): ?>
-                        <tr><td colspan="7" class="py-8 text-center text-slate-400">No courses configured yet.</td></tr>
+                        <tr><td colspan="8" class="py-8 text-center text-slate-400">No courses configured yet.</td></tr>
                         <?php else: ?>
-                        <?php foreach ($courses as $c): ?>
+                        <?php foreach ($courses as $c): 
+                            $cTopics = $topicsByCourse[$c['id']] ?? [];
+                        ?>
                         <tr class="hover:bg-slate-50/70 transition-colors">
-                            <td class="px-6 py-4 font-mono font-black text-indigo-700"><?= htmlspecialchars($c['code']) ?></td>
-                            <td class="px-6 py-4 font-bold text-slate-900"><?= htmlspecialchars($c['title']) ?></td>
-                            <td class="px-6 py-4 text-center">
-                                <a href="?tab=questions&filter_course=<?= urlencode($c['id']) ?>" class="inline-flex items-center gap-1 font-bold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
-                                    <span><?= (int)$c['q_count'] ?> Qs</span>
-                                    <i data-lucide="arrow-right" class="w-3 h-3"></i>
-                                </a>
+                            <td class="px-5 py-4 font-mono font-black text-indigo-700"><?= htmlspecialchars($c['code']) ?></td>
+                            <td class="px-5 py-4 font-bold text-slate-900"><?= htmlspecialchars($c['title']) ?></td>
+                            <td class="px-5 py-4 text-center">
+                                <button type="button" onclick="openCourseTopicsModal(<?= htmlspecialchars(json_encode($c)) ?>)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-bold text-xs transition-all shadow-xs" title="Click to view, add, or rename topics for this course">
+                                    <i data-lucide="folder-tree" class="w-3.5 h-3.5 text-indigo-600"></i>
+                                    <span><?= count($cTopics) ?> Topic<?= count($cTopics) === 1 ? '' : 's' ?></span>
+                                    <span class="text-[10px] text-indigo-400 font-normal">Edit &rsaquo;</span>
+                                </button>
                             </td>
-                            <td class="px-6 py-4 text-center font-mono font-bold text-slate-600"><?= (int)$c['duration'] ?> mins</td>
-                            <td class="px-6 py-4 text-center font-mono text-slate-600"><?= (int)$c['question_limit'] ?> / exam</td>
-                            <td class="px-6 py-4 text-center">
+                            <td class="px-5 py-4 text-center">
+                                <div class="inline-flex flex-col items-center gap-1">
+                                    <div class="flex items-center gap-1.5 text-[11px] font-bold">
+                                        <a href="?tab=questions&bank_type=past&filter_course=<?= urlencode($c['id']) ?>" class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors" title="View Past Questions for this course">
+                                            📚 <?= (int)$c['past_q_count'] ?> Past
+                                        </a>
+                                        <a href="?tab=questions&bank_type=test&filter_course=<?= urlencode($c['id']) ?>" class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100 transition-colors" title="View Test Questions for this course">
+                                            ⏱️ <?= (int)$c['test_q_count'] ?> Test
+                                        </a>
+                                    </div>
+                                    <span class="text-[10px] text-slate-400 font-medium">Total: <?= (int)$c['q_count'] ?> questions</span>
+                                </div>
+                            </td>
+                            <td class="px-5 py-4 text-center font-mono font-bold text-slate-600"><?= (int)$c['duration'] ?>m</td>
+                            <td class="px-5 py-4 text-center font-mono text-slate-600"><?= (int)$c['question_limit'] ?> / exam</td>
+                            <td class="px-5 py-4 text-center">
                                 <?php if ($c['is_locked']): ?>
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-300 text-slate-700 font-bold text-[11px]">
-                                    <i data-lucide="pause-circle" class="w-3.5 h-3.5 text-slate-500"></i>
-                                    <span>Closed / Paused</span>
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-300 text-slate-700 font-bold text-[10px]">
+                                    <i data-lucide="pause-circle" class="w-3 h-3 text-slate-500"></i>
+                                    <span>Closed</span>
                                 </span>
                                 <?php else: ?>
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 font-black text-[11px]">
-                                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                    <span>🟢 LIVE FOR STUDENTS</span>
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 font-black text-[10px]">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    <span>🟢 LIVE</span>
                                 </span>
                                 <?php endif; ?>
                             </td>
-                            <td class="px-6 py-4 text-right">
-                                <div class="flex items-center justify-end gap-2">
+                            <td class="px-5 py-4 text-right">
+                                <div class="flex items-center justify-end gap-1.5">
+                                    <!-- Manage Topics Button -->
+                                    <button type="button" onclick="openCourseTopicsModal(<?= htmlspecialchars(json_encode($c)) ?>)" class="px-2.5 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all flex items-center gap-1" title="Manage Curriculum Topics">
+                                        <i data-lucide="folder-plus" class="w-3.5 h-3.5"></i>
+                                        <span>Topics</span>
+                                    </button>
+
                                     <!-- Simple 1-Click Lock / Unlock Toggle -->
                                     <form method="POST" action="admin_dashboard.php" class="inline">
                                         <input type="hidden" name="action" value="toggle_lock">
                                         <input type="hidden" name="course_id" value="<?= htmlspecialchars($c['id']) ?>">
                                         <input type="hidden" name="current_locked" value="<?= (int)$c['is_locked'] ?>">
                                         <?php if ($c['is_locked']): ?>
-                                        <button type="submit" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-xs transition-all flex items-center gap-1.5" title="Make this exam available for students to write right now">
+                                        <button type="submit" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-xs transition-all flex items-center gap-1" title="Make this exam available for students right now">
                                             <i data-lucide="play" class="w-3.5 h-3.5"></i>
                                             <span>Turn LIVE</span>
                                         </button>
                                         <?php else: ?>
-                                        <button type="submit" class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-xs transition-all flex items-center gap-1.5" title="Temporarily hide/pause this exam from students">
+                                        <button type="submit" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-xs transition-all flex items-center gap-1" title="Temporarily pause this exam from students">
                                             <i data-lucide="pause" class="w-3.5 h-3.5"></i>
-                                            <span>Pause Exam</span>
+                                            <span>Pause</span>
                                         </button>
                                         <?php endif; ?>
                                     </form>
@@ -975,38 +1349,93 @@ require_once __DIR__ . '/includes/header.php';
     <?php endif; ?>
 
     <!-- ========================================================================= -->
-    <!-- TAB 2: QUESTION BANK & BULK IMPORTER                                     -->
+    <!-- TAB 2: QUESTION BANK & SMART BULK IMPORTER                               -->
     <!-- ========================================================================= -->
     <?php if ($tab === 'questions'): ?>
     <div class="space-y-6">
 
-        <!-- Top Controls: Filter & Bulk Importer Switcher -->
+        <!-- Question Bank Type Switcher & Top Statistics -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <a href="?tab=questions&filter_course=<?= urlencode($selectedCourseFilter) ?>" class="p-4 rounded-3xl border transition-all flex items-center justify-between <?= empty($selectedBankType) ? 'bg-white border-slate-900 shadow-md ring-2 ring-slate-900/10' : 'bg-white/80 border-slate-200 hover:border-slate-300' ?>">
+                <div>
+                    <span class="text-[10px] font-black uppercase tracking-wider text-slate-500 block">All Available Questions</span>
+                    <span class="text-2xl font-black text-slate-900"><?= $totalQuestions ?></span>
+                </div>
+                <div class="w-10 h-10 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
+                    <i data-lucide="layers" class="w-5 h-5"></i>
+                </div>
+            </a>
+
+            <a href="?tab=questions&bank_type=past&filter_course=<?= urlencode($selectedCourseFilter) ?>" class="p-4 rounded-3xl border transition-all flex items-center justify-between <?= $selectedBankType === 'past' ? 'bg-emerald-50/70 border-emerald-600 shadow-md ring-2 ring-emerald-500/20' : 'bg-white border-slate-200 hover:border-emerald-300' ?>">
+                <div>
+                    <span class="text-[10px] font-black uppercase tracking-wider text-emerald-800 block">📚 Past Question Bank</span>
+                    <span class="text-2xl font-black text-emerald-900"><?= $totalPastQuestions ?></span>
+                    <span class="text-[10px] text-emerald-700 font-medium block mt-0.5">Used for student self-study &amp; practice</span>
+                </div>
+                <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                    <i data-lucide="book-marked" class="w-5 h-5"></i>
+                </div>
+            </a>
+
+            <a href="?tab=questions&bank_type=test&filter_course=<?= urlencode($selectedCourseFilter) ?>" class="p-4 rounded-3xl border transition-all flex items-center justify-between <?= $selectedBankType === 'test' ? 'bg-indigo-50/70 border-indigo-600 shadow-md ring-2 ring-indigo-500/20' : 'bg-white border-slate-200 hover:border-indigo-300' ?>">
+                <div>
+                    <span class="text-[10px] font-black uppercase tracking-wider text-indigo-800 block">⏱️ Test Question Bank</span>
+                    <span class="text-2xl font-black text-indigo-900"><?= $totalTestQuestions ?></span>
+                    <span class="text-[10px] text-indigo-700 font-medium block mt-0.5">Reserved for official timed CBT exams</span>
+                </div>
+                <div class="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-800 flex items-center justify-center font-bold">
+                    <i data-lucide="timer" class="w-5 h-5"></i>
+                </div>
+            </a>
+        </div>
+
+        <!-- Filter Bar & Bulk Importer Trigger -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-xs">
             <form method="GET" action="admin_dashboard.php" class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                 <input type="hidden" name="tab" value="questions">
+                <?php if (!empty($selectedBankType)): ?>
+                <input type="hidden" name="bank_type" value="<?= htmlspecialchars($selectedBankType) ?>">
+                <?php endif; ?>
+
+                <!-- Subject Filter -->
                 <select name="filter_course" onchange="this.form.submit()" class="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-700">
                     <option value="">All Subjects (<?= $totalQuestions ?> Qs)</option>
                     <?php foreach ($courses as $c): ?>
                     <option value="<?= htmlspecialchars($c['id']) ?>" <?= $selectedCourseFilter === $c['id'] ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($c['code']) ?> (<?= (int)$c['q_count'] ?> questions)
+                        <?= htmlspecialchars($c['code']) ?> (<?= (int)$c['q_count'] ?> Qs)
                     </option>
                     <?php endforeach; ?>
                 </select>
 
-                <div class="relative flex-1 sm:w-64">
+                <!-- Topic Filter -->
+                <select name="filter_topic" onchange="this.form.submit()" class="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-700 max-w-[220px]">
+                    <option value="">All Topics</option>
+                    <?php 
+                    $topicsToDisplay = !empty($selectedCourseFilter) ? ($topicsByCourse[$selectedCourseFilter] ?? []) : $allTopics;
+                    foreach ($topicsToDisplay as $top): 
+                    ?>
+                    <option value="<?= htmlspecialchars($top['id']) ?>" <?= $selectedTopicFilter === $top['id'] ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($top['course_code']) ?>: <?= htmlspecialchars($top['name']) ?> (<?= (int)$top['total_q_count'] ?>)
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+
+                <!-- Keyword Search -->
+                <div class="relative flex-1 sm:w-56">
                     <input type="text" name="q_search" value="<?= htmlspecialchars($searchQuestionKeyword) ?>" placeholder="Search questions..." class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 text-xs">
                     <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
                 </div>
-                <button type="submit" class="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold text-xs">Filter</button>
-                <?php if ($selectedCourseFilter || $searchQuestionKeyword): ?>
-                <a href="?tab=questions" class="text-xs text-rose-600 font-bold hover:underline">Reset</a>
+
+                <button type="submit" class="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition-colors">Filter</button>
+                <?php if ($selectedCourseFilter || $selectedTopicFilter || $searchQuestionKeyword || $selectedBankType): ?>
+                <a href="?tab=questions" class="text-xs text-rose-600 font-bold hover:underline px-1">Reset All</a>
                 <?php endif; ?>
             </form>
 
-            <div class="flex items-center gap-2 shrink-0">
-                <button type="button" onclick="document.getElementById('bulkImportCard').classList.toggle('hidden')" class="px-4 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-xs flex items-center gap-1.5 hover:bg-indigo-100">
+            <div class="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                <button type="button" onclick="document.getElementById('bulkImportCard').classList.toggle('hidden')" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-1.5 shadow-sm shadow-indigo-200 transition-all">
                     <i data-lucide="upload-cloud" class="w-4 h-4"></i>
-                    <span>Bulk Importer (CSV / JSON)</span>
+                    <span>Smart Bulk Importer</span>
                 </button>
                 <a href="?export=questions_csv" class="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 flex items-center gap-1.5">
                     <i data-lucide="download" class="w-4 h-4"></i>
@@ -1015,50 +1444,132 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         </div>
 
-        <!-- Bulk Importer Expandable Panel -->
-        <div id="bulkImportCard" class="hidden bg-white rounded-3xl p-6 border-2 border-indigo-200 shadow-md space-y-4 animate-in fade-in">
-            <div class="flex items-start justify-between">
+        <!-- ========================================================================= -->
+        <!-- SMART BULK IMPORTER PANEL                                                -->
+        <!-- ========================================================================= -->
+        <div id="bulkImportCard" class="bg-white rounded-3xl p-6 sm:p-7 border-2 border-indigo-200 shadow-lg space-y-5 animate-in fade-in">
+            <div class="flex items-start justify-between border-b border-indigo-100 pb-3">
                 <div>
-                    <h3 class="text-sm font-black text-indigo-900 flex items-center gap-2">
-                        <i data-lucide="upload-cloud" class="w-5 h-5 text-indigo-600"></i>
-                        <span>High-Capacity Bulk Question Importer</span>
+                    <h3 class="text-base font-black text-indigo-950 flex items-center gap-2">
+                        <i data-lucide="sparkles" class="w-5 h-5 text-indigo-600"></i>
+                        <span>Smart Bulk Question Parser &amp; Importer</span>
                     </h3>
-                    <p class="text-xs text-slate-500 mt-0.5">Upload dozens or hundreds of medical multiple-choice questions in seconds using JSON or comma-separated CSV text.</p>
+                    <p class="text-xs text-slate-500 mt-1">Copy and paste questions directly from Microsoft Word, PDF documents, WhatsApp, or ChatGPT. The engine automatically detects questions, 4 options, answer keys, and full step-by-step explanations.</p>
                 </div>
-                <button type="button" onclick="document.getElementById('bulkImportCard').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
+                <button type="button" onclick="document.getElementById('bulkImportCard').classList.add('hidden')" class="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
 
-            <form method="POST" action="admin_dashboard.php" class="space-y-4">
+            <form method="POST" action="admin_dashboard.php" class="space-y-5">
                 <input type="hidden" name="action" value="bulk_import_questions">
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+                <!-- 1. Selection Hierarchy: Subject & Topic -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Target Subject <span class="text-rose-500">*</span></label>
-                        <select name="course_id" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-bold">
-                            <option value="" disabled selected>-- Select Target Course --</option>
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">1. Target Subject <span class="text-rose-500">*</span></label>
+                        <select name="course_id" id="bulkCourseSelect" required onchange="onBulkCourseChange(this.value)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                            <option value="" disabled selected>-- Select Subject / Course --</option>
                             <?php foreach ($courses as $c): ?>
-                            <option value="<?= htmlspecialchars($c['id']) ?>"><?= htmlspecialchars($c['code']) ?> - <?= htmlspecialchars($c['title']) ?></option>
+                            <option value="<?= htmlspecialchars($c['id']) ?>" <?= $selectedCourseFilter === $c['id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($c['code']) ?> - <?= htmlspecialchars($c['title']) ?>
+                            </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="sm:col-span-2 flex items-center justify-end gap-2 text-xs">
-                        <button type="button" onclick="loadSampleCsv()" class="text-indigo-600 hover:underline font-bold text-[11px]">Load Sample CSV Template</button>
-                        <span class="text-slate-300">&bull;</span>
-                        <button type="button" onclick="loadSampleJson()" class="text-indigo-600 hover:underline font-bold text-[11px]">Load Sample JSON Template</button>
+
+                    <div>
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">2. Target Topic <span class="text-rose-500">*</span></label>
+                        <select name="topic_id" id="bulkTopicSelect" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                            <option value="">-- Select an Existing Topic --</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">Or Type New Topic Name</label>
+                        <input type="text" name="new_topic_name" id="bulkNewTopicInput" placeholder="e.g. Physical Quantities & Dimensions" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white focus:ring-2 focus:ring-indigo-500">
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Leave empty to use the selected topic above</span>
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Paste Question Rows (CSV or JSON Array)</label>
-                    <textarea name="raw_data" id="bulkTextarea" required rows="6" placeholder="Paste CSV lines or JSON array here..." class="w-full p-3 rounded-2xl border border-slate-200 text-xs font-mono focus:ring-2 focus:ring-indigo-500"></textarea>
+                <!-- 2. Choose Question Bank: Past Question Bank vs Test Question Bank -->
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">3. Select Destination Question Bank Type <span class="text-rose-500">*</span></label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label class="relative flex items-start gap-3 p-4 rounded-2xl border-2 border-emerald-300 bg-emerald-50/40 cursor-pointer hover:bg-emerald-50/80 transition-all has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 shadow-xs">
+                            <input type="radio" name="bank_type" value="past" checked class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
+                            <div>
+                                <span class="block text-xs font-black text-emerald-950 flex items-center gap-1.5">
+                                    <span>📚 Past Question Bank</span>
+                                    <span class="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-bold">Recommended for Study</span>
+                                </span>
+                                <span class="block text-[11px] text-emerald-800/80 mt-0.5 leading-relaxed">
+                                    Questions are placed in the student practice bank for self-paced revision with detailed answers and step-by-step explanations.
+                                </span>
+                            </div>
+                        </label>
+
+                        <label class="relative flex items-start gap-3 p-4 rounded-2xl border-2 border-indigo-200 bg-indigo-50/40 cursor-pointer hover:bg-indigo-50/80 transition-all has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50 shadow-xs">
+                            <input type="radio" name="bank_type" value="test" class="mt-0.5 text-indigo-600 focus:ring-indigo-500">
+                            <div>
+                                <span class="block text-xs font-black text-indigo-950 flex items-center gap-1.5">
+                                    <span>⏱️ Test Question Bank</span>
+                                    <span class="px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-900 text-[10px] font-bold">Official Exam CBT</span>
+                                </span>
+                                <span class="block text-[11px] text-indigo-800/80 mt-0.5 leading-relaxed">
+                                    Questions are strictly reserved for official timed tests, mock examinations, and candidate proctored evaluations.
+                                </span>
+                            </div>
+                        </label>
+                    </div>
                 </div>
 
-                <div class="flex items-center justify-end gap-3">
-                    <button type="button" onclick="document.getElementById('bulkImportCard').classList.add('hidden')" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600">Cancel</button>
-                    <button type="submit" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-100 flex items-center gap-2">
-                        <i data-lucide="check" class="w-4 h-4"></i>
-                        <span>Start Bulk Import</span>
+                <!-- 3. Suggested Easiest Format Callout Box -->
+                <div class="p-4 rounded-2xl bg-gradient-to-r from-indigo-50 via-teal-50/40 to-slate-50 border border-indigo-200/80 space-y-2">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs font-bold">💡</span>
+                            <span class="text-xs font-black text-indigo-950">Easiest Copy-Paste Format (Exam Standard):</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="loadSampleNaturalText()" class="px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors">
+                                <i data-lucide="clipboard" class="w-3.5 h-3.5"></i>
+                                <span>Load Sample Natural Text</span>
+                            </button>
+                            <button type="button" onclick="loadSampleCsv()" class="text-xs text-indigo-700 hover:underline font-bold">Sample CSV</button>
+                            <button type="button" onclick="loadSampleJson()" class="text-xs text-indigo-700 hover:underline font-bold">Sample JSON</button>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-slate-600 leading-relaxed">
+                        Simply copy and paste your questions. Each question needs a question line, options <strong class="text-slate-800">A.</strong>, <strong class="text-slate-800">B.</strong>, <strong class="text-slate-800">C.</strong>, <strong class="text-slate-800">D.</strong>, an <strong class="text-slate-800">Answer: X</strong> key, and an optional <strong class="text-slate-800">Explanation:</strong> with working or reasoning.
+                    </p>
+                </div>
+
+                <!-- 4. Question Textarea -->
+                <div>
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">4. Paste Questions Below</label>
+                    <textarea name="raw_data" id="bulkTextarea" required rows="9" placeholder="1. What is the unit of force?
+A. Joule
+B. Newton
+C. Watt
+D. Pascal
+Answer: B
+Explanation: The SI unit of force is the newton (N = kg m s⁻²).
+
+2. Which relation does dimensional analysis give for frequency?
+A. f = k (1/l) √(T/μ)
+B. f = k l √(T/μ)
+C. f = k (1/l) √(μ/T)
+D. f = k l² (T/μ)
+Answer: A
+Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." class="w-full p-4 rounded-2xl border border-slate-200 text-xs font-mono focus:ring-2 focus:ring-indigo-500 leading-relaxed"></textarea>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-1">
+                    <button type="button" onclick="document.getElementById('bulkImportCard').classList.add('hidden')" class="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+                    <button type="submit" class="px-7 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md shadow-indigo-200 flex items-center gap-2 transition-all">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                        <span>Start Smart Bulk Import</span>
                     </button>
                 </div>
             </form>
@@ -1070,9 +1581,9 @@ require_once __DIR__ . '/includes/header.php';
                 <div>
                     <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
                         <i data-lucide="edit-3" class="w-5 h-5 text-indigo-600"></i>
-                        <span>Add Question with 4 Choices &amp; Explanations</span>
+                        <span>Add Single Question to Bank</span>
                     </h3>
-                    <p class="text-xs text-slate-500 mt-0.5">Type your question, 4 options, and select the correct letter. Formulas and symbols work automatically!</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Author a single question, assign it to a curriculum topic, and select whether it belongs to Past or Test Question Bank.</p>
                 </div>
                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 font-bold text-xs">
                     <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-500"></i>
@@ -1083,20 +1594,36 @@ require_once __DIR__ . '/includes/header.php';
             <form method="POST" action="admin_dashboard.php" class="space-y-4">
                 <input type="hidden" name="action" value="add_question">
                 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">1. Which Subject is this for? <span class="text-rose-500">*</span></label>
-                        <select name="course_id" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
-                            <option value="" disabled selected>-- Select Subject / Exam --</option>
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">1. Subject <span class="text-rose-500">*</span></label>
+                        <select name="course_id" id="singleCourseSelect" required onchange="onSingleCourseChange(this.value)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                            <option value="" disabled selected>-- Select Subject --</option>
                             <?php foreach ($courses as $c): ?>
                             <option value="<?= htmlspecialchars($c['id']) ?>" <?= $selectedCourseFilter === $c['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($c['code']) ?> - <?= htmlspecialchars($c['title']) ?> (<?= (int)$c['q_count'] ?> Qs)
+                                <?= htmlspecialchars($c['code']) ?> - <?= htmlspecialchars($c['title']) ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
+
                     <div>
-                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">2. Correct Answer Key <span class="text-rose-500">*</span></label>
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">2. Topic <span class="text-rose-500">*</span></label>
+                        <select name="topic_id" id="singleTopicSelect" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                            <option value="">-- Select an Existing Topic --</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">3. Bank Group <span class="text-rose-500">*</span></label>
+                        <select name="bank_type" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-black text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                            <option value="past">📚 Past Question Bank</option>
+                            <option value="test">⏱️ Test Question Bank</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">4. Correct Key <span class="text-rose-500">*</span></label>
                         <select name="correct_option" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-emerald-500 text-xs bg-emerald-50/50 font-black text-emerald-900 focus:ring-2 focus:ring-emerald-500">
                             <option value="A">Choice A is Correct</option>
                             <option value="B">Choice B is Correct</option>
@@ -1107,56 +1634,52 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
 
                 <div>
-                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">3. Question Prompt <span class="text-rose-500">*</span></label>
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">5. Question Prompt <span class="text-rose-500">*</span></label>
                     <textarea name="text" required rows="3" placeholder="Type the question here (e.g. A stretched string vibrates with frequency f...)" class="w-full p-3.5 rounded-2xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 leading-relaxed"></textarea>
-                    <span class="text-[11px] text-slate-400 mt-1 block">Tip: You can type formulas normally or wrap in dollar signs like <code class="text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded font-mono">$f = \frac{1}{2l}\sqrt{\frac{T}{\mu}}$</code></span>
+                    <span class="text-[11px] text-slate-400 mt-1 block">Tip: Formulas work automatically or can be wrapped in dollar signs like <code class="text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded font-mono">$f = \frac{1}{2l}\sqrt{\frac{T}{\mu}}$</code></span>
                 </div>
 
                 <!-- 4 Colored Option Cards -->
                 <div class="space-y-1.5">
-                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">4. Enter The Four Multiple-Choice Options</label>
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">6. Enter The Four Multiple-Choice Options</label>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <!-- Option A Card -->
                         <div class="p-3 rounded-2xl bg-indigo-50/40 border border-indigo-200/70 space-y-1">
                             <span class="text-[11px] font-black uppercase text-indigo-700 flex items-center gap-1.5">
                                 <span class="w-5 h-5 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">A</span>
                                 <span>Option A <span class="text-rose-500">*</span></span>
                             </span>
-                            <input type="text" name="a" required placeholder="Option A text or answer..." class="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-white text-xs focus:ring-2 focus:ring-indigo-500">
+                            <input type="text" name="a" required placeholder="Option A text or formula..." class="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-white text-xs focus:ring-2 focus:ring-indigo-500">
                         </div>
 
-                        <!-- Option B Card -->
                         <div class="p-3 rounded-2xl bg-purple-50/40 border border-purple-200/70 space-y-1">
                             <span class="text-[11px] font-black uppercase text-purple-700 flex items-center gap-1.5">
                                 <span class="w-5 h-5 rounded-lg bg-purple-600 text-white flex items-center justify-center text-[10px] font-black">B</span>
                                 <span>Option B <span class="text-rose-500">*</span></span>
                             </span>
-                            <input type="text" name="b" required placeholder="Option B text or answer..." class="w-full px-3 py-2 rounded-xl border border-purple-200 bg-white text-xs focus:ring-2 focus:ring-purple-500">
+                            <input type="text" name="b" required placeholder="Option B text or formula..." class="w-full px-3 py-2 rounded-xl border border-purple-200 bg-white text-xs focus:ring-2 focus:ring-purple-500">
                         </div>
 
-                        <!-- Option C Card -->
                         <div class="p-3 rounded-2xl bg-amber-50/40 border border-amber-200/70 space-y-1">
                             <span class="text-[11px] font-black uppercase text-amber-800 flex items-center gap-1.5">
                                 <span class="w-5 h-5 rounded-lg bg-amber-500 text-white flex items-center justify-center text-[10px] font-black">C</span>
                                 <span>Option C</span>
                             </span>
-                            <input type="text" name="c" placeholder="Option C text or answer..." class="w-full px-3 py-2 rounded-xl border border-amber-200 bg-white text-xs focus:ring-2 focus:ring-amber-500">
+                            <input type="text" name="c" placeholder="Option C text or formula..." class="w-full px-3 py-2 rounded-xl border border-amber-200 bg-white text-xs focus:ring-2 focus:ring-amber-500">
                         </div>
 
-                        <!-- Option D Card -->
                         <div class="p-3 rounded-2xl bg-emerald-50/40 border border-emerald-200/70 space-y-1">
                             <span class="text-[11px] font-black uppercase text-emerald-800 flex items-center gap-1.5">
                                 <span class="w-5 h-5 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">D</span>
                                 <span>Option D</span>
                             </span>
-                            <input type="text" name="d" placeholder="Option D text or answer..." class="w-full px-3 py-2 rounded-xl border border-emerald-200 bg-white text-xs focus:ring-2 focus:ring-emerald-500">
+                            <input type="text" name="d" placeholder="Option D text or formula..." class="w-full px-3 py-2 rounded-xl border border-emerald-200 bg-white text-xs focus:ring-2 focus:ring-emerald-500">
                         </div>
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">5. Explanation &amp; Working (Shown to students during test review)</label>
-                    <textarea name="explanation" rows="2" placeholder="Explain why the answer is correct so students learn from their test review..." class="w-full p-3 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500"></textarea>
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">7. Explanation &amp; Working (Shown to students during review)</label>
+                    <textarea name="explanation" rows="2" placeholder="Explain step-by-step why the answer is correct..." class="w-full p-3 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500"></textarea>
                 </div>
 
                 <div class="pt-2 flex justify-end">
@@ -1170,10 +1693,15 @@ require_once __DIR__ . '/includes/header.php';
 
         <!-- Question Bank Viewer List -->
         <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                 <div>
-                    <h2 class="text-base font-black text-slate-900">Question Bank Records (<?= count($questionsList) ?> displayed)</h2>
-                    <p class="text-xs text-slate-500">Live question library with inline answer keys and clinical rationale.</p>
+                    <h2 class="text-base font-black text-slate-900 flex items-center gap-2">
+                        <span>Question Bank Records</span>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold <?= $selectedBankType === 'test' ? 'bg-indigo-100 text-indigo-800' : ($selectedBankType === 'past' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800') ?>">
+                            <?= !empty($selectedBankType) ? ($selectedBankType === 'test' ? 'Test Question Bank' : 'Past Question Bank') : 'All Question Banks' ?> (<?= count($questionsList) ?> listed)
+                        </span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Live questions with topic mapping, bank type tags, and 1-click bank transfer.</p>
                 </div>
             </div>
 
@@ -1181,21 +1709,59 @@ require_once __DIR__ . '/includes/header.php';
                 <?php if (empty($questionsList)): ?>
                 <div class="py-12 text-center text-slate-400 text-xs">No questions matched your search criteria.</div>
                 <?php else: ?>
-                <?php foreach ($questionsList as $idx => $rq): ?>
-                <div class="py-4 space-y-2">
+                <?php foreach ($questionsList as $idx => $rq): 
+                    $isTest = ($rq['bank_type'] ?? '') === 'test';
+                ?>
+                <div class="py-4 space-y-2.5">
                     <div class="flex items-start justify-between gap-4">
                         <div class="space-y-1">
-                            <div class="flex items-center gap-2">
-                                <span class="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 font-black text-[10px] font-mono"><?= htmlspecialchars($rq['course_code']) ?></span>
-                                <span class="text-[11px] text-slate-400">ID: <?= substr($rq['id'], 0, 8) ?></span>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="px-2.5 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 font-black text-[10px] font-mono"><?= htmlspecialchars($rq['course_code']) ?></span>
+                                <span class="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px]"><?= htmlspecialchars($rq['topic_name']) ?></span>
+                                
+                                <!-- Bank Type Badge -->
+                                <?php if ($isTest): ?>
+                                <span class="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 border border-indigo-300 font-black text-[10px] flex items-center gap-1">
+                                    <i data-lucide="timer" class="w-3 h-3 text-indigo-700"></i>
+                                    <span>TEST BANK</span>
+                                </span>
+                                <?php else: ?>
+                                <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 font-black text-[10px] flex items-center gap-1">
+                                    <i data-lucide="book-marked" class="w-3 h-3 text-emerald-700"></i>
+                                    <span>PAST QUESTION BANK</span>
+                                </span>
+                                <?php endif; ?>
+
+                                <span class="text-[10px] text-slate-400">ID: <?= substr($rq['id'], 0, 8) ?></span>
                             </div>
-                            <p class="text-xs font-semibold text-slate-900 leading-relaxed"><?= htmlspecialchars($rq['text']) ?></p>
+                            <p class="text-xs font-semibold text-slate-900 leading-relaxed pt-1"><?= htmlspecialchars($rq['text']) ?></p>
                         </div>
-                        <div class="flex items-center gap-1.5 shrink-0">
+
+                        <div class="flex items-center gap-2 shrink-0">
+                            <!-- 1-Click Bank Type Switcher -->
+                            <form method="POST" action="admin_dashboard.php" class="inline">
+                                <input type="hidden" name="action" value="switch_bank_type">
+                                <input type="hidden" name="question_id" value="<?= htmlspecialchars($rq['id']) ?>">
+                                <?php if ($isTest): ?>
+                                <input type="hidden" name="target_type" value="past">
+                                <button type="submit" class="px-2.5 py-1 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 text-[11px] font-bold transition-all flex items-center gap-1" title="Move to Past Question Bank">
+                                    <i data-lucide="arrow-left-right" class="w-3 h-3"></i>
+                                    <span>Move to Past Bank</span>
+                                </button>
+                                <?php else: ?>
+                                <input type="hidden" name="target_type" value="test">
+                                <button type="submit" class="px-2.5 py-1 rounded-xl border border-indigo-300 bg-indigo-50 text-indigo-800 hover:bg-indigo-100 text-[11px] font-bold transition-all flex items-center gap-1" title="Move to Test Question Bank">
+                                    <i data-lucide="arrow-left-right" class="w-3 h-3"></i>
+                                    <span>Move to Test Bank</span>
+                                </button>
+                                <?php endif; ?>
+                            </form>
+
                             <!-- Edit Question Trigger -->
                             <button type="button" onclick="openEditQuestionModal(<?= htmlspecialchars(json_encode($rq)) ?>)" class="p-1.5 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors" title="Edit Question">
                                 <i data-lucide="edit" class="w-4 h-4"></i>
                             </button>
+
                             <!-- Delete Question -->
                             <form method="POST" action="admin_dashboard.php" onsubmit="return confirm('Delete this question permanently?')">
                                 <input type="hidden" name="action" value="delete_question">
@@ -1209,27 +1775,27 @@ require_once __DIR__ . '/includes/header.php';
 
                     <!-- Options Grid -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                        <div class="p-2 rounded-xl <?= $rq['correct_option'] === 'A' ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold' : 'bg-slate-50 text-slate-600' ?>">
+                        <div class="p-2.5 rounded-xl <?= $rq['correct_option'] === 'A' ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold' : 'bg-slate-50 text-slate-700' ?>">
                             <span class="font-bold">A:</span> <?= htmlspecialchars($rq['a']) ?>
                         </div>
-                        <div class="p-2 rounded-xl <?= $rq['correct_option'] === 'B' ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold' : 'bg-slate-50 text-slate-600' ?>">
+                        <div class="p-2.5 rounded-xl <?= $rq['correct_option'] === 'B' ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold' : 'bg-slate-50 text-slate-700' ?>">
                             <span class="font-bold">B:</span> <?= htmlspecialchars($rq['b']) ?>
                         </div>
                         <?php if (!empty($rq['c'])): ?>
-                        <div class="p-2 rounded-xl <?= $rq['correct_option'] === 'C' ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold' : 'bg-slate-50 text-slate-600' ?>">
+                        <div class="p-2.5 rounded-xl <?= $rq['correct_option'] === 'C' ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold' : 'bg-slate-50 text-slate-700' ?>">
                             <span class="font-bold">C:</span> <?= htmlspecialchars($rq['c']) ?>
                         </div>
                         <?php endif; ?>
                         <?php if (!empty($rq['d'])): ?>
-                        <div class="p-2 rounded-xl <?= $rq['correct_option'] === 'D' ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold' : 'bg-slate-50 text-slate-600' ?>">
+                        <div class="p-2.5 rounded-xl <?= $rq['correct_option'] === 'D' ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold' : 'bg-slate-50 text-slate-700' ?>">
                             <span class="font-bold">D:</span> <?= htmlspecialchars($rq['d']) ?>
                         </div>
                         <?php endif; ?>
                     </div>
 
                     <?php if (!empty($rq['explanation'])): ?>
-                    <p class="text-[11px] text-slate-500 italic bg-amber-50/50 p-2 rounded-xl border border-amber-100">
-                        <strong class="text-amber-800 not-italic">Rationale:</strong> <?= htmlspecialchars($rq['explanation']) ?>
+                    <p class="text-[11px] text-slate-600 bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/80 leading-relaxed">
+                        <strong class="text-amber-900 not-italic font-bold">Solution / Rationale:</strong> <?= nl2br(htmlspecialchars($rq['explanation'])) ?>
                     </p>
                     <?php endif; ?>
                 </div>
@@ -1639,29 +2205,93 @@ require_once __DIR__ . '/includes/header.php';
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Correct Key</label>
-                    <select name="correct_option" id="editQuestionCorrect" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-black text-indigo-700 bg-white">
-                        <option value="A">Option A</option>
-                        <option value="B">Option B</option>
-                        <option value="C">Option C</option>
-                        <option value="D">Option D</option>
+                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Target Curriculum Topic</label>
+                    <select name="topic_id" id="editQuestionTopic" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-800">
+                        <?php foreach ($allTopics as $top): ?>
+                        <option value="<?= htmlspecialchars($top['id']) ?>"><?= htmlspecialchars($top['course_code']) ?>: <?= htmlspecialchars($top['name']) ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Clinical Rationale</label>
-                    <input type="text" name="explanation" id="editQuestionExplanation" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Question Bank Group</label>
+                    <select name="bank_type" id="editQuestionBankType" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-black text-slate-800">
+                        <option value="past">📚 Past Question Bank</option>
+                        <option value="test">⏱️ Test Question Bank</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Correct Key</label>
+                    <select name="correct_option" id="editQuestionCorrect" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-black text-indigo-700 bg-white">
+                        <option value="A">Choice A is Correct</option>
+                        <option value="B">Choice B is Correct</option>
+                        <option value="C">Choice C is Correct</option>
+                        <option value="D">Choice D is Correct</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Clinical Rationale / Working</label>
+                    <input type="text" name="explanation" id="editQuestionExplanation" placeholder="Explanation for review..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
                 </div>
             </div>
 
             <div class="flex items-center justify-end gap-2 pt-2">
-                <button type="button" onclick="closeEditQuestionModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600">Cancel</button>
-                <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs">Save Question</button>
+                <button type="button" onclick="closeEditQuestionModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs">Save Question</button>
             </div>
         </form>
     </div>
 </div>
 
+<!-- ========================================================================= -->
+<!-- MODAL: MANAGE COURSE TOPICS (COURSE & TOPIC EDITOR)                      -->
+<!-- ========================================================================= -->
+<div id="courseTopicsModal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="relative bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-5 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-start justify-between border-b border-slate-100 pb-3">
+            <div>
+                <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                    <i data-lucide="folder-tree" class="w-5 h-5 text-indigo-600"></i>
+                    <span>Curriculum Topics Editor: <span id="topicModalCourseHeader" class="text-indigo-700 font-mono"></span></span>
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">Add, rename, or organize syllabus topics for this subject.</p>
+            </div>
+            <button type="button" onclick="closeCourseTopicsModal()" class="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+
+        <!-- Add New Topic to this Course Form -->
+        <div class="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-2">
+            <label class="block text-xs font-black text-indigo-900 uppercase tracking-wider">Add a New Topic to this Subject</label>
+            <form method="POST" action="admin_dashboard.php" class="flex gap-2">
+                <input type="hidden" name="action" value="add_topic">
+                <input type="hidden" name="course_id" id="topicModalCourseId">
+                <input type="text" name="name" required placeholder="e.g. Physical Quantities, Units & Dimensions" class="flex-1 px-3.5 py-2 rounded-xl border border-indigo-200 bg-white text-xs font-medium focus:ring-2 focus:ring-indigo-500">
+                <button type="submit" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors shrink-0">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>Add Topic</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- List of Current Topics with live question count & rename -->
+        <div class="space-y-2.5">
+            <h4 class="text-xs font-black text-slate-700 uppercase tracking-wider">Current Course Topics</h4>
+            <div id="topicModalListContainer" class="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden bg-white">
+                <!-- Injected dynamically via openCourseTopicsModal() -->
+            </div>
+        </div>
+
+        <div class="flex justify-end pt-2">
+            <button type="button" onclick="closeCourseTopicsModal()" class="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs">Done</button>
+        </div>
+    </div>
+</div>
+
 <script>
+const topicsByCourseData = <?= json_encode($topicsByCourse) ?>;
+
 function copyToClipboard(text, btn) {
     if (navigator.clipboard) {
         navigator.clipboard.writeText(text).then(() => {
@@ -1683,10 +2313,59 @@ function openEditCourseModal(c) {
     document.getElementById('editCourseDuration').value = c.duration;
     document.getElementById('editCourseLimit').value = c.question_limit;
     document.getElementById('editCourseModal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
 }
 
 function closeEditCourseModal() {
     document.getElementById('editCourseModal').classList.add('hidden');
+}
+
+function openCourseTopicsModal(c) {
+    document.getElementById('topicModalCourseId').value = c.id;
+    document.getElementById('topicModalCourseHeader').textContent = (c.code || '') + ' - ' + (c.title || '');
+    
+    const container = document.getElementById('topicModalListContainer');
+    const topics = topicsByCourseData[c.id] || [];
+    
+    if (topics.length === 0) {
+        container.innerHTML = '<div class="p-6 text-center text-xs text-slate-400">No topics added to this subject yet. Use the form above to add your first topic!</div>';
+    } else {
+        container.innerHTML = topics.map((t, idx) => `
+            <div class="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
+                <div class="space-y-1 min-w-0">
+                    <form method="POST" action="admin_dashboard.php" class="flex items-center gap-2">
+                        <input type="hidden" name="action" value="update_topic">
+                        <input type="hidden" name="topic_id" value="${escapeHtml(t.id)}">
+                        <input type="text" name="name" value="${escapeHtml(t.name)}" class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-800 bg-white focus:ring-1 focus:ring-indigo-500 w-full sm:w-72" title="Click to edit topic name">
+                        <button type="submit" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 font-bold text-[11px] transition-colors shrink-0">Rename</button>
+                    </form>
+                    <div class="flex items-center gap-2 text-[10px]">
+                        <span class="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">📚 ${parseInt(t.past_q_count || 0)} Past Qs</span>
+                        <span class="text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded">⏱️ ${parseInt(t.test_q_count || 0)} Test Qs</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <a href="admin_dashboard.php?tab=questions&filter_course=${encodeURIComponent(c.id)}&filter_topic=${encodeURIComponent(t.id)}" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors">
+                        View Questions &rsaquo;
+                    </a>
+                    <form method="POST" action="admin_dashboard.php" class="inline" onsubmit="return confirm('Are you sure you want to delete topic: ${escapeHtml(t.name)}?')">
+                        <input type="hidden" name="action" value="delete_topic">
+                        <input type="hidden" name="topic_id" value="${escapeHtml(t.id)}">
+                        <button type="submit" class="p-1.5 rounded-xl border border-rose-200 text-rose-500 hover:bg-rose-50 transition-colors" title="Delete Topic">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    document.getElementById('courseTopicsModal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+}
+
+function closeCourseTopicsModal() {
+    document.getElementById('courseTopicsModal').classList.add('hidden');
 }
 
 function openEditQuestionModal(q) {
@@ -1698,11 +2377,82 @@ function openEditQuestionModal(q) {
     document.getElementById('editQuestionD').value = q.d || '';
     document.getElementById('editQuestionCorrect').value = q.correct_option;
     document.getElementById('editQuestionExplanation').value = q.explanation || '';
+    
+    if (document.getElementById('editQuestionTopic') && q.topic_id) {
+        document.getElementById('editQuestionTopic').value = q.topic_id;
+    }
+    if (document.getElementById('editQuestionBankType')) {
+        document.getElementById('editQuestionBankType').value = (q.bank_type === 'test') ? 'test' : 'past';
+    }
+
     document.getElementById('editQuestionModal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
 }
 
 function closeEditQuestionModal() {
     document.getElementById('editQuestionModal').classList.add('hidden');
+}
+
+function onBulkCourseChange(courseId) {
+    const topicSelect = document.getElementById('bulkTopicSelect');
+    if (!topicSelect) return;
+    const topics = topicsByCourseData[courseId] || [];
+    
+    topicSelect.innerHTML = '<option value="">-- Select an Existing Topic --</option>';
+    topics.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.name + ' (' + (t.total_q_count || 0) + ' Qs)';
+        topicSelect.appendChild(opt);
+    });
+}
+
+function onSingleCourseChange(courseId) {
+    const topicSelect = document.getElementById('singleTopicSelect');
+    if (!topicSelect) return;
+    const topics = topicsByCourseData[courseId] || [];
+    
+    topicSelect.innerHTML = '<option value="">-- Select an Existing Topic --</option>';
+    topics.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.name + ' (' + (t.total_q_count || 0) + ' Qs)';
+        topicSelect.appendChild(opt);
+    });
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function loadSampleNaturalText() {
+    const sample = `1. A stretched string vibrates with frequency f. Assuming f depends on its tension T, mass per unit length μ and length l, which relation does dimensional analysis give?
+A. f = k (1/l) √(T/μ)
+B. f = k l √(T/μ)
+C. f = k (1/l) √(μ/T)
+D. f = k l² (T/μ)
+Answer: A
+Explanation: Assume f = k Tˣ μʸ lᶻ. With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L:
+T⁻¹ = M^(x+y) L^(x−y+z) T^(−2x)
+- Time: −2x = −1, so x = ½
+- Mass: x + y = 0, so y = −½
+- Length: x − y + z = 0, so z = −1
+So f = k (1/l)√(T/μ).
+
+2. What is the SI unit of thermal conductivity?
+A. J s⁻¹ m⁻¹ K⁻¹
+B. J s m⁻¹ K⁻¹
+C. W m K⁻¹
+D. J m⁻² K⁻¹
+Answer: A
+Explanation: From Q/t = kAΔθ/l, k = (Q/t)·l/(AΔθ), giving (J s⁻¹)(m)/(m² K) = J s⁻¹ m⁻¹ K⁻¹ = W m⁻¹ K⁻¹.`;
+    document.getElementById('bulkTextarea').value = sample;
 }
 
 function loadSampleCsv() {
@@ -1727,6 +2477,16 @@ function loadSampleJson() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Auto-populate topics for selected courses on page load
+    const bulkCourse = document.getElementById('bulkCourseSelect');
+    if (bulkCourse && bulkCourse.value) {
+        onBulkCourseChange(bulkCourse.value);
+    }
+    const singleCourse = document.getElementById('singleCourseSelect');
+    if (singleCourse && singleCourse.value) {
+        onSingleCourseChange(singleCourse.value);
+    }
+
     if (window.lucide) {
         lucide.createIcons();
     }

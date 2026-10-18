@@ -80,21 +80,72 @@ if (!$course) {
     exit;
 }
 
-// 2. Fetch Questions from Turso DB
+// 2. Fetch Questions from Turso DB (supports Past Question Bank vs Test Question Bank)
+$isPracticeMode = (isset($_GET['mode']) && $_GET['mode'] === 'practice') || isset($_GET['practice']);
+
 if (!empty($topicFilters) && is_array($topicFilters)) {
     $placeholders = implode(',', array_fill(0, count($topicFilters), '?'));
-    $qStmt = $db->prepare("SELECT * FROM questions WHERE topic_id IN ($placeholders)");
-    $qStmt->execute($topicFilters);
-    $questions = $qStmt->fetchAll();
+    if ($isPracticeMode) {
+        // In practice mode, prefer past questions
+        $qStmt = $db->prepare("SELECT * FROM questions WHERE topic_id IN ($placeholders) AND (bank_type = 'past' OR bank_type IS NULL OR bank_type = '')");
+        $qStmt->execute($topicFilters);
+        $questions = $qStmt->fetchAll();
+        if (empty($questions)) {
+            $qStmt = $db->prepare("SELECT * FROM questions WHERE topic_id IN ($placeholders)");
+            $qStmt->execute($topicFilters);
+            $questions = $qStmt->fetchAll();
+        }
+    } else {
+        // In official assessment mode, prioritize test questions if available
+        $qStmt = $db->prepare("SELECT * FROM questions WHERE topic_id IN ($placeholders) AND bank_type = 'test'");
+        $qStmt->execute($topicFilters);
+        $questions = $qStmt->fetchAll();
+        if (empty($questions)) {
+            $qStmt = $db->prepare("SELECT * FROM questions WHERE topic_id IN ($placeholders)");
+            $qStmt->execute($topicFilters);
+            $questions = $qStmt->fetchAll();
+        }
+    }
 } else {
-    $qStmt = $db->prepare("
-        SELECT q.* 
-        FROM questions q
-        JOIN topics t ON q.topic_id = t.id
-        WHERE t.course_id = ?
-    ");
-    $qStmt->execute([$courseId]);
-    $questions = $qStmt->fetchAll();
+    if ($isPracticeMode) {
+        $qStmt = $db->prepare("
+            SELECT q.* 
+            FROM questions q
+            JOIN topics t ON q.topic_id = t.id
+            WHERE t.course_id = ? AND (q.bank_type = 'past' OR q.bank_type IS NULL OR q.bank_type = '')
+        ");
+        $qStmt->execute([$courseId]);
+        $questions = $qStmt->fetchAll();
+        if (empty($questions)) {
+            $qStmt = $db->prepare("
+                SELECT q.* 
+                FROM questions q
+                JOIN topics t ON q.topic_id = t.id
+                WHERE t.course_id = ?
+            ");
+            $qStmt->execute([$courseId]);
+            $questions = $qStmt->fetchAll();
+        }
+    } else {
+        $qStmt = $db->prepare("
+            SELECT q.* 
+            FROM questions q
+            JOIN topics t ON q.topic_id = t.id
+            WHERE t.course_id = ? AND q.bank_type = 'test'
+        ");
+        $qStmt->execute([$courseId]);
+        $questions = $qStmt->fetchAll();
+        if (empty($questions)) {
+            $qStmt = $db->prepare("
+                SELECT q.* 
+                FROM questions q
+                JOIN topics t ON q.topic_id = t.id
+                WHERE t.course_id = ?
+            ");
+            $qStmt->execute([$courseId]);
+            $questions = $qStmt->fetchAll();
+        }
+    }
 }
 
 if (empty($questions)) {
