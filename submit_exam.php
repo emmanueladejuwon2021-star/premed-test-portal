@@ -11,6 +11,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+if (!csrf_verify()) {
+    csrf_abort();
+}
+
 $db = DB::connect();
 $student = $_SESSION['student'] ?? null;
 
@@ -44,7 +48,8 @@ $answers = json_decode($answersJson, true) ?: [];
 $questionIds = json_decode($questionIdsJson, true) ?: [];
 
 if (empty($questionIds)) {
-    die("No question submissions provided.");
+    header('Location: exam.php?error=' . urlencode('No questions were submitted. Please try again.'));
+    exit;
 }
 
 // Fetch ground-truth questions from MySQL
@@ -168,4 +173,3 @@ if (!empty($sessionId)) {
 // Redirect immediately to the completed Results page
 header("Location: results.php?result_id=" . urlencode($resultId));
 exit;
-
