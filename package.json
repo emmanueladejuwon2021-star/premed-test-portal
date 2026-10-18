@@ -1,0 +1,12 @@
+{
+  "name": "cbt-portal",
+  "version": "1.0.0",
+  "description": "Premed Test Portal",
+  "main": "local_admin_server.js",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
