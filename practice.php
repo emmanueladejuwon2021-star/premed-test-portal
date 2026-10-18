@@ -52,14 +52,14 @@ foreach ($courses as $c) {
     <div class="pb-3.5 border-b border-teal-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
             <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Past Question Practice</h1>
-            <p class="text-xs text-slate-500 mt-0.5">Select a course and topic to practice questions at your own speed with instant solutions.</p>
+            <p class="text-xs text-slate-500 mt-0.5">Customize your practice session across accredited past questions bank with interactive Study or Mock modes.</p>
         </div>
         <span class="text-xs font-mono font-bold text-teal-800 bg-teal-50 px-3 py-1 rounded-full border border-teal-200">
-            Self-Paced Practice
+            Past Questions Bank
         </span>
     </div>
 
-    <form method="GET" action="exam.php" id="practiceForm" class="space-y-6">
+    <form method="GET" action="exam.php" id="practiceForm" class="space-y-6" onsubmit="handleFormSubmit(event)">
         <input type="hidden" name="mode" value="practice">
         <input type="hidden" name="new" value="1">
 
@@ -68,14 +68,44 @@ foreach ($courses as $c) {
             <!-- LEFT COLUMN: Choose Course & Settings (5 cols) -->
             <div class="md:col-span-5 space-y-4">
 
-                <!-- Step 1: Select Course -->
+                <!-- Step 1: Select Practice Mode (Study vs Mock) -->
+                <div class="bg-white rounded-3xl p-5 border border-teal-100 shadow-xs space-y-3">
+                    <label class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <i data-lucide="compass" class="w-4 h-4 text-teal-600"></i>
+                        <span>Step 1: Practice Mode</span>
+                    </label>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- Study Mode Option -->
+                        <label class="relative flex flex-col p-3 rounded-2xl border cursor-pointer transition-all border-teal-200 hover:border-teal-400 has-[:checked]:bg-teal-50/90 has-[:checked]:border-teal-500 has-[:checked]:ring-1 has-[:checked]:ring-teal-400/30">
+                            <input type="radio" name="practice_mode" value="study" checked class="sr-only" onchange="updateModeInfo()">
+                            <div class="flex items-center gap-1.5 mb-1">
+                                <i data-lucide="book-open-check" class="w-4 h-4 text-teal-600"></i>
+                                <span class="text-xs font-black text-slate-900">Study Mode</span>
+                            </div>
+                            <span class="text-[10px] text-slate-500 leading-snug">Untimed. Immediate corrections &amp; detailed explanations per item.</span>
+                        </label>
+
+                        <!-- Mock Mode Option -->
+                        <label class="relative flex flex-col p-3 rounded-2xl border cursor-pointer transition-all border-slate-200 hover:border-teal-300 has-[:checked]:bg-indigo-50/80 has-[:checked]:border-indigo-500 has-[:checked]:ring-1 has-[:checked]:ring-indigo-400/30">
+                            <input type="radio" name="practice_mode" value="mock" class="sr-only" onchange="updateModeInfo()">
+                            <div class="flex items-center gap-1.5 mb-1">
+                                <i data-lucide="timer" class="w-4 h-4 text-indigo-600"></i>
+                                <span class="text-xs font-black text-slate-900">Mock Mode</span>
+                            </div>
+                            <span class="text-[10px] text-slate-500 leading-snug">Self-paced timing. Answers hidden until full submission.</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Step 2: Select Course -->
                 <div class="bg-white rounded-3xl p-5 border border-teal-100 shadow-xs space-y-3">
                     <label class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
                         <i data-lucide="book-open" class="w-4 h-4 text-teal-600"></i>
-                        <span>Step 1: Choose Course</span>
+                        <span>Step 2: Choose Course</span>
                     </label>
 
-                    <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    <div class="space-y-2 max-h-64 overflow-y-auto pr-1">
                         <?php foreach ($courses as $c): 
                             $isSelected = ($c['id'] === $selectedCourseId);
                         ?>
@@ -93,22 +123,40 @@ foreach ($courses as $c) {
                     </div>
                 </div>
 
-                <!-- Step 2: Number of Questions -->
+                <!-- Step 3: Question Quantity Limit Controls -->
                 <div class="bg-white rounded-3xl p-5 border border-teal-100 shadow-xs space-y-3">
-                    <label class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                        <i data-lucide="sliders" class="w-4 h-4 text-teal-600"></i>
-                        <span>Step 2: Question Limit</span>
-                    </label>
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                            <i data-lucide="sliders" class="w-4 h-4 text-teal-600"></i>
+                            <span>Step 3: Question Quantity</span>
+                        </label>
+                        <span class="text-[11px] text-slate-400 font-mono font-bold" id="maxAvailBadge">Max: <?= $totalCourseQuestions ?> Qs</span>
+                    </div>
 
+                    <!-- Radio Presets -->
                     <div class="grid grid-cols-4 gap-2">
                         <?php foreach ([10 => '10', 20 => '20', 30 => '30', 50 => '50'] as $lim => $label): ?>
                         <label class="text-center p-2.5 rounded-2xl border border-slate-200 hover:border-teal-400 cursor-pointer has-[:checked]:bg-teal-600 has-[:checked]:text-white has-[:checked]:border-teal-600 transition-all shadow-xs">
-                            <input type="radio" name="limit" value="<?= $lim ?>" <?= $lim === 20 ? 'checked' : '' ?> class="sr-only">
+                            <input type="radio" name="preset_limit" value="<?= $lim ?>" <?= $lim === 20 ? 'checked' : '' ?> onchange="handlePresetSelect(this)" class="sr-only">
                             <span class="block text-xs font-black"><?= $label ?></span>
                             <span class="block text-[9px] uppercase font-bold opacity-80">Items</span>
                         </label>
                         <?php endforeach; ?>
                     </div>
+
+                    <!-- Custom Quantity Input -->
+                    <div class="pt-2 border-t border-slate-100 space-y-1.5">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="font-bold text-slate-700">Or Custom Quantity:</span>
+                            <span class="text-[10px] text-slate-400">Cap automatically enforced</span>
+                        </div>
+                        <div class="relative">
+                            <input type="number" id="customLimitInput" min="1" max="<?= $totalCourseQuestions ?>" placeholder="e.g. 15 or 45" oninput="handleCustomInput(this)" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                            <span class="absolute right-3 top-2.5 text-[10px] font-mono font-bold text-slate-400">Questions</span>
+                        </div>
+                    </div>
+
+                    <input type="hidden" name="limit" id="finalLimitInput" value="20">
                 </div>
 
             </div>
@@ -120,9 +168,9 @@ foreach ($courses as $c) {
                         <div>
                             <label class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
                                 <i data-lucide="layers" class="w-4 h-4 text-teal-600"></i>
-                                <span>Step 3: Choose Topics</span>
+                                <span>Step 4: Select Topics</span>
                             </label>
-                            <p class="text-xs text-slate-500 mt-0.5">Select specific modules or practice the full question bank.</p>
+                            <p class="text-xs text-slate-500 mt-0.5">Choose specific modules or practice across the entire syllabus.</p>
                         </div>
 
                         <button type="button" onclick="toggleAllTopics()" id="selectAllBtn" class="text-xs font-bold text-teal-600 hover:text-teal-800 hover:underline">
@@ -135,7 +183,7 @@ foreach ($courses as $c) {
                         No topics found for this course yet.
                     </div>
                     <?php else: ?>
-                    <div class="space-y-2 max-h-96 overflow-y-auto pr-1">
+                    <div class="space-y-2 max-h-[420px] overflow-y-auto pr-1">
                         <!-- Option: All Topics -->
                         <label class="flex items-center justify-between p-3.5 rounded-2xl border border-slate-200 hover:border-teal-300 hover:bg-slate-50 cursor-pointer transition-all has-[:checked]:bg-teal-50 has-[:checked]:border-teal-400">
                             <div class="flex items-center gap-3">
@@ -152,7 +200,7 @@ foreach ($courses as $c) {
                         <?php foreach ($topics as $t): ?>
                         <label class="topic-label flex items-center justify-between p-3 rounded-2xl border border-slate-100 hover:border-teal-200 hover:bg-slate-50 cursor-pointer transition-all has-[:checked]:bg-teal-50/60 has-[:checked]:border-teal-300">
                             <div class="flex items-center gap-2.5 min-w-0">
-                                <input type="checkbox" name="topic_ids[]" value="<?= htmlspecialchars($t['id']) ?>" onchange="handleIndividualCheckboxChange(this)" class="topic-checkbox w-4 h-4 text-teal-600 rounded focus:ring-teal-500">
+                                <input type="checkbox" name="topic_ids[]" value="<?= htmlspecialchars($t['id']) ?>" onchange="handleIndividualCheckboxChange(this)" class="topic-checkbox w-4 h-4 text-teal-600 rounded focus:ring-teal-500" data-qcount="<?= (int)$t['q_count'] ?>">
                                 <span class="text-xs font-semibold text-slate-800 truncate"><?= htmlspecialchars($t['name']) ?></span>
                             </div>
                             <span class="text-[10px] font-bold text-slate-400 shrink-0 ml-2 font-mono"><?= (int)$t['q_count'] ?> Qs</span>
@@ -173,7 +221,7 @@ foreach ($courses as $c) {
                 </div>
                 <div>
                     <span class="font-black text-white text-sm block">Subject: <?= htmlspecialchars($currentCourse['code'] ?? 'Select Course') ?></span>
-                    <span class="text-xs text-slate-300">Self-paced practice with KaTeX formula explanations</span>
+                    <span class="text-xs text-slate-300" id="launchBarSubtitle">Study Mode: Untimed practice with instant step-by-step KaTeX solutions</span>
                 </div>
             </div>
 
@@ -187,12 +235,73 @@ foreach ($courses as $c) {
 </div>
 
 <script>
+    const totalMaxQuestions = <?= (int)$totalCourseQuestions ?>;
+
+    function updateModeInfo() {
+        const modeEl = document.querySelector('input[name="practice_mode"]:checked');
+        const mode = modeEl ? modeEl.value : 'study';
+        const sub = document.getElementById('launchBarSubtitle');
+        if (sub) {
+            if (mode === 'study') {
+                sub.innerText = "Study Mode: Untimed practice with locked options & instant KaTeX explanations";
+            } else {
+                sub.innerText = "Mock Mode: Self-paced timing. Full score summary & corrections upon submission";
+            }
+        }
+    }
+
+    function calculateAvailableQuestions() {
+        const allBox = document.getElementById('checkboxAll');
+        if (allBox && allBox.checked) {
+            return totalMaxQuestions;
+        }
+
+        let total = 0;
+        document.querySelectorAll('.topic-checkbox:checked').forEach(cb => {
+            total += parseInt(cb.getAttribute('data-qcount') || '0', 10);
+        });
+        return total > 0 ? total : totalMaxQuestions;
+    }
+
+    function handlePresetSelect(radio) {
+        const customInput = document.getElementById('customLimitInput');
+        if (customInput) customInput.value = '';
+
+        const finalInput = document.getElementById('finalLimitInput');
+        const maxAvail = calculateAvailableQuestions();
+        let requested = parseInt(radio.value, 10);
+
+        if (requested > maxAvail && maxAvail > 0) {
+            requested = maxAvail;
+        }
+        if (finalInput) finalInput.value = requested;
+    }
+
+    function handleCustomInput(input) {
+        // Uncheck all preset radios when typing custom limit
+        document.querySelectorAll('input[name="preset_limit"]').forEach(r => r.checked = false);
+
+        const finalInput = document.getElementById('finalLimitInput');
+        const maxAvail = calculateAvailableQuestions();
+        let val = parseInt(input.value, 10);
+
+        if (isNaN(val) || val <= 0) {
+            val = 20;
+        } else if (val > maxAvail && maxAvail > 0) {
+            val = maxAvail;
+            input.value = maxAvail;
+        }
+
+        if (finalInput) finalInput.value = val;
+    }
+
     function handleAllCheckboxChange(allBox) {
         if (allBox.checked) {
             document.querySelectorAll('.topic-checkbox').forEach(cb => {
                 cb.checked = false;
             });
         }
+        updateQuantityCap();
     }
 
     function handleIndividualCheckboxChange(indBox) {
@@ -200,6 +309,7 @@ foreach ($courses as $c) {
         if (indBox.checked && allBox) {
             allBox.checked = false;
         }
+        updateQuantityCap();
     }
 
     function toggleAllTopics() {
@@ -209,6 +319,35 @@ foreach ($courses as $c) {
             handleAllCheckboxChange(allBox);
         }
     }
+
+    function updateQuantityCap() {
+        const maxAvail = calculateAvailableQuestions();
+        const badge = document.getElementById('maxAvailBadge');
+        if (badge) badge.innerText = `Max: ${maxAvail} Qs`;
+
+        const customInput = document.getElementById('customLimitInput');
+        if (customInput) customInput.max = maxAvail;
+
+        const presetSelected = document.querySelector('input[name="preset_limit"]:checked');
+        if (presetSelected) {
+            handlePresetSelect(presetSelected);
+        } else if (customInput && customInput.value) {
+            handleCustomInput(customInput);
+        }
+    }
+
+    function handleFormSubmit(e) {
+        const finalInput = document.getElementById('finalLimitInput');
+        const maxAvail = calculateAvailableQuestions();
+        if (finalInput) {
+            let cur = parseInt(finalInput.value, 10);
+            if (isNaN(cur) || cur <= 0) cur = 20;
+            if (cur > maxAvail && maxAvail > 0) cur = maxAvail;
+            finalInput.value = cur;
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', updateModeInfo);
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
