@@ -26,12 +26,14 @@ $liveTestsStmt = $db->query("
 ");
 $liveTests = $liveTestsStmt ? $liveTestsStmt->fetchAll() : [];
 
-// 2. Fetch All Courses
+// 2. Fetch All Courses with Past vs. Test Bank counts
 $stmt = $db->query("
     SELECT 
         c.*,
         COUNT(DISTINCT t.id) AS topics_count,
-        COUNT(q.id) AS questions_count
+        COUNT(q.id) AS questions_count,
+        SUM(CASE WHEN q.id IS NOT NULL AND (q.bank_type = 'past' OR q.bank_type IS NULL OR q.bank_type = '') THEN 1 ELSE 0 END) as past_q_count,
+        SUM(CASE WHEN q.id IS NOT NULL AND q.bank_type = 'test' THEN 1 ELSE 0 END) as test_q_count
     FROM courses c
     LEFT JOIN topics t ON c.id = t.course_id
     LEFT JOIN questions q ON t.id = q.topic_id
@@ -174,9 +176,10 @@ if (empty($activeAssessments)) {
                 </div>
 
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <span class="text-xs font-bold text-teal-700 font-mono">
-                        <?= (int)$c['questions_count'] ?> Questions
-                    </span>
+                    <div class="flex flex-col text-[11px] font-mono">
+                        <span class="text-emerald-700 font-bold">📚 <?= (int)$c['past_q_count'] ?> Past Qs</span>
+                        <span class="text-indigo-700 font-bold">⏱️ <?= (int)$c['test_q_count'] ?> Test Qs</span>
+                    </div>
                     <div class="flex items-center gap-1.5">
                         <a href="practice.php?course_id=<?= urlencode($c['id']) ?>" class="px-3 py-1.5 rounded-xl border border-teal-200 hover:bg-teal-50 hover:text-teal-700 font-bold text-xs text-slate-700 transition-colors flex items-center gap-1">
                             <span>Practice</span>

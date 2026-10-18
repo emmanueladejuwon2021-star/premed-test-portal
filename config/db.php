@@ -96,12 +96,15 @@ class DB {
             $pdo->exec("UPDATE questions SET bank_type = 'past' WHERE bank_type IS NULL OR bank_type = ''");
         } catch (Exception $e) {}
 
-        // 5. Ensure exam_sessions table exists
+        // 5. Ensure exam_sessions table & proctor columns exist
         try {
             $pdo->exec("CREATE TABLE IF NOT EXISTS exam_sessions (
                 id TEXT PRIMARY KEY,
                 student_id TEXT,
+                matric_no TEXT,
+                student_name TEXT,
                 course_id TEXT,
+                course_code TEXT,
                 test_id TEXT,
                 status TEXT DEFAULT 'IN_PROGRESS',
                 tab_switches INTEGER DEFAULT 0,
@@ -110,11 +113,25 @@ class DB {
                 total_questions INTEGER DEFAULT 0,
                 percentage REAL DEFAULT 0,
                 grade TEXT,
+                latest_frame TEXT,
+                proctor_warning TEXT,
                 ip_address TEXT,
                 user_agent TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )");
+        } catch (Exception $e) {}
+
+        try {
+            $pdo->exec("ALTER TABLE exam_sessions ADD COLUMN latest_frame TEXT");
+        } catch (Exception $e) {}
+        try {
+            $pdo->exec("ALTER TABLE exam_sessions ADD COLUMN proctor_warning TEXT");
+        } catch (Exception $e) {}
+
+        // 6. Ensure tests table has include_past_questions column
+        try {
+            $pdo->exec("ALTER TABLE tests ADD COLUMN include_past_questions INTEGER DEFAULT 0");
         } catch (Exception $e) {}
 
         // 6. Auto-seed Physics: Physical Quantities & Dimensional Analysis question bank

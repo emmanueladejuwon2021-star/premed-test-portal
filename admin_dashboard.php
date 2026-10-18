@@ -791,8 +791,8 @@ $courses = $db->query("
     SELECT c.*, 
            COUNT(DISTINCT t.id) as topics_count,
            COUNT(DISTINCT q.id) as q_count,
-           SUM(CASE WHEN q.bank_type = 'test' THEN 1 ELSE 0 END) as test_q_count,
-           SUM(CASE WHEN q.bank_type != 'test' OR q.bank_type IS NULL THEN 1 ELSE 0 END) as past_q_count,
+           SUM(CASE WHEN q.id IS NOT NULL AND q.bank_type = 'test' THEN 1 ELSE 0 END) as test_q_count,
+           SUM(CASE WHEN q.id IS NOT NULL AND (q.bank_type != 'test' OR q.bank_type IS NULL) THEN 1 ELSE 0 END) as past_q_count,
            COUNT(DISTINCT r.id) as sub_count
     FROM courses c
     LEFT JOIN topics t ON c.id = t.course_id
@@ -805,8 +805,8 @@ $courses = $db->query("
 // 1b. Fetch all Topics with course information and question bank breakdown
 $topicsStmt = $db->query("
     SELECT t.*, c.code as course_code, c.title as course_title,
-           SUM(CASE WHEN q.bank_type = 'test' THEN 1 ELSE 0 END) as test_q_count,
-           SUM(CASE WHEN q.bank_type != 'test' OR q.bank_type IS NULL THEN 1 ELSE 0 END) as past_q_count,
+           SUM(CASE WHEN q.id IS NOT NULL AND q.bank_type = 'test' THEN 1 ELSE 0 END) as test_q_count,
+           SUM(CASE WHEN q.id IS NOT NULL AND (q.bank_type != 'test' OR q.bank_type IS NULL) THEN 1 ELSE 0 END) as past_q_count,
            COUNT(q.id) as total_q_count
     FROM topics t
     JOIN courses c ON t.course_id = c.id

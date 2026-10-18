@@ -444,6 +444,7 @@ const server = http.createServer(async (req, res) => {
       const calculatorAllowed = data.calculator_allowed ? 1 : 0;
       const shuffleQuestions = data.shuffle_questions ? 1 : 0;
       const shuffleOptions = data.shuffle_options ? 1 : 0;
+      const includePastQuestions = data.include_past_questions ? 1 : 0;
       const isLive = data.is_live ? 1 : 0;
 
       let topicIds = '["ALL"]';
@@ -458,12 +459,12 @@ const server = http.createServer(async (req, res) => {
           INSERT INTO tests (
             id, title, course_id, topic_ids, duration, question_limit, attempts_allowed,
             is_live, auto_submit, enforce_fullscreen, max_tab_switches, shuffle_questions,
-            shuffle_options, calculator_allowed, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            shuffle_options, calculator_allowed, include_past_questions, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         `, [
           testId, title, courseId, topicIds, duration, questionLimit,
           isLive, autoSubmit, enforceFullscreen, maxTabSwitches, shuffleQuestions,
-          shuffleOptions, calculatorAllowed
+          shuffleOptions, calculatorAllowed, includePastQuestions
         ]);
 
         res.writeHead(302, { Location: '/?tab=tests&alert=' + encodeURIComponent(`Test "${title}" deployed successfully to Cloud!`) });
