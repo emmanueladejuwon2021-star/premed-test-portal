@@ -40,10 +40,13 @@ if (!$isRetry && !empty($_SESSION['last_result_id'])) {
 }
 
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
-$duration = isset($_GET['duration']) ? (int)$_GET['duration'] : 30;
+// Default duration: in study mode = untimed (0). In mock practice mode = 1 minute per question or GET duration.
 if ($isStudyMode) {
-    // Study mode is untimed
     $duration = 0;
+} else if ($isPracticeMode) {
+    $duration = isset($_GET['duration']) ? (int)$_GET['duration'] : max(10, $limit);
+} else {
+    $duration = isset($_GET['duration']) ? (int)$_GET['duration'] : 30;
 }
 
 $rawTopicInput = $_GET['topics'] ?? ($_GET['topic_ids'] ?? []);
