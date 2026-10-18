@@ -26,21 +26,8 @@ $liveTestsStmt = $db->query("
 ");
 $liveTests = $liveTestsStmt ? $liveTestsStmt->fetchAll() : [];
 
-// 2. Fetch All Courses with Past vs. Test Bank counts
-$stmt = $db->query("
-    SELECT 
-        c.*,
-        COUNT(DISTINCT t.id) AS topics_count,
-        COUNT(q.id) AS questions_count,
-        SUM(CASE WHEN q.id IS NOT NULL AND (q.bank_type = 'past' OR q.bank_type IS NULL OR q.bank_type = '') THEN 1 ELSE 0 END) as past_q_count,
-        SUM(CASE WHEN q.id IS NOT NULL AND q.bank_type = 'test' THEN 1 ELSE 0 END) as test_q_count
-    FROM courses c
-    LEFT JOIN topics t ON c.id = t.course_id
-    LEFT JOIN questions q ON t.id = q.topic_id
-    GROUP BY c.id
-    ORDER BY c.code ASC
-");
-$courses = $stmt ? $stmt->fetchAll() : [];
+// 2. Fetch All Courses with Single Source of Truth live counts
+$courses = getCourseListWithCounts($db);
 
 // Synthesize active assessments if no explicit tests are live
 $activeAssessments = $liveTests;
