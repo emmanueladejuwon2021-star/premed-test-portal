@@ -1619,4 +1619,4 @@ function renderSettingsTab(ctx) {
   `;
 }
 
-module.exports = { renderHtml };
+module.exports = { renderHtml, escapeHtml };
