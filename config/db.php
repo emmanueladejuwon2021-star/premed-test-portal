@@ -162,12 +162,12 @@ class DB {
             }
 
             // B. Ensure Topic exists
-            $tStmt = $pdo->prepare("SELECT id FROM topics WHERE course_id = ? AND (name LIKE '%Physical Quantities%' OR name LIKE '%Dimensional%') LIMIT 1");
+            $tStmt = $pdo->prepare("SELECT id FROM topics WHERE course_id = ? AND (id = 'top_phy101_1' OR name LIKE '%Physical quantities%' OR name LIKE '%Dimensional%') LIMIT 1");
             $tStmt->execute([$courseId]);
             $topic = $tStmt->fetch();
             if (!$topic) {
-                $topicId = 'topic_phy_dim_analysis';
-                $pdo->prepare("INSERT INTO topics (id, course_id, name, question_count) VALUES (?, ?, 'Physical Quantities, Units & Dimensions', 24)")->execute([$topicId, $courseId]);
+                $topicId = 'top_phy101_1';
+                $pdo->prepare("INSERT INTO topics (id, course_id, name, question_count) VALUES (?, ?, 'Physical quantities, units, and dimensions', 24)")->execute([$topicId, $courseId]);
             } else {
                 $topicId = $topic['id'];
             }
@@ -464,12 +464,12 @@ class DB {
             }
 
             // B. Ensure Topic exists
-            $tStmt = $pdo->prepare("SELECT id FROM topics WHERE course_id = ? AND (name LIKE '%Vector%' OR name LIKE '%Scalar%') LIMIT 1");
+            $tStmt = $pdo->prepare("SELECT id FROM topics WHERE course_id = ? AND (id = 'top_phy101_2' OR name LIKE '%Vector%' OR name LIKE '%Scalar%') LIMIT 1");
             $tStmt->execute([$courseId]);
             $topic = $tStmt->fetch();
             if (!$topic) {
-                $topicId = 'topic_phy_vectors_scalars';
-                $pdo->prepare("INSERT INTO topics (id, course_id, name, question_count) VALUES (?, ?, 'Scalar and Vector Quantities', 16)")->execute([$topicId, $courseId]);
+                $topicId = 'top_phy101_2';
+                $pdo->prepare("INSERT INTO topics (id, course_id, name, question_count) VALUES (?, ?, 'Scalars and Vectors', 16)")->execute([$topicId, $courseId]);
             } else {
                 $topicId = $topic['id'];
             }
