@@ -786,35 +786,19 @@ $avgScore = (float)$db->query("SELECT COALESCE(AVG(percentage), 0) FROM results"
 $totalCourses = (int)$db->query("SELECT COUNT(*) FROM courses")->fetchColumn();
 $activeUnlockedCourses = (int)$db->query("SELECT COUNT(*) FROM courses WHERE is_locked = 0")->fetchColumn();
 
-// 1. All Courses with live Question & Topic Breakdown
-$courses = $db->query("
-    SELECT c.*, 
-           COUNT(DISTINCT t.id) as topics_count,
-           COUNT(DISTINCT q.id) as q_count,
-           SUM(CASE WHEN q.id IS NOT NULL AND q.bank_type = 'test' THEN 1 ELSE 0 END) as test_q_count,
-           SUM(CASE WHEN q.id IS NOT NULL AND (q.bank_type != 'test' OR q.bank_type IS NULL) THEN 1 ELSE 0 END) as past_q_count,
-           COUNT(DISTINCT r.id) as sub_count
-    FROM courses c
-    LEFT JOIN topics t ON c.id = t.course_id
-    LEFT JOIN questions q ON t.id = q.topic_id
-    LEFT JOIN results r ON c.id = r.course_id
-    GROUP BY c.id
-    ORDER BY c.created_at DESC
-")->fetchAll();
+// 1. All Courses with Single Source of Truth live Question & Topic Breakdown
+$courses = getCourseListWithCounts($db);
+foreach ($courses as &$c) {
+    $c['q_count'] = $c['questions_count'];
+}
+unset($c);
 
-// 1b. Fetch all Topics with course information and question bank breakdown
-$topicsStmt = $db->query("
-    SELECT t.*, c.code as course_code, c.title as course_title,
-           SUM(CASE WHEN q.id IS NOT NULL AND q.bank_type = 'test' THEN 1 ELSE 0 END) as test_q_count,
-           SUM(CASE WHEN q.id IS NOT NULL AND (q.bank_type != 'test' OR q.bank_type IS NULL) THEN 1 ELSE 0 END) as past_q_count,
-           COUNT(q.id) as total_q_count
-    FROM topics t
-    JOIN courses c ON t.course_id = c.id
-    LEFT JOIN questions q ON t.id = q.topic_id
-    GROUP BY t.id
-    ORDER BY c.code ASC, t.name ASC
-");
-$allTopics = $topicsStmt ? $topicsStmt->fetchAll() : [];
+// 1b. Fetch all Topics with Single Source of Truth live breakdown
+$allTopics = getTopicListWithCounts($db);
+foreach ($allTopics as &$top) {
+    $top['total_q_count'] = $top['questions_count'];
+}
+unset($top);
 
 $topicsByCourse = [];
 foreach ($allTopics as $top) {

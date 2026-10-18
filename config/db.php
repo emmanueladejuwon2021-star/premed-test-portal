@@ -11,6 +11,7 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/turso.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/auth_helper.php';
+require_once __DIR__ . '/../helpers/counts.php';
 
 class DB {
     private static mixed $connection = null;
