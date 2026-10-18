@@ -93,8 +93,20 @@ foreach ($courses as $c) {
                                 <i data-lucide="timer" class="w-4 h-4 text-indigo-600"></i>
                                 <span class="text-xs font-black text-slate-900">Mock Mode</span>
                             </div>
-                            <span class="text-[10px] text-slate-500 leading-snug">Self-paced timing. Answers hidden until full submission.</span>
+                            <span class="text-[10px] text-slate-500 leading-snug">Timed countdown simulation. Answers hidden until submission.</span>
                         </label>
+                    </div>
+
+                    <!-- Mock Duration Field (Visible only in Mock Mode) -->
+                    <div id="mockDurationContainer" class="pt-2 border-t border-slate-100 hidden space-y-1">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="font-bold text-slate-700">Mock Timer Duration:</span>
+                            <span class="text-[10px] font-mono text-teal-600 font-bold" id="mockDurationLabel">20 Minutes</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" name="duration" id="mockDurationInput" min="5" max="180" value="20" oninput="updateMockDurationLabel(this.value)" class="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                            <span class="text-xs font-bold text-slate-500 shrink-0">mins</span>
+                        </div>
                     </div>
                 </div>
 
@@ -241,12 +253,33 @@ foreach ($courses as $c) {
         const modeEl = document.querySelector('input[name="practice_mode"]:checked');
         const mode = modeEl ? modeEl.value : 'study';
         const sub = document.getElementById('launchBarSubtitle');
+        const mockDurContainer = document.getElementById('mockDurationContainer');
+
+        if (mockDurContainer) {
+            if (mode === 'mock') {
+                mockDurContainer.classList.remove('hidden');
+            } else {
+                mockDurContainer.classList.add('hidden');
+            }
+        }
+
         if (sub) {
             if (mode === 'study') {
                 sub.innerText = "Study Mode: Untimed practice with locked options & instant KaTeX explanations";
             } else {
-                sub.innerText = "Mock Mode: Self-paced timing. Full score summary & corrections upon submission";
+                const durVal = document.getElementById('mockDurationInput')?.value || 20;
+                sub.innerText = `Mock Mode: ${durVal}-minute countdown timer simulation. Full score summary & corrections upon submission`;
             }
+        }
+    }
+
+    function updateMockDurationLabel(val) {
+        const label = document.getElementById('mockDurationLabel');
+        if (label) label.innerText = `${val || 0} Minutes`;
+        const sub = document.getElementById('launchBarSubtitle');
+        const modeEl = document.querySelector('input[name="practice_mode"]:checked');
+        if (sub && modeEl && modeEl.value === 'mock') {
+            sub.innerText = `Mock Mode: ${val || 0}-minute countdown timer simulation. Full score summary & corrections upon submission`;
         }
     }
 

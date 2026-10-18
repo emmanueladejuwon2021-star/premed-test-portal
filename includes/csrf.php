@@ -31,7 +31,7 @@ function csrf_field(): string {
     return '<input type="hidden" name="csrf_token" value="' . $token . '">';
 }
 
-function csrf_verify(bool $regenerate = true): bool {
+function csrf_verify(bool $regenerate = false): bool {
     $submitted = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     $stored = $_SESSION['csrf_token'] ?? '';
 
