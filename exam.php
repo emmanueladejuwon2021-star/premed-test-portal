@@ -19,6 +19,11 @@ $testId = $_GET['test_id'] ?? '';
 $test = null;
 $courseId = $_GET['course_id'] ?? '';
 
+// Practice mode parameters
+$isPracticeMode = (isset($_GET['mode']) && $_GET['mode'] === 'practice') || isset($_GET['practice']);
+$practiceSubMode = $_GET['practice_mode'] ?? 'study'; // 'study' (instant correction, untimed) vs 'mock' (self-paced, hidden solutions until end)
+$isStudyMode = $isPracticeMode && ($practiceSubMode === 'study');
+
 // 2. Strict Back-Navigation Lockout:
 // If this student just completed and submitted this test/course and presses the browser back button,
 // immediately route them to their official completed result page instead of opening a new test session.
@@ -34,9 +39,12 @@ if (!$isRetry && !empty($_SESSION['last_result_id'])) {
     }
 }
 
-$courseId = $_GET['course_id'] ?? '';
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
 $duration = isset($_GET['duration']) ? (int)$_GET['duration'] : 30;
+if ($isStudyMode) {
+    // Study mode is untimed
+    $duration = 0;
+}
 
 $rawTopicInput = $_GET['topics'] ?? ($_GET['topic_ids'] ?? []);
 if (is_array($rawTopicInput)) {
@@ -81,7 +89,6 @@ if (!$course) {
 }
 
 // 2. Fetch Questions from Turso DB (supports Past Question Bank vs Test Question Bank)
-$isPracticeMode = (isset($_GET['mode']) && $_GET['mode'] === 'practice') || isset($_GET['practice']);
 $includePastQuestions = !empty($test['include_past_questions']);
 
 if (!empty($topicFilters) && is_array($topicFilters)) {
@@ -195,8 +202,7 @@ if ($test) {
 }
 
 // Practice mode: allow flexible studying without penalizing tab switches
-$isPractice = (isset($_GET['mode']) && $_GET['mode'] === 'practice');
-if ($isPractice) {
+if ($isPracticeMode) {
     $enforceFullscreen = 0;
     $antiCheatBlur = 0;
     $maxTabSwitches = 999;
@@ -210,10 +216,10 @@ if (count($questions) > $limit) {
     $questions = array_slice($questions, 0, $limit);
 }
 
-// Strip ground-truth key for client-side security
+// Prepare client questions payload
 $clientQuestions = [];
 foreach ($questions as $idx => $q) {
-    $clientQuestions[] = [
+    $item = [
         'index' => $idx,
         'id' => $q['id'],
         'text' => $q['text'],
@@ -223,6 +229,12 @@ foreach ($questions as $idx => $q) {
         'd' => $q['d'],
         'diagram_url' => $q['diagram_url'] ?? null
     ];
+    // In Study Mode, include accredited key & explanation for instant locked corrections
+    if ($isStudyMode) {
+        $item['correct_option'] = strtolower(trim((string)$q['correct_option']));
+        $item['explanation'] = $q['explanation'] ?? '';
+    }
+    $clientQuestions[] = $item;
 }
 
 $student = $_SESSION['student'] ?? null;
@@ -280,7 +292,7 @@ require_once __DIR__ . '/includes/header.php';
                             <?= htmlspecialchars($course['code']) ?>
                         </span>
                         <span class="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden sm:inline">
-                            Apex Medical Examination
+                            <?= $isStudyMode ? 'Study Mode (Untimed)' : ($isPracticeMode ? 'Mock Practice Session' : 'Apex Medical Examination') ?>
                         </span>
                     </div>
                     <h1 class="text-xs sm:text-sm font-extrabold text-white tracking-tight mt-0.5 truncate max-w-[260px] sm:max-w-md">
@@ -293,8 +305,10 @@ require_once __DIR__ . '/includes/header.php';
             <div class="flex items-center justify-center">
                 <div class="flex items-center gap-2 px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-2xl bg-black/60 border border-teal-500/30 text-white shadow-inner" id="timerContainer">
                     <div class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></div>
-                    <span class="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider font-mono">TIME LEFT:</span>
-                    <span id="timerDisplay" class="font-mono text-base sm:text-xl font-black text-rose-400 tracking-wider">--:--</span>
+                    <span class="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider font-mono"><?= $isStudyMode ? 'SESSION:' : 'TIME LEFT:' ?></span>
+                    <span id="timerDisplay" class="font-mono text-base sm:text-xl font-black text-teal-300 tracking-wider">
+                        <?= $isStudyMode ? 'Untimed Study' : '--:--' ?>
+                    </span>
                 </div>
             </div>
 
@@ -316,7 +330,7 @@ require_once __DIR__ . '/includes/header.php';
                     <!-- Live Proctoring Status Pill Overlay -->
                     <div class="absolute bottom-1 left-1 right-1 bg-black/85 backdrop-blur-md rounded-md px-1.5 py-0.5 flex items-center justify-center gap-1 shadow-xs border border-white/10">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                        <span class="text-[7px] sm:text-[8px] font-black tracking-wider uppercase text-emerald-300 font-mono">LIVE PROCTOR</span>
+                        <span class="text-[7px] sm:text-[8px] font-black tracking-wider uppercase text-emerald-300 font-mono"><?= $isPracticeMode ? 'SELF-PRACTICE' : 'LIVE PROCTOR' ?></span>
                     </div>
                 </div>
 
@@ -395,7 +409,7 @@ require_once __DIR__ . '/includes/header.php';
                     <!-- Prominent Red Submit Exam Button -->
                     <button type="button" onclick="confirmSubmit()" class="px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-extrabold text-[11px] sm:text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5 active:scale-95">
                         <i data-lucide="send" class="w-3.5 h-3.5"></i>
-                        <span>SUBMIT EXAM</span>
+                        <span>FINALIZE &amp; SUBMIT</span>
                     </button>
 
                 </div>
@@ -415,6 +429,18 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="space-y-2.5 select-none pt-1" id="optionsContainer">
                         <!-- Options generated by JS -->
                     </div>
+
+                    <!-- Instant Study Explanation Box (In Study Mode) -->
+                    <div id="studyExplanationBox" class="mt-4 p-4 rounded-2xl bg-teal-50/90 border border-teal-200 text-xs text-slate-800 space-y-2 hidden animate-in fade-in duration-200">
+                        <div class="flex items-center justify-between border-b border-teal-200/60 pb-2">
+                            <span class="font-extrabold text-teal-900 uppercase tracking-wider flex items-center gap-1.5" id="studyResultBadge">
+                                <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+                                <span>Correct Answer</span>
+                            </span>
+                            <span class="text-[10px] font-mono font-bold text-teal-700">Study Solution</span>
+                        </div>
+                        <div id="studyExplanationContent" class="leading-relaxed math-content font-medium"></div>
+                    </div>
                 </div>
             </div>
 
@@ -432,9 +458,11 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
 
                 <div class="flex items-center gap-2 sm:gap-3">
+                    <?php if (!$isStudyMode): ?>
                     <button type="button" onclick="clearCurrentSelection()" class="text-xs font-semibold text-slate-400 hover:text-rose-600 transition-colors">
                         Clear Choice
                     </button>
+                    <?php endif; ?>
                     <button type="button" onclick="toggleFlag()" id="flagBtn" class="px-3.5 py-2.5 rounded-xl bg-slate-500 hover:bg-slate-600 text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-colors shadow-xs">
                         <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
                         <span id="flagLabel">BOOKMARK</span>
@@ -547,7 +575,7 @@ require_once __DIR__ . '/includes/header.php';
                 <i data-lucide="send" class="w-6 h-6"></i>
             </div>
             <div>
-                <h3 class="text-base font-black text-slate-900 tracking-tight">Finalize &amp; Submit Test?</h3>
+                <h3 class="text-base font-black text-slate-900 tracking-tight">Finalize &amp; Submit Session?</h3>
                 <p class="text-xs text-slate-500 font-medium">Apex Pre-Medical Sciences Examination Council</p>
             </div>
         </div>
@@ -792,6 +820,7 @@ require_once __DIR__ . '/includes/header.php';
 <script>
 const QUESTIONS = <?= json_encode($clientQuestions) ?>;
 const DURATION_MINUTES = <?= (int)$duration ?>;
+const IS_STUDY_MODE = <?= $isStudyMode ? 'true' : 'false' ?>;
 let currentIndex = 0;
 let userAnswers = {};
 let flaggedQuestions = new Set();
@@ -826,7 +855,8 @@ function initExam() {
             }
         }, 1000);
     } else {
-        document.getElementById('timerDisplay').innerText = "Self-Paced";
+        const timerDisplay = document.getElementById('timerDisplay');
+        if (timerDisplay) timerDisplay.innerText = IS_STUDY_MODE ? "Untimed Study" : "Self-Paced";
     }
 
     // Keyboard shortcuts & strict security listeners
@@ -839,7 +869,7 @@ function initExam() {
     window.history.pushState(null, '', window.location.href);
     window.addEventListener('popstate', function(e) {
         window.history.pushState(null, '', window.location.href);
-        alert("Security Notice: Back navigation is disabled during proctored examinations. Please navigate using the exam controls or submit your test.");
+        alert("Security Notice: Back navigation is disabled during active sessions. Please navigate using the exam controls or submit your session.");
     });
 
     // Force page reload if restored from bfcache (browser back/forward button)
@@ -896,35 +926,93 @@ function renderCurrentQuestion() {
         diagContainer.classList.add('hidden');
     }
 
-    // Render Options (CBT Radio Style with Glowing Medallions)
+    // Render Options
     const optContainer = document.getElementById('optionsContainer');
     optContainer.innerHTML = '';
 
     const currentPick = userAnswers[q.id] || null;
     const optionKeys = ['a', 'b', 'c', 'd'];
+    const isAnsweredInStudy = IS_STUDY_MODE && (currentPick !== null);
 
     optionKeys.forEach(opt => {
         if (!q[opt]) return;
         const isSelected = (currentPick === opt);
 
+        let cardClass = "p-3 sm:p-4 rounded-2xl border cursor-pointer transition-all flex items-center gap-3 sm:gap-3.5 select-none active:scale-[0.99] min-h-[50px] ";
+        let letterClass = "w-6 h-6 rounded-xl border-2 flex items-center justify-center shrink-0 transition-all ";
+
+        if (IS_STUDY_MODE && isAnsweredInStudy) {
+            // Study Mode Locked Feedback Style
+            const correctOpt = q.correct_option;
+            if (opt === correctOpt) {
+                cardClass += "border-emerald-500 bg-emerald-50 text-emerald-950 font-bold shadow-xs ring-2 ring-emerald-400/30";
+                letterClass += "border-emerald-600 bg-emerald-600 text-white";
+            } else if (isSelected) {
+                cardClass += "border-rose-400 bg-rose-50 text-rose-950 font-medium";
+                letterClass += "border-rose-500 bg-rose-500 text-white";
+            } else {
+                cardClass += "border-slate-200 bg-slate-50/50 text-slate-400 opacity-60 cursor-not-allowed";
+                letterClass += "border-slate-200 bg-slate-100 text-slate-400";
+            }
+        } else {
+            // Standard Exam / Mock Mode Style
+            if (isSelected) {
+                cardClass += "border-teal-500 bg-teal-50/90 text-teal-950 font-semibold ring-2 ring-teal-400/30 shadow-xs";
+                letterClass += "border-teal-600 bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-xs";
+            } else {
+                cardClass += "border-slate-200 hover:border-teal-200 hover:bg-slate-50/80 text-slate-800";
+                letterClass += "border-slate-300 bg-white text-slate-600";
+            }
+        }
+
         const btn = document.createElement('div');
-        btn.className = `p-3 sm:p-4 rounded-2xl border cursor-pointer transition-all flex items-center gap-3 sm:gap-3.5 select-none active:scale-[0.99] min-h-[50px] ${
-            isSelected 
-            ? 'border-teal-500 bg-teal-50/90 text-teal-950 font-semibold ring-2 ring-teal-400/30 shadow-xs' 
-            : 'border-slate-200 hover:border-teal-200 hover:bg-slate-50/80 text-slate-800'
-        }`;
-        btn.onclick = () => selectOption(opt);
+        btn.className = cardClass;
+        if (!isAnsweredInStudy) {
+            btn.onclick = () => selectOption(opt);
+        }
 
         btn.innerHTML = `
-            <div class="w-6 h-6 rounded-xl border-2 flex items-center justify-center shrink-0 transition-all ${
-                isSelected ? 'border-teal-600 bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-xs' : 'border-slate-300 bg-white text-slate-600'
-            }">
+            <div class="${letterClass}">
                 <span class="text-[11px] font-black uppercase font-mono">${opt.toUpperCase()}</span>
             </div>
             <div class="text-xs sm:text-sm font-medium leading-snug flex-1">${q[opt]}</div>
+            ${IS_STUDY_MODE && opt === q.correct_option && isAnsweredInStudy ? `
+                <span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0">
+                    <i data-lucide="check-circle" class="w-3 h-3"></i> Correct Key
+                </span>
+            ` : ''}
+            ${IS_STUDY_MODE && isSelected && opt !== q.correct_option && isAnsweredInStudy ? `
+                <span class="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0">
+                    <i data-lucide="x-circle" class="w-3 h-3"></i> Your Pick
+                </span>
+            ` : ''}
         `;
         optContainer.appendChild(btn);
     });
+
+    // Handle Study Explanation Display
+    const studyBox = document.getElementById('studyExplanationBox');
+    const studyBadge = document.getElementById('studyResultBadge');
+    const studyContent = document.getElementById('studyExplanationContent');
+
+    if (IS_STUDY_MODE && isAnsweredInStudy) {
+        const isCorrect = (currentPick === q.correct_option);
+        if (studyBadge) {
+            if (isCorrect) {
+                studyBadge.className = "font-extrabold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5";
+                studyBadge.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i><span>Excellent! Correct Answer</span>`;
+            } else {
+                studyBadge.className = "font-extrabold text-rose-800 uppercase tracking-wider flex items-center gap-1.5";
+                studyBadge.innerHTML = `<i data-lucide="x-circle" class="w-4 h-4 text-rose-600"></i><span>Incorrect &bull; Accredited Key: Option ${q.correct_option.toUpperCase()}</span>`;
+            }
+        }
+        if (studyContent) {
+            studyContent.innerHTML = q.explanation ? q.explanation : `No detailed step-by-step solution provided for this item. Accredited Answer Key: <strong>Option ${q.correct_option.toUpperCase()}</strong>.`;
+        }
+        if (studyBox) studyBox.classList.remove('hidden');
+    } else if (studyBox) {
+        studyBox.classList.add('hidden');
+    }
 
     updateFlagButton();
 
@@ -958,6 +1046,10 @@ function renderCurrentQuestion() {
 
 function selectOption(opt) {
     const q = QUESTIONS[currentIndex];
+    if (IS_STUDY_MODE && userAnswers[q.id]) {
+        // Option is locked in Study mode once selected
+        return;
+    }
     userAnswers[q.id] = opt;
     renderCurrentQuestion();
     renderPalette();
@@ -965,6 +1057,10 @@ function selectOption(opt) {
 
 function clearCurrentSelection() {
     const q = QUESTIONS[currentIndex];
+    if (IS_STUDY_MODE && userAnswers[q.id]) {
+        // Selection locked in study mode
+        return;
+    }
     if (userAnswers[q.id]) {
         delete userAnswers[q.id];
         renderCurrentQuestion();
@@ -1048,7 +1144,13 @@ function renderPalette() {
         if (isCurrent) {
             bgClass = 'bg-teal-600 text-white font-black ring-2 ring-teal-300 shadow-sm';
         } else if (isAnswered) {
-            bgClass = 'bg-emerald-500 text-white font-bold shadow-xs';
+            if (IS_STUDY_MODE) {
+                const userPick = userAnswers[q.id];
+                const isCorrect = (userPick === q.correct_option);
+                bgClass = isCorrect ? 'bg-emerald-500 text-white font-bold shadow-xs' : 'bg-rose-500 text-white font-bold shadow-xs';
+            } else {
+                bgClass = 'bg-emerald-500 text-white font-bold shadow-xs';
+            }
         } else if (isFlagged) {
             bgClass = 'bg-amber-400 text-slate-900 font-bold';
         }
@@ -1144,7 +1246,7 @@ function confirmSubmit() {
                 <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600"></i>
                 <span>Attention: ${unanswered} Unanswered Question(s)</span>
             </div>
-            <p>You still have <strong>${unanswered}</strong> question(s) without an answer. Submitting now will finalize your test and grade all unanswered questions as zero.</p>
+            <p>You still have <strong>${unanswered}</strong> question(s) without an answer. Submitting now will finalize your session and grade all unanswered questions as zero.</p>
         `;
     } else {
         noticeEl.className = "p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs leading-relaxed space-y-1";
@@ -1153,7 +1255,7 @@ function confirmSubmit() {
                 <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
                 <span>All Questions Answered</span>
             </div>
-            <p>Excellent! You have answered all <strong>${QUESTIONS.length}</strong> questions. Confirm below to grade and compute your results.</p>
+            <p>Excellent! You have answered all <strong>${QUESTIONS.length}</strong> questions. Confirm below to grade and compute your official diagnostic transcript.</p>
         `;
     }
 
@@ -1555,7 +1657,8 @@ function showCheatingWarningModal(count, max, type) {
 
 function dismissCheatingModal() {
     const modal = document.getElementById('cheatingModal');
-    if (modal) modal.classList.add('hidden');
+    if (!modal) return;
+    modal.classList.add('hidden');
     if (ENFORCE_FULLSCREEN && !document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch(() => {});
     }
