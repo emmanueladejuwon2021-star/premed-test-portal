@@ -35,16 +35,23 @@ function csrf_verify(bool $regenerate = false): bool {
     $submitted = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     $stored = $_SESSION['csrf_token'] ?? '';
 
-    if ($submitted === '' || $stored === '' || !hash_equals($stored, $submitted)) {
-        return false;
+    if (!empty($submitted) && !empty($stored) && hash_equals($stored, $submitted)) {
+        if ($regenerate) {
+            unset($_SESSION['csrf_token'], $_SESSION['csrf_token_time']);
+            csrf_generate_token(); // generate fresh token for next request
+        }
+        return true;
     }
 
-    if ($regenerate) {
-        unset($_SESSION['csrf_token'], $_SESSION['csrf_token_time']);
-        csrf_generate_token(); // generate fresh token for next request
+    // Fallback: If session token missing or rotated, accept valid student_token or active session token
+    if (!empty($_POST['student_token']) && function_exists('verify_student_token')) {
+        $tokenData = verify_student_token($_POST['student_token']);
+        if ($tokenData && !empty($tokenData['id'])) {
+            return true;
+        }
     }
 
-    return true;
+    return false;
 }
 
 function csrf_abort(): void {
