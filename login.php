@@ -352,7 +352,7 @@ require_once __DIR__ . '/includes/header.php';
                 <i data-lucide="graduation-cap" class="w-6 h-6"></i>
             </div>
             <span id="secretKnockBadge" class="inline-block text-[10px] uppercase font-bold tracking-widest text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200 mb-1 font-mono">Student Access</span>
-            <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">PreMed Student Portal</h1>
+            <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">PreMed Test Portal</h1>
             <p class="text-xs text-slate-500 mt-0.5">Practice tests, past questions, and study tools</p>
         </div>
 

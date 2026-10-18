@@ -710,31 +710,127 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </div>
 
-    <!-- 3. Tabbed Navigation Bar -->
+    <!-- 3. Non-Technical Faculty 1-Click Action Bar & Quick Guide -->
+    <div class="bg-gradient-to-r from-teal-900 via-indigo-900 to-slate-900 rounded-3xl p-5 text-white shadow-md border border-teal-800/40 space-y-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 font-bold text-[10px] uppercase tracking-wider">
+                    <i data-lucide="sparkles" class="w-3 h-3 text-emerald-400"></i>
+                    <span>Quick Faculty Hub &bull; Non-Technical Friendly</span>
+                </span>
+                <h2 class="text-sm sm:text-base font-black tracking-tight text-white mt-1">What would you like to do?</h2>
+                <p class="text-xs text-slate-300">Fast 1-click buttons for daily exam and prize operations without dealing with technical settings.</p>
+            </div>
+            <button type="button" onclick="document.getElementById('facultyHelpGuide').classList.toggle('hidden')" class="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-teal-200 transition-all flex items-center gap-1.5">
+                <i data-lucide="help-circle" class="w-4 h-4 text-teal-300"></i>
+                <span>Open Beginner's Guide</span>
+            </button>
+        </div>
+
+        <!-- 4 Primary Quick Action Buttons -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <!-- 1. Download Prize Money Sheet -->
+            <a href="?export=prizes_csv" class="p-3.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 transition-all flex items-center gap-3 group">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                    <i data-lucide="banknote" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-black text-white block">Download Prize Excel</span>
+                    <span class="text-[10px] text-emerald-200">Bank accounts for cash payouts</span>
+                </div>
+            </a>
+
+            <!-- 2. Download Exam Scores -->
+            <a href="?export=gradebook_csv" class="p-3.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 transition-all flex items-center gap-3 group">
+                <div class="w-10 h-10 rounded-xl bg-violet-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                    <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-black text-white block">Download Gradebook</span>
+                    <span class="text-[10px] text-violet-200">All student marks &amp; percentages</span>
+                </div>
+            </a>
+
+            <!-- 3. Add a New Question -->
+            <a href="?tab=questions#authorSection" class="p-3.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 transition-all flex items-center gap-3 group">
+                <div class="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                    <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-black text-white block">Add a Question</span>
+                    <span class="text-[10px] text-indigo-200">Author questions with 4 choices</span>
+                </div>
+            </a>
+
+            <!-- 4. Turn Exams On / Off -->
+            <a href="?tab=deployments" class="p-3.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 transition-all flex items-center gap-3 group">
+                <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                    <i data-lucide="toggle-right" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-black text-white block">Turn Exams On / Off</span>
+                    <span class="text-[10px] text-amber-200">Control student exam access</span>
+                </div>
+            </a>
+        </div>
+
+        <!-- Expandable Non-Tech Explanation Card -->
+        <div id="facultyHelpGuide" class="hidden bg-slate-950/60 p-4 sm:p-5 rounded-2xl border border-teal-500/30 space-y-3 animate-in fade-in text-xs">
+            <div class="flex items-center justify-between border-b border-white/10 pb-2">
+                <span class="font-black text-teal-300 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <i data-lucide="book-open" class="w-4 h-4"></i>
+                    <span>Simple Plain-English Guide for Faculty &amp; Coordinators</span>
+                </span>
+                <button type="button" onclick="document.getElementById('facultyHelpGuide').classList.add('hidden')" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-slate-300">
+                <div class="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
+                    <span class="font-bold text-emerald-400 block">1. Starting / Stopping Tests</span>
+                    <p class="text-[11px] leading-relaxed">Go to <strong>Exams &amp; Sittings</strong>. When an exam shows <span class="text-emerald-300 font-bold">🟢 Live</span>, students can write it. If you want to pause it, simply click <strong>Pause Exam</strong>.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
+                    <span class="font-bold text-indigo-400 block">2. Adding Questions</span>
+                    <p class="text-[11px] leading-relaxed">Go to <strong>Question Bank</strong>, select your subject, type the question, enter choices A, B, C, D, and pick the right answer. No coding required!</p>
+                </div>
+                <div class="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
+                    <span class="font-bold text-amber-400 block">3. Paying Cash Winners</span>
+                    <p class="text-[11px] leading-relaxed">Click <strong>Download Prize Excel</strong> above. It gives you a clean spreadsheet containing each candidate's Bank Name, Account Number, and Verified Name for disbursement.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
+                    <span class="font-bold text-rose-400 block">4. Resetting a Password</span>
+                    <p class="text-[11px] leading-relaxed">If a student forgot their password, go to <strong>Candidates</strong>, search their name, and click <strong>Reset Pass</strong>. Their password will instantly reset to <code class="bg-black/40 px-1 py-0.5 rounded text-white font-mono">premed2026</code>.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Tabbed Navigation Bar -->
     <div class="bg-white rounded-2xl p-1.5 border border-slate-200 shadow-xs flex flex-wrap gap-1 text-xs font-bold">
         <a href="?tab=deployments" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'deployments' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' ?>">
             <i data-lucide="layers" class="w-4 h-4"></i>
-            <span>Assessments &amp; Deployment</span>
+            <span>1. Exams &amp; Sittings</span>
             <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'deployments' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' ?>"><?= count($courses) ?></span>
         </a>
         <a href="?tab=questions" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'questions' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' ?>">
             <i data-lucide="file-question" class="w-4 h-4"></i>
-            <span>Question Bank &amp; Importer</span>
+            <span>2. Question Bank</span>
             <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'questions' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' ?>"><?= $totalQuestions ?></span>
         </a>
         <a href="?tab=results" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'results' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' ?>">
             <i data-lucide="graduation-cap" class="w-4 h-4"></i>
-            <span>Gradebook &amp; Transcripts</span>
+            <span>3. Scores &amp; Gradebook</span>
             <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'results' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' ?>"><?= $totalResults ?></span>
         </a>
         <a href="?tab=students" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'students' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' ?>">
             <i data-lucide="id-card" class="w-4 h-4"></i>
-            <span>Candidates &amp; Cash Prizes</span>
+            <span>4. Candidates &amp; Cash Prizes</span>
             <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'students' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' ?>"><?= $totalStudents ?></span>
         </a>
         <a href="?tab=proctoring" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'proctoring' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' ?>">
             <i data-lucide="shield-alert" class="w-4 h-4"></i>
-            <span>Integrity &amp; Proctoring</span>
+            <span>5. Live Exam Monitor</span>
             <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'proctoring' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' ?>"><?= count($proctorSessions) ?></span>
         </a>
     </div>
@@ -821,25 +917,35 @@ require_once __DIR__ . '/includes/header.php';
                             <td class="px-6 py-4 text-center font-mono text-slate-600"><?= (int)$c['question_limit'] ?> / exam</td>
                             <td class="px-6 py-4 text-center">
                                 <?php if ($c['is_locked']): ?>
-                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 font-bold text-[11px]">
-                                    <i data-lucide="lock" class="w-3 h-3"></i> Locked
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-300 text-slate-700 font-bold text-[11px]">
+                                    <i data-lucide="pause-circle" class="w-3.5 h-3.5 text-slate-500"></i>
+                                    <span>Closed / Paused</span>
                                 </span>
                                 <?php else: ?>
-                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[11px]">
-                                    <i data-lucide="unlock" class="w-3 h-3"></i> Active Live
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 font-black text-[11px]">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    <span>🟢 LIVE FOR STUDENTS</span>
                                 </span>
                                 <?php endif; ?>
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <div class="flex items-center justify-end gap-2">
-                                    <!-- Lock / Unlock Toggle -->
+                                    <!-- Simple 1-Click Lock / Unlock Toggle -->
                                     <form method="POST" action="admin_dashboard.php" class="inline">
                                         <input type="hidden" name="action" value="toggle_lock">
                                         <input type="hidden" name="course_id" value="<?= htmlspecialchars($c['id']) ?>">
                                         <input type="hidden" name="current_locked" value="<?= (int)$c['is_locked'] ?>">
-                                        <button type="submit" class="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all <?= $c['is_locked'] ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100' ?>">
-                                            <?= $c['is_locked'] ? 'Unlock for Sittings' : 'Lock Exam' ?>
+                                        <?php if ($c['is_locked']): ?>
+                                        <button type="submit" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-xs transition-all flex items-center gap-1.5" title="Make this exam available for students to write right now">
+                                            <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                                            <span>Turn LIVE</span>
                                         </button>
+                                        <?php else: ?>
+                                        <button type="submit" class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-xs transition-all flex items-center gap-1.5" title="Temporarily hide/pause this exam from students">
+                                            <i data-lucide="pause" class="w-3.5 h-3.5"></i>
+                                            <span>Pause Exam</span>
+                                        </button>
+                                        <?php endif; ?>
                                     </form>
 
                                     <!-- Edit Parameters Modal Trigger -->
@@ -959,68 +1065,103 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <!-- Add Single Question Form -->
-        <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
-            <h3 class="text-sm font-black text-slate-900 flex items-center gap-2">
-                <i data-lucide="edit-3" class="w-4 h-4 text-indigo-600"></i>
-                <span>Author Single Question (LaTeX Math Supported)</span>
-            </h3>
+        <div id="authorSection" class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-4">
+                <div>
+                    <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                        <i data-lucide="edit-3" class="w-5 h-5 text-indigo-600"></i>
+                        <span>Add Question with 4 Choices &amp; Explanations</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Type your question, 4 options, and select the correct letter. Formulas and symbols work automatically!</p>
+                </div>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 font-bold text-xs">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-500"></i>
+                    <span>Math &amp; Science Friendly</span>
+                </span>
+            </div>
+
             <form method="POST" action="admin_dashboard.php" class="space-y-4">
                 <input type="hidden" name="action" value="add_question">
+                
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div class="sm:col-span-2">
-                        <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Target Course / Subject <span class="text-rose-500">*</span></label>
-                        <select name="course_id" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-800">
-                            <option value="" disabled selected>-- Select Subject --</option>
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">1. Which Subject is this for? <span class="text-rose-500">*</span></label>
+                        <select name="course_id" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                            <option value="" disabled selected>-- Select Subject / Exam --</option>
                             <?php foreach ($courses as $c): ?>
                             <option value="<?= htmlspecialchars($c['id']) ?>" <?= $selectedCourseFilter === $c['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($c['code']) ?> - <?= htmlspecialchars($c['title']) ?>
+                                <?= htmlspecialchars($c['code']) ?> - <?= htmlspecialchars($c['title']) ?> (<?= (int)$c['q_count'] ?> Qs)
                             </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Correct Answer Key <span class="text-rose-500">*</span></label>
-                        <select name="correct_option" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-black text-indigo-700">
-                            <option value="A">Option A</option>
-                            <option value="B">Option B</option>
-                            <option value="C">Option C</option>
-                            <option value="D">Option D</option>
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">2. Correct Answer Key <span class="text-rose-500">*</span></label>
+                        <select name="correct_option" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-emerald-500 text-xs bg-emerald-50/50 font-black text-emerald-900 focus:ring-2 focus:ring-emerald-500">
+                            <option value="A">Choice A is Correct</option>
+                            <option value="B">Choice B is Correct</option>
+                            <option value="C">Choice C is Correct</option>
+                            <option value="D">Choice D is Correct</option>
                         </select>
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Question Prompt <span class="text-rose-500">*</span></label>
-                    <textarea name="text" required rows="3" placeholder="Enter clinical or scientific question prompt (LaTeX $formula$ supported)..." class="w-full p-3 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500"></textarea>
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">3. Question Prompt <span class="text-rose-500">*</span></label>
+                    <textarea name="text" required rows="3" placeholder="Type the question here (e.g. A stretched string vibrates with frequency f...)" class="w-full p-3.5 rounded-2xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 leading-relaxed"></textarea>
+                    <span class="text-[11px] text-slate-400 mt-1 block">Tip: You can type formulas normally or wrap in dollar signs like <code class="text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded font-mono">$f = \frac{1}{2l}\sqrt{\frac{T}{\mu}}$</code></span>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Option A <span class="text-rose-500">*</span></label>
-                        <input type="text" name="a" required placeholder="Option A text" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Option B <span class="text-rose-500">*</span></label>
-                        <input type="text" name="b" required placeholder="Option B text" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Option C</label>
-                        <input type="text" name="c" placeholder="Option C text" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Option D</label>
-                        <input type="text" name="d" placeholder="Option D text" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs">
+                <!-- 4 Colored Option Cards -->
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">4. Enter The Four Multiple-Choice Options</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <!-- Option A Card -->
+                        <div class="p-3 rounded-2xl bg-indigo-50/40 border border-indigo-200/70 space-y-1">
+                            <span class="text-[11px] font-black uppercase text-indigo-700 flex items-center gap-1.5">
+                                <span class="w-5 h-5 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">A</span>
+                                <span>Option A <span class="text-rose-500">*</span></span>
+                            </span>
+                            <input type="text" name="a" required placeholder="Option A text or answer..." class="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-white text-xs focus:ring-2 focus:ring-indigo-500">
+                        </div>
+
+                        <!-- Option B Card -->
+                        <div class="p-3 rounded-2xl bg-purple-50/40 border border-purple-200/70 space-y-1">
+                            <span class="text-[11px] font-black uppercase text-purple-700 flex items-center gap-1.5">
+                                <span class="w-5 h-5 rounded-lg bg-purple-600 text-white flex items-center justify-center text-[10px] font-black">B</span>
+                                <span>Option B <span class="text-rose-500">*</span></span>
+                            </span>
+                            <input type="text" name="b" required placeholder="Option B text or answer..." class="w-full px-3 py-2 rounded-xl border border-purple-200 bg-white text-xs focus:ring-2 focus:ring-purple-500">
+                        </div>
+
+                        <!-- Option C Card -->
+                        <div class="p-3 rounded-2xl bg-amber-50/40 border border-amber-200/70 space-y-1">
+                            <span class="text-[11px] font-black uppercase text-amber-800 flex items-center gap-1.5">
+                                <span class="w-5 h-5 rounded-lg bg-amber-500 text-white flex items-center justify-center text-[10px] font-black">C</span>
+                                <span>Option C</span>
+                            </span>
+                            <input type="text" name="c" placeholder="Option C text or answer..." class="w-full px-3 py-2 rounded-xl border border-amber-200 bg-white text-xs focus:ring-2 focus:ring-amber-500">
+                        </div>
+
+                        <!-- Option D Card -->
+                        <div class="p-3 rounded-2xl bg-emerald-50/40 border border-emerald-200/70 space-y-1">
+                            <span class="text-[11px] font-black uppercase text-emerald-800 flex items-center gap-1.5">
+                                <span class="w-5 h-5 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">D</span>
+                                <span>Option D</span>
+                            </span>
+                            <input type="text" name="d" placeholder="Option D text or answer..." class="w-full px-3 py-2 rounded-xl border border-emerald-200 bg-white text-xs focus:ring-2 focus:ring-emerald-500">
+                        </div>
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Clinical Explanation &amp; Rationale</label>
-                    <input type="text" name="explanation" placeholder="Detailed rationale for candidates explaining why the key is correct..." class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs">
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">5. Explanation &amp; Working (Shown to students during test review)</label>
+                    <textarea name="explanation" rows="2" placeholder="Explain why the answer is correct so students learn from their test review..." class="w-full p-3 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500"></textarea>
                 </div>
 
                 <div class="pt-2 flex justify-end">
-                    <button type="submit" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-100 flex items-center gap-2">
-                        <i data-lucide="check" class="w-4 h-4"></i>
+                    <button type="submit" class="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md shadow-emerald-200 flex items-center gap-2 transition-all">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i>
                         <span>Save Question to Bank</span>
                     </button>
                 </div>
@@ -1302,11 +1443,12 @@ require_once __DIR__ . '/includes/header.php';
                             <td class="px-6 py-4 text-right">
                                 <div class="flex items-center justify-end gap-1.5">
                                     <!-- Reset Password to Default -->
-                                    <form method="POST" action="admin_dashboard.php" class="inline" onsubmit="return confirm('Reset password for <?= htmlspecialchars($st['name']) ?> to default (premed2026)?')">
+                                    <form method="POST" action="admin_dashboard.php" class="inline" onsubmit="return confirm('Reset password for <?= htmlspecialchars($st['name']) ?> to default (premed2026)? The student can log in right away using premed2026.')">
                                         <input type="hidden" name="action" value="reset_student_password">
                                         <input type="hidden" name="student_id" value="<?= htmlspecialchars($st['id']) ?>">
-                                        <button type="submit" class="px-2.5 py-1 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 font-bold text-[11px]" title="Reset password to premed2026">
-                                            Reset Pass
+                                        <button type="submit" class="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 hover:bg-amber-100 font-bold text-xs inline-flex items-center gap-1 shadow-2xs transition-all" title="Reset password to premed2026">
+                                            <i data-lucide="key" class="w-3 h-3 text-amber-700"></i>
+                                            <span>Reset Pass</span>
                                         </button>
                                     </form>
 

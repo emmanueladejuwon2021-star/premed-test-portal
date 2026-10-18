@@ -23,14 +23,14 @@ if (!$isPublicPage && empty($_SESSION['student']) && empty($_SESSION['admin'])) 
 
 $student = $_SESSION['student'] ?? null;
 $isAdmin = !empty($_SESSION['admin']);
-$pageTitle = $pageTitle ?? 'PreMed Portal';
+$pageTitle = $pageTitle ?? 'PreMed Test Portal';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($pageTitle) ?> | PreMed Student Portal</title>
+    <title><?= htmlspecialchars($pageTitle) ?> | PreMed Test Portal</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -85,7 +85,7 @@ $pageTitle = $pageTitle ?? 'PreMed Portal';
                     </svg>
                 </div>
                 <div>
-                    <span class="text-base font-black text-slate-900 tracking-tight">PreMed<span class="text-teal-600">Pulse</span></span>
+                    <span class="text-base font-black text-slate-900 tracking-tight">PreMed <span class="text-teal-600">Test Portal</span></span>
                     <p class="text-[10px] text-teal-700 font-bold uppercase tracking-wider leading-none hidden sm:block">Clinical CBT Portal</p>
                 </div>
             </a>
