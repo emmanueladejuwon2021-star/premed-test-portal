@@ -11,11 +11,27 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-if (!csrf_verify()) {
-    csrf_abort();
-}
-
 $db = DB::connect();
+
+if (!csrf_verify()) {
+    // Check if valid student auth token is present before aborting
+    $hasValidAuthToken = false;
+    if (!empty($_POST['student_token'])) {
+        $tokenData = verify_student_token($_POST['student_token']);
+        if ($tokenData && !empty($tokenData['id'])) {
+            $hasValidAuthToken = true;
+        }
+    }
+
+    // Also accept if active logged in student session exists
+    if (!$hasValidAuthToken && !empty($_SESSION['student']['id'])) {
+        $hasValidAuthToken = true;
+    }
+
+    if (!$hasValidAuthToken) {
+        csrf_abort();
+    }
+}
 $student = $_SESSION['student'] ?? null;
 
 // Graceful session restoration via signed student token
