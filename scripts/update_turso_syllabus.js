@@ -1,4 +1,5 @@
 const https = require('node:https');
+const { parseJsonResponse } = require('../helpers/http_utils.js');
 
 const TURSO_URL = process.env.TURSO_DATABASE_URL ? process.env.TURSO_DATABASE_URL.replace(/\/$/, '') + '/v2/pipeline' : 'https://premed-test-portal-emmanueladejuwon2021-star.aws-us-east-1.turso.io/v2/pipeline';
 const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN || process.env.TURSO_TOKEN || '';
@@ -26,16 +27,7 @@ function runTursoPipeline(requests) {
         },
         timeout: 20000
       }, (res) => {
-        let body = '';
-        res.on('data', chunk => body += chunk);
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(body));
-          } catch (e) {
-            console.error('[TURSO PARSE ERROR]', e.message);
-            resolve(null);
-          }
-        });
+        parseJsonResponse(res, '[TURSO PARSE ERROR]').then(resolve);
       });
       req.on('error', (e) => {
         console.error('[TURSO PIPELINE ERROR]', e.message);
