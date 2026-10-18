@@ -13,6 +13,7 @@
 const http = require('node:http');
 const https = require('node:https');
 const url = require('node:url');
+const { parseJsonResponse } = require('./helpers/http_utils.js');
 
 const PORT = 8899;
 const { renderHtml } = require('./admin_ui_template.js');
@@ -83,16 +84,7 @@ function runTursoPipeline(requests) {
         },
         timeout: 15000
       }, (res) => {
-        let body = '';
-        res.on('data', chunk => body += chunk);
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(body));
-          } catch (e) {
-            console.error('[TURSO PARSE ERROR]', e.message);
-            resolve(null);
-          }
-        });
+        parseJsonResponse(res, '[TURSO PARSE ERROR]').then(resolve);
       });
       req.on('error', (e) => {
         console.error('[TURSO PIPELINE ERROR]', e.message);
