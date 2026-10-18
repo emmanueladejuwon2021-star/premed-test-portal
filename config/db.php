@@ -151,26 +151,22 @@ class DB {
 
         try {
             // A. Ensure Course exists
-            $cStmt = $pdo->prepare("SELECT id FROM courses WHERE code = 'PHY 101' OR UPPER(title) LIKE '%PHYSICS%' LIMIT 1");
+            $cStmt = $pdo->prepare("SELECT id FROM courses WHERE id = 'course_phy101' OR code = 'PHY 101' LIMIT 1");
             $cStmt->execute();
             $course = $cStmt->fetch();
             if (!$course) {
-                $courseId = 'phy_cbt_101';
-                $pdo->prepare("INSERT INTO courses (id, code, title, icon, is_mock, is_locked, duration, question_limit) VALUES (?, 'PHY 101', 'General Medical Physics', 'Atom', 1, 0, 30, 24)")->execute([$courseId]);
-            } else {
-                $courseId = $course['id'];
+                return; // Course not present yet, do not auto-create legacy course
             }
+            $courseId = $course['id'];
 
             // B. Ensure Topic exists
-            $tStmt = $pdo->prepare("SELECT id FROM topics WHERE course_id = ? AND (id = 'top_phy101_1' OR name LIKE '%Physical quantities%' OR name LIKE '%Dimensional%') LIMIT 1");
+            $tStmt = $pdo->prepare("SELECT id FROM topics WHERE course_id = ? AND (id = 'top_phy101_1' OR name LIKE '%Physical quantities%') LIMIT 1");
             $tStmt->execute([$courseId]);
             $topic = $tStmt->fetch();
             if (!$topic) {
-                $topicId = 'top_phy101_1';
-                $pdo->prepare("INSERT INTO topics (id, course_id, name, question_count) VALUES (?, ?, 'Physical quantities, units, and dimensions', 24)")->execute([$topicId, $courseId]);
-            } else {
-                $topicId = $topic['id'];
+                return; // Topic not initialized yet
             }
+            $topicId = $topic['id'];
 
             // C. 24 Comprehensive Questions with Dimensional Analysis
             $questions = [
@@ -453,26 +449,22 @@ class DB {
 
         try {
             // A. Ensure Course exists
-            $cStmt = $pdo->prepare("SELECT id FROM courses WHERE code = 'PHY 101' OR UPPER(title) LIKE '%PHYSICS%' LIMIT 1");
+            $cStmt = $pdo->prepare("SELECT id FROM courses WHERE id = 'course_phy101' OR code = 'PHY 101' LIMIT 1");
             $cStmt->execute();
             $course = $cStmt->fetch();
             if (!$course) {
-                $courseId = 'phy_cbt_101';
-                $pdo->prepare("INSERT INTO courses (id, code, title, icon, is_mock, is_locked, duration, question_limit) VALUES (?, 'PHY 101', 'General Medical Physics', 'Atom', 1, 0, 30, 24)")->execute([$courseId]);
-            } else {
-                $courseId = $course['id'];
+                return; // Course not present yet
             }
+            $courseId = $course['id'];
 
             // B. Ensure Topic exists
-            $tStmt = $pdo->prepare("SELECT id FROM topics WHERE course_id = ? AND (id = 'top_phy101_2' OR name LIKE '%Vector%' OR name LIKE '%Scalar%') LIMIT 1");
+            $tStmt = $pdo->prepare("SELECT id FROM topics WHERE course_id = ? AND (id = 'top_phy101_2' OR name LIKE '%Scalars%') LIMIT 1");
             $tStmt->execute([$courseId]);
             $topic = $tStmt->fetch();
             if (!$topic) {
-                $topicId = 'top_phy101_2';
-                $pdo->prepare("INSERT INTO topics (id, course_id, name, question_count) VALUES (?, ?, 'Scalars and Vectors', 16)")->execute([$topicId, $courseId]);
-            } else {
-                $topicId = $topic['id'];
+                return; // Topic not initialized yet
             }
+            $topicId = $topic['id'];
 
             // C. 16 Comprehensive Questions with Full Unshortened Explanations & Solutions
             $questions = [
