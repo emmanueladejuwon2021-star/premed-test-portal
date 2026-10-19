@@ -1203,9 +1203,9 @@ require_once __DIR__ . '/includes/header.php';
             </form>
         </div>
 
-        <!-- Assessments & Curriculum Topics Table -->
-        <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <!-- Assessments & Curriculum Topics Manager -->
+        <div class="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
                     <h2 class="text-base font-black text-slate-900 flex items-center gap-2">
                         <i data-lucide="book-open" class="w-5 h-5 text-indigo-600"></i>
@@ -1213,119 +1213,120 @@ require_once __DIR__ . '/includes/header.php';
                     </h2>
                     <p class="text-xs text-slate-500 mt-0.5">Edit subject parameters, manage individual curriculum topics, monitor question allocations, and control live status.</p>
                 </div>
-                <div class="flex items-center gap-2">
-                    <a href="?export=questions_csv" class="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-2">
-                        <i data-lucide="download" class="w-4 h-4"></i>
-                        <span>Export Entire Question Bank (CSV)</span>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <a href="?export=questions_csv" class="w-full sm:w-auto px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+                        <i data-lucide="download" class="w-4 h-4 text-indigo-600"></i>
+                        <span>Export Question Bank (CSV)</span>
                     </a>
                 </div>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs">
-                    <thead class="bg-slate-50 border-b border-slate-200 uppercase font-black text-slate-500">
-                        <tr>
-                            <th class="px-5 py-3.5">Code</th>
-                            <th class="px-5 py-3.5">Course Title</th>
-                            <th class="px-5 py-3.5 text-center">Curriculum Topics</th>
-                            <th class="px-5 py-3.5 text-center">Question Bank Allocation</th>
-                            <th class="px-5 py-3.5 text-center">Duration</th>
-                            <th class="px-5 py-3.5 text-center">Allotment</th>
-                            <th class="px-5 py-3.5 text-center">Status</th>
-                            <th class="px-5 py-3.5 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        <?php if (empty($courses)): ?>
-                        <tr><td colspan="8" class="py-8 text-center text-slate-400">No courses configured yet.</td></tr>
-                        <?php else: ?>
-                        <?php foreach ($courses as $c): 
-                            $cTopics = $topicsByCourse[$c['id']] ?? [];
-                        ?>
-                        <tr class="hover:bg-slate-50/70 transition-colors">
-                            <td class="px-5 py-4 font-mono font-black text-indigo-700"><?= htmlspecialchars($c['code']) ?></td>
-                            <td class="px-5 py-4 font-bold text-slate-900"><?= htmlspecialchars($c['title']) ?></td>
-                            <td class="px-5 py-4 text-center">
-                                <button type="button" onclick="openCourseTopicsModal(<?= htmlspecialchars(json_encode($c)) ?>)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-bold text-xs transition-all shadow-xs" title="Click to view, add, or rename topics for this course">
-                                    <i data-lucide="folder-tree" class="w-3.5 h-3.5 text-indigo-600"></i>
-                                    <span><?= count($cTopics) ?> Topic<?= count($cTopics) === 1 ? '' : 's' ?></span>
-                                    <span class="text-[10px] text-indigo-400 font-normal">Edit &rsaquo;</span>
-                                </button>
-                            </td>
-                            <td class="px-5 py-4 text-center">
-                                <div class="inline-flex flex-col items-center gap-1">
-                                    <div class="flex items-center gap-1.5 text-[11px] font-bold">
-                                        <a href="?tab=questions&bank_type=past&filter_course=<?= urlencode($c['id']) ?>" class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors" title="View Past Questions for this course">
-                                            📚 <?= (int)$c['past_q_count'] ?> Past
-                                        </a>
-                                        <a href="?tab=questions&bank_type=test&filter_course=<?= urlencode($c['id']) ?>" class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100 transition-colors" title="View Test Questions for this course">
-                                            ⏱️ <?= (int)$c['test_q_count'] ?> Test
-                                        </a>
-                                    </div>
-                                    <span class="text-[10px] text-slate-400 font-medium">Total: <?= (int)$c['q_count'] ?> questions</span>
-                                </div>
-                            </td>
-                            <td class="px-5 py-4 text-center font-mono font-bold text-slate-600"><?= (int)$c['duration'] ?>m</td>
-                            <td class="px-5 py-4 text-center font-mono text-slate-600"><?= (int)$c['question_limit'] ?> / exam</td>
-                            <td class="px-5 py-4 text-center">
+            <!-- Responsive Cards List (Zero Horizontal Scroll on Mobile, Grid on Larger Screens) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                <?php if (empty($courses)): ?>
+                <div class="col-span-full py-8 text-center text-slate-400 text-xs">No courses configured yet.</div>
+                <?php else: ?>
+                <?php foreach ($courses as $c):
+                    $cTopics = $topicsByCourse[$c['id']] ?? [];
+                ?>
+                <div class="bg-slate-50/70 hover:bg-slate-50 rounded-2xl border border-slate-200/80 p-3.5 space-y-3 transition-all flex flex-col justify-between">
+
+                    <!-- Top Row: Course Code, Title & Status -->
+                    <div class="flex items-start justify-between gap-2.5">
+                        <div class="space-y-0.5 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2.5 py-0.5 rounded-lg bg-indigo-100 text-indigo-900 border border-indigo-200 font-mono font-black text-xs">
+                                    <?= htmlspecialchars($c['code']) ?>
+                                </span>
                                 <?php if ($c['is_locked']): ?>
-                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-300 text-slate-700 font-bold text-[10px]">
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-bold text-[10px]">
                                     <i data-lucide="pause-circle" class="w-3 h-3 text-slate-500"></i>
                                     <span>Closed</span>
                                 </span>
                                 <?php else: ?>
-                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 font-black text-[10px]">
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-black text-[10px]">
                                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                     <span>🟢 LIVE</span>
                                 </span>
                                 <?php endif; ?>
-                            </td>
-                            <td class="px-5 py-4 text-right">
-                                <div class="flex items-center justify-end gap-1.5">
-                                    <!-- Manage Topics Button -->
-                                    <button type="button" onclick="openCourseTopicsModal(<?= htmlspecialchars(json_encode($c)) ?>)" class="px-2.5 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all flex items-center gap-1" title="Manage Curriculum Topics">
-                                        <i data-lucide="folder-plus" class="w-3.5 h-3.5"></i>
-                                        <span>Topics</span>
-                                    </button>
+                            </div>
+                            <h3 class="text-xs sm:text-sm font-bold text-slate-900 leading-snug truncate">
+                                <?= htmlspecialchars($c['title']) ?>
+                            </h3>
+                        </div>
 
-                                    <!-- Simple 1-Click Lock / Unlock Toggle -->
-                                    <form method="POST" action="admin_dashboard.php" class="inline">
-                                        <input type="hidden" name="action" value="toggle_lock">
-                                        <input type="hidden" name="course_id" value="<?= htmlspecialchars($c['id']) ?>">
-                                        <input type="hidden" name="current_locked" value="<?= (int)$c['is_locked'] ?>">
-                                        <?php if ($c['is_locked']): ?>
-                                        <button type="submit" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-xs transition-all flex items-center gap-1" title="Make this exam available for students right now">
-                                            <i data-lucide="play" class="w-3.5 h-3.5"></i>
-                                            <span>Turn LIVE</span>
-                                        </button>
-                                        <?php else: ?>
-                                        <button type="submit" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-xs transition-all flex items-center gap-1" title="Temporarily pause this exam from students">
-                                            <i data-lucide="pause" class="w-3.5 h-3.5"></i>
-                                            <span>Pause</span>
-                                        </button>
-                                        <?php endif; ?>
-                                    </form>
+                        <!-- Topics Trigger Button -->
+                        <button type="button" onclick="openCourseTopicsModal(<?= htmlspecialchars(json_encode($c)) ?>)" class="shrink-0 px-2.5 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-bold text-xs transition-all flex items-center gap-1 shadow-2xs" title="Manage Curriculum Topics">
+                            <i data-lucide="folder-tree" class="w-3.5 h-3.5 text-indigo-600"></i>
+                            <span><?= count($cTopics) ?> Topics</span>
+                            <span class="text-[10px] text-indigo-400 font-normal">&rsaquo;</span>
+                        </button>
+                    </div>
 
-                                    <!-- Edit Parameters Modal Trigger -->
-                                    <button type="button" onclick="openEditCourseModal(<?= htmlspecialchars(json_encode($c)) ?>)" class="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100" title="Edit Parameters">
-                                        <i data-lucide="settings" class="w-4 h-4"></i>
-                                    </button>
+                    <!-- Middle Row: Question Breakdown Pill Badges & Duration Allotment -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 bg-white p-2.5 rounded-xl border border-slate-200/60 text-xs">
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <a href="?tab=questions&bank_type=past&filter_course=<?= urlencode($c['id']) ?>" class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors text-[11px] font-bold" title="View Past Questions">
+                                📚 <?= (int)$c['past_q_count'] ?> Past
+                            </a>
+                            <a href="?tab=questions&bank_type=test&filter_course=<?= urlencode($c['id']) ?>" class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100 transition-colors text-[11px] font-bold" title="View Test Questions">
+                                ⏱️ <?= (int)$c['test_q_count'] ?> Test
+                            </a>
+                            <span class="text-[10px] text-slate-400 font-medium">Total: <?= (int)$c['q_count'] ?> Qs</span>
+                        </div>
 
-                                    <!-- Delete Course Button -->
-                                    <form method="POST" action="admin_dashboard.php" class="inline" onsubmit="return confirm('WARNING: Are you sure you want to permanently delete <?= htmlspecialchars($c['code']) ?> and all its associated questions?')">
-                                        <input type="hidden" name="action" value="delete_course">
-                                        <input type="hidden" name="course_id" value="<?= htmlspecialchars($c['id']) ?>">
-                                        <button type="submit" class="p-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50" title="Delete Course">
-                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                        <div class="font-mono text-[11px] font-bold text-slate-600 flex items-center gap-2">
+                            <span>⏱️ <?= (int)$c['duration'] ?>m</span>
+                            <span>&bull;</span>
+                            <span>📋 <?= (int)$c['question_limit'] ?> / exam</span>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Action Controls -->
+                    <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/50">
+                        <button type="button" onclick="openCourseTopicsModal(<?= htmlspecialchars(json_encode($c)) ?>)" class="text-xs text-indigo-700 font-bold hover:underline flex items-center gap-1">
+                            <i data-lucide="folder-plus" class="w-3.5 h-3.5"></i>
+                            <span>Curriculum Topics</span>
+                        </button>
+
+                        <div class="flex items-center gap-1.5">
+                            <!-- 1-Click Lock / Unlock Toggle -->
+                            <form method="POST" action="admin_dashboard.php" class="inline">
+                                <input type="hidden" name="action" value="toggle_lock">
+                                <input type="hidden" name="course_id" value="<?= htmlspecialchars($c['id']) ?>">
+                                <input type="hidden" name="current_locked" value="<?= (int)$c['is_locked'] ?>">
+                                <?php if ($c['is_locked']): ?>
+                                <button type="submit" class="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-2xs transition-all flex items-center gap-1">
+                                    <i data-lucide="play" class="w-3 h-3"></i>
+                                    <span>Turn LIVE</span>
+                                </button>
+                                <?php else: ?>
+                                <button type="submit" class="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-2xs transition-all flex items-center gap-1">
+                                    <i data-lucide="pause" class="w-3 h-3"></i>
+                                    <span>Pause</span>
+                                </button>
+                                <?php endif; ?>
+                            </form>
+
+                            <!-- Edit Parameters Modal Trigger -->
+                            <button type="button" onclick="openEditCourseModal(<?= htmlspecialchars(json_encode($c)) ?>)" class="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100" title="Edit Parameters">
+                                <i data-lucide="settings" class="w-3.5 h-3.5"></i>
+                            </button>
+
+                            <!-- Delete Course Button -->
+                            <form method="POST" action="admin_dashboard.php" class="inline" onsubmit="return confirm('WARNING: Are you sure you want to permanently delete <?= htmlspecialchars($c['code']) ?> and all its associated questions?')">
+                                <input type="hidden" name="action" value="delete_course">
+                                <input type="hidden" name="course_id" value="<?= htmlspecialchars($c['id']) ?>">
+                                <button type="submit" class="p-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50" title="Delete Course">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+                <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         </div>
 
