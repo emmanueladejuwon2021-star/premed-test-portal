@@ -136,7 +136,69 @@ class DB {
             $pdo->exec("ALTER TABLE tests ADD COLUMN include_past_questions INTEGER DEFAULT 0");
         } catch (Exception $e) {}
 
-        // 6. Auto-seed Physics: Physical Quantities & Dimensional Analysis question bank
+        // 7. Ensure Study Room tables exist
+        try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS study_notes (
+              id TEXT PRIMARY KEY,
+              course_id TEXT NOT NULL,
+              topic_id TEXT NOT NULL,
+              title TEXT NOT NULL,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE(course_id, topic_id)
+            )");
+
+            $pdo->exec("CREATE TABLE IF NOT EXISTS study_note_sessions (
+              id TEXT PRIMARY KEY,
+              note_id TEXT NOT NULL,
+              session_number INTEGER NOT NULL,
+              title TEXT NOT NULL,
+              content TEXT NOT NULL,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE(note_id, session_number)
+            )");
+
+            $pdo->exec("CREATE TABLE IF NOT EXISTS study_session_questions (
+              id TEXT PRIMARY KEY,
+              session_id TEXT NOT NULL,
+              question_number INTEGER NOT NULL,
+              question_text TEXT NOT NULL,
+              option_a TEXT NOT NULL,
+              option_b TEXT NOT NULL,
+              option_c TEXT,
+              option_d TEXT,
+              correct_option TEXT NOT NULL,
+              explanation TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )");
+
+            $pdo->exec("CREATE TABLE IF NOT EXISTS student_study_progress (
+              id TEXT PRIMARY KEY,
+              student_id TEXT NOT NULL,
+              course_id TEXT NOT NULL,
+              topic_id TEXT NOT NULL,
+              session_number INTEGER NOT NULL,
+              passed INTEGER DEFAULT 0,
+              best_score REAL DEFAULT 0,
+              attempts INTEGER DEFAULT 0,
+              first_try_pass INTEGER DEFAULT 0,
+              coins_awarded INTEGER DEFAULT 0,
+              unlocked INTEGER DEFAULT 0,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE(student_id, course_id, topic_id, session_number)
+            )");
+
+            $pdo->exec("CREATE TABLE IF NOT EXISTS student_course_coins (
+              id TEXT PRIMARY KEY,
+              student_id TEXT NOT NULL,
+              course_id TEXT NOT NULL,
+              coins_balance INTEGER DEFAULT 0,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE(student_id, course_id)
+            )");
+        } catch (Exception $e) {}
+
+        // 8. Auto-seed Physics: Physical Quantities & Dimensional Analysis question bank
         self::seedPhysicsQuestions($pdo);
 
         // 7. Auto-seed Physics: Scalar and Vector Quantities question bank
