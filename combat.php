@@ -5,8 +5,6 @@
  */
 
 require_once __DIR__ . '/config/db.php';
-$pageTitle = "Study Combat Arena ⚔️";
-require_once __DIR__ . '/includes/header.php';
 
 $pdo = DB::connect();
 
@@ -14,10 +12,13 @@ $studentId = $_SESSION['student_id'] ?? ($_SESSION['student']['id'] ?? null);
 $studentName = $_SESSION['student_name'] ?? ($_SESSION['student']['name'] ?? 'Student');
 $matricNo = $_SESSION['student_matric'] ?? ($_SESSION['student']['matric_no'] ?? 'STU' . rand(1000, 9999));
 
-if (!$studentId) {
+if (!$studentId && empty($_SESSION['admin'])) {
     header('Location: login.php');
     exit;
 }
+
+$pageTitle = "Study Combat Arena ⚔️";
+require_once __DIR__ . '/includes/header.php';
 
 $action = $_GET['action'] ?? 'lobby';
 $tab = $_GET['tab'] ?? 'home';
