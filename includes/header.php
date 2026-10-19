@@ -59,7 +59,7 @@ $pageTitle = $pageTitle ?? 'PreMed Test Portal';
     </script>
     <script>
         (function() {
-            const savedTheme = localStorage.getItem('adminTheme');
+            const savedTheme = localStorage.getItem('appTheme') || localStorage.getItem('adminTheme');
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
                 document.documentElement.classList.add('dark');
@@ -145,11 +145,12 @@ $pageTitle = $pageTitle ?? 'PreMed Test Portal';
                 <a href="admin_dashboard.php" class="px-2.5 py-1.5 rounded-lg text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 font-bold hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors ml-1">
                     <span>Admin</span>
                 </a>
-                <button type="button" id="adminThemeToggleBtn" title="Toggle Dark/Light Mode" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none ml-1">
+                <?php endif; ?>
+
+                <button type="button" id="appThemeToggleBtn" title="Toggle Dark/Light Mode" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none ml-1">
                     <i data-lucide="moon" class="w-4 h-4 hidden dark:block text-amber-400"></i>
                     <i data-lucide="sun" class="w-4 h-4 block dark:hidden text-amber-500"></i>
                 </button>
-                <?php endif; ?>
             </nav>
 
             <!-- 3. Right User Profile & Hamburger Toggle -->
@@ -224,6 +225,17 @@ $pageTitle = $pageTitle ?? 'PreMed Test Portal';
         </a>
         <?php endif; ?>
 
+        <!-- Mobile Theme Toggle -->
+        <div class="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">Appearance</span>
+            <button type="button" id="mobileThemeToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800">
+                <i data-lucide="sun" class="w-3.5 h-3.5 text-amber-500 block dark:hidden"></i>
+                <i data-lucide="moon" class="w-3.5 h-3.5 text-amber-400 hidden dark:block"></i>
+                <span class="block dark:hidden">Light</span>
+                <span class="hidden dark:block">Dark</span>
+            </button>
+        </div>
+
         <!-- Student Profile & Logout in Mobile Menu -->
         <div class="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between">
             <?php if ($student): ?>
@@ -266,14 +278,22 @@ $pageTitle = $pageTitle ?? 'PreMed Test Portal';
             });
         }
 
-        // Admin Theme Toggle Handler
-        const themeBtn = document.getElementById('adminThemeToggleBtn');
+        // Theme Toggle Handler
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('appTheme', isDark ? 'dark' : 'light');
+            localStorage.setItem('adminTheme', isDark ? 'dark' : 'light');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        const themeBtn = document.getElementById('appThemeToggleBtn');
         if (themeBtn) {
-            themeBtn.addEventListener('click', function() {
-                const isDark = document.documentElement.classList.toggle('dark');
-                localStorage.setItem('adminTheme', isDark ? 'dark' : 'light');
-                if (window.lucide) lucide.createIcons();
-            });
+            themeBtn.addEventListener('click', toggleTheme);
+        }
+
+        const mobileThemeBtn = document.getElementById('mobileThemeToggleBtn');
+        if (mobileThemeBtn) {
+            mobileThemeBtn.addEventListener('click', toggleTheme);
         }
 
         // Secret Knock on Header Brand Logo (5 rapid taps)
