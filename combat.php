@@ -139,7 +139,7 @@ $matchHistory = $historyStmt->fetchAll();
 
         <?php if ($action === 'create'): ?>
         <!-- ================= PART 3: CREATE BATTLE ROOM PAGE ================= -->
-        <div class="max-w-3xl mx-auto space-y-6">
+        <div id="createRoomCard" class="max-w-3xl mx-auto space-y-6">
             <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 dark:border-slate-800 space-y-6">
                 <div class="border-b border-slate-100 dark:border-slate-800 pb-4">
                     <h2 class="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -258,7 +258,7 @@ $matchHistory = $historyStmt->fetchAll();
 
         <?php elseif ($action === 'join'): ?>
         <!-- ================= PART 2 & 3: JOIN BATTLE ROOM PAGE ================= -->
-        <div class="max-w-xl mx-auto space-y-6">
+        <div id="joinRoomCard" class="max-w-xl mx-auto space-y-6">
             <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 dark:border-slate-800 space-y-6 text-center">
                 <div>
                     <div class="w-16 h-16 rounded-3xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center mx-auto mb-3">
@@ -316,7 +316,7 @@ $matchHistory = $historyStmt->fetchAll();
 
         <?php elseif ($tab === 'profile'): ?>
         <!-- ================= PART 9: GAMER PROFILE ================= -->
-        <div class="space-y-6">
+        <div id="profileCard" class="space-y-6">
             <!-- Profile Banner -->
             <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-6">
                 <div class="w-24 h-24 rounded-3xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-black text-3xl flex items-center justify-center shadow-xl ring-4 ring-purple-100 dark:ring-purple-950">
@@ -408,7 +408,7 @@ $matchHistory = $historyStmt->fetchAll();
 
         <?php elseif ($tab === 'leaderboard'): ?>
         <!-- ================= PART 8 & 10: LEADERBOARD PAGE ================= -->
-        <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 dark:border-slate-800 space-y-6">
+        <div id="leaderboardCard" class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 dark:border-slate-800 space-y-6">
             <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <h2 class="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
                     <i data-lucide="crown" class="w-5 h-5 text-amber-500"></i>
@@ -724,16 +724,22 @@ $matchHistory = $historyStmt->fetchAll();
         // Form Submit -> Create Room
         const createForm = document.getElementById('createRoomForm');
         if (createForm) {
-            createForm.addEventListener('submit', function (e) {
+            createForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
+                const submitBtn = createForm.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Generating PREMED- code...';
+                }
+
                 const roomName = document.getElementById('formRoomName').value;
                 const courseId = document.getElementById('formCourseId').value;
                 const topicId = document.getElementById('formTopicId').value;
 
-                const cOpt = courseSelect.options[courseSelect.selectedIndex];
-                const tOpt = topicSelect.options[topicSelect.selectedIndex];
+                const cOpt = courseSelect ? courseSelect.options[courseSelect.selectedIndex] : null;
+                const tOpt = topicSelect ? topicSelect.options[topicSelect.selectedIndex] : null;
 
-                socket.emit('createRoom', {
+                const payload = {
                     userId: STUDENT_ID,
                     studentName: STUDENT_NAME,
                     matricNo: MATRIC_NO,
@@ -745,7 +751,42 @@ $matchHistory = $historyStmt->fetchAll();
                     mode: selectedModeVal,
                     questionsPerRound: selectedQPerRound,
                     totalRounds: selectedRounds
-                });
+                };
+
+                try {
+                    const res = await fetch(SOCKET_URL + '/api/combat/create-room', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        currentRoom = data.room;
+                        confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+                        renderWaitingRoom(data.roomCode, data.room);
+                        if (socket) {
+                            socket.emit('joinRoom', {
+                                roomCode: data.roomCode,
+                                userId: STUDENT_ID,
+                                studentName: STUDENT_NAME,
+                                matricNo: MATRIC_NO
+                            });
+                        }
+                    } else {
+                        alert('Error creating room: ' + (data.message || 'Unknown error'));
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = '<i data-lucide="sparkles" class="w-5 h-5"></i><span>GENERATE PREMED- CODE & CREATE ROOM</span>';
+                            if (window.lucide) lucide.createIcons();
+                        }
+                    }
+                } catch (err) {
+                    console.error('Create room fetch error, falling back to socket:', err);
+                    if (socket) {
+                        socket.emit('createRoom', payload);
+                    }
+                }
             });
         }
     }
@@ -928,9 +969,23 @@ $matchHistory = $historyStmt->fetchAll();
 
     // Render Waiting Lobby Screen
     function renderWaitingRoom(code, room) {
-        document.getElementById('mainCombatContainer').innerHTML = document.getElementById('arenaLiveContainer').innerHTML;
-        document.getElementById('lobbyScreen').classList.add('hidden');
-        document.getElementById('waitingForOpponentScreen').classList.remove('hidden');
+        const createCard = document.getElementById('createRoomCard');
+        if (createCard) createCard.classList.add('hidden');
+        const joinCard = document.getElementById('joinRoomCard');
+        if (joinCard) joinCard.classList.add('hidden');
+        const profileCard = document.getElementById('profileCard');
+        if (profileCard) profileCard.classList.add('hidden');
+        const leaderboardCard = document.getElementById('leaderboardCard');
+        if (leaderboardCard) leaderboardCard.classList.add('hidden');
+
+        const liveContainer = document.getElementById('arenaLiveContainer');
+        if (liveContainer) liveContainer.classList.remove('hidden');
+
+        const lobby = document.getElementById('lobbyScreen');
+        if (lobby) lobby.classList.add('hidden');
+
+        const waiting = document.getElementById('waitingForOpponentScreen');
+        if (waiting) waiting.classList.remove('hidden');
 
         document.getElementById('activeRoomCodeDisplay').textContent = code;
 

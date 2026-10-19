@@ -423,6 +423,84 @@ const server = http.createServer(async (req, res) => {
     }));
   }
 
+  // REST API: Create Battle Room
+  if (req.method === 'POST' && pathname === '/api/combat/create-room') {
+    const data = await parseBody(req);
+    const { userId, studentName, matricNo, roomName, courseId, topicId, courseCode, topicName, mode, questionsPerRound, totalRounds } = data;
+
+    if (!userId || !courseId || !topicId) {
+      res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      return res.end(JSON.stringify({ success: false, message: 'Missing required parameters (course, topic, user).' }));
+    }
+
+    const roomCode = await generateUniqueRoomCode();
+    const numQuestionsPerRound = parseInt(questionsPerRound, 10) || 4;
+    const numRounds = parseInt(totalRounds, 10) || 4;
+    const totalQuestions = Math.min(numQuestionsPerRound * 2 * numRounds, 40);
+
+    const questionsPool = await fetchQuestionPoolForTopic(topicId, totalQuestions);
+
+    const hostPlayer = {
+      userId,
+      name: studentName,
+      matricNo,
+      team: 'A',
+      isHost: true,
+      socketId: null,
+      joinedAt: new Date(),
+      connected: true,
+      stats: await getUserCombatStats(userId, matricNo, studentName)
+    };
+
+    const room = {
+      roomCode,
+      roomName: roomName || `${studentName}'s Battle`,
+      courseId,
+      topicId,
+      courseCode,
+      topicName,
+      createdBy: userId,
+      hostName: studentName,
+      mode: mode || '1v1',
+      questionsPerRound: numQuestionsPerRound,
+      totalRounds: numRounds,
+      totalQuestions,
+      status: 'waiting',
+      players: [hostPlayer],
+      questionsPool,
+      currentRound: 1,
+      currentQuestionIndex: 0,
+      currentTurnUserId: userId,
+      turnType: 'main',
+      scores: { [userId]: 0 },
+      roundScores: { [userId]: 0 },
+      disconnectTimer: null,
+      reconnectTrialTimer: null,
+      timerInterval: null,
+      timeRemaining: 30,
+      teamASelection: {},
+      roundStats: []
+    };
+
+    activeCombatRooms.set(roomCode, room);
+    userActiveRoomMap.set(userId, roomCode);
+
+    await tursoExecute(`
+      INSERT INTO combat_rooms (
+        id, room_code, room_name, course_id, topic_id, created_by, mode,
+        questions_per_round, total_rounds, total_questions, status, players, scores,
+        created_at, expires_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, CURRENT_TIMESTAMP, datetime('now', '+1 day'));
+    `, [
+      `room_${Math.random().toString(36).substring(2, 10)}`,
+      roomCode, room.roomName, courseId, topicId, userId, room.mode,
+      numQuestionsPerRound, numRounds, totalQuestions, JSON.stringify([hostPlayer]), JSON.stringify(room.scores)
+    ]);
+
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify({ success: true, roomCode, room }));
+  }
+
   // REST API: Export Combat Leaderboard CSV
   if (req.method === 'GET' && pathname === '/api/combat/export-leaderboard') {
     const rows = await tursoQuery(`
