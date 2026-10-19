@@ -753,14 +753,7 @@ $matchHistory = $historyStmt->fetchAll();
                     totalRounds: selectedRounds
                 };
 
-                try {
-                    const res = await fetch(SOCKET_URL + '/api/combat/create-room', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const data = await res.json();
-
+                async function handleRoomCreatedData(data) {
                     if (data.success) {
                         currentRoom = data.room;
                         confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
@@ -781,10 +774,35 @@ $matchHistory = $historyStmt->fetchAll();
                             if (window.lucide) lucide.createIcons();
                         }
                     }
+                }
+
+                try {
+                    // Try Socket.io REST server first
+                    const res = await fetch(SOCKET_URL + '/api/combat/create-room', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+                    handleRoomCreatedData(data);
                 } catch (err) {
-                    console.error('Create room fetch error, falling back to socket:', err);
-                    if (socket) {
-                        socket.emit('createRoom', payload);
+                    console.warn('Node server offline, using PHP fallback engine:', err);
+                    try {
+                        const resPhp = await fetch('api/combat_handler.php?action=create_room', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const dataPhp = await resPhp.json();
+                        handleRoomCreatedData(dataPhp);
+                    } catch (e2) {
+                        console.error('PHP fallback error:', e2);
+                        alert('Could not connect to room server. Please check network connection.');
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = '<i data-lucide="sparkles" class="w-5 h-5"></i><span>GENERATE PREMED- CODE & CREATE ROOM</span>';
+                            if (window.lucide) lucide.createIcons();
+                        }
                     }
                 }
             });
@@ -828,14 +846,7 @@ $matchHistory = $historyStmt->fetchAll();
                 box.className = 'p-4 rounded-2xl text-xs font-bold transition-all bg-amber-50 text-amber-800 border border-amber-200';
                 box.innerHTML = 'Checking PREMED- code on server...';
 
-                try {
-                    const res = await fetch(SOCKET_URL + '/api/combat/validate-code', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ code: val })
-                    });
-                    const data = await res.json();
-
+                function applyValidationResult(data) {
                     if (data.valid) {
                         box.className = 'p-4 rounded-2xl text-xs font-bold transition-all bg-emerald-50 text-emerald-800 border border-emerald-200';
                         box.innerHTML = `✅ Valid Room Found! Room: <strong>${data.roomName}</strong> - Mode: ${data.mode}`;
@@ -854,8 +865,29 @@ $matchHistory = $historyStmt->fetchAll();
                         preview.classList.add('hidden');
                         joinBtn.disabled = true;
                     }
+                }
+
+                try {
+                    const res = await fetch(SOCKET_URL + '/api/combat/validate-code', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: val })
+                    });
+                    const data = await res.json();
+                    applyValidationResult(data);
                 } catch (e) {
-                    console.error('Validation error:', e);
+                    console.warn('Node server validation offline, using PHP fallback:', e);
+                    try {
+                        const resPhp = await fetch('api/combat_handler.php?action=validate_code', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ code: val })
+                        });
+                        const dataPhp = await resPhp.json();
+                        applyValidationResult(dataPhp);
+                    } catch (e2) {
+                        console.error('Validation error:', e2);
+                    }
                 }
             } else {
                 box.classList.add('hidden');
