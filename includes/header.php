@@ -116,6 +116,34 @@ $pageTitle = $pageTitle ?? 'PreMed Test Portal';
                     <span>Tests</span>
                 </a>
 
+                <!-- Study Combat (⚔️ Game) -->
+                <div class="relative group">
+                    <a href="combat.php" class="px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 <?= $currentPage === 'combat.php' ? 'bg-purple-50 text-purple-900 font-bold shadow-xs border border-purple-200/50' : 'hover:bg-slate-100 hover:text-slate-900' ?>">
+                        <i data-lucide="swords" class="w-4 h-4 text-purple-600"></i>
+                        <span>Study Combat</span>
+                        <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400 group-hover:rotate-180 transition-transform"></i>
+                    </a>
+                    <!-- Sub-menu Dropdown -->
+                    <div class="absolute top-full left-0 mt-1 w-52 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-purple-100 dark:border-slate-800 py-2 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-1">
+                        <a href="combat.php?action=create" class="flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:text-purple-700">
+                            <i data-lucide="swords" class="w-3.5 h-3.5 text-purple-600"></i>
+                            <span>Create Battle Room</span>
+                        </a>
+                        <a href="combat.php?action=join" class="flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:text-purple-700">
+                            <i data-lucide="key-round" class="w-3.5 h-3.5 text-purple-600"></i>
+                            <span>Join Battle Room</span>
+                        </a>
+                        <a href="combat.php?tab=profile" class="flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:text-purple-700">
+                            <i data-lucide="trophy" class="w-3.5 h-3.5 text-purple-600"></i>
+                            <span>My Gamer Profile</span>
+                        </a>
+                        <a href="combat.php?tab=leaderboard" class="flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:text-purple-700">
+                            <i data-lucide="crown" class="w-3.5 h-3.5 text-amber-500"></i>
+                            <span>Leaderboard</span>
+                        </a>
+                    </div>
+                </div>
+
                 <!-- Study Room (Locked) -->
                 <a href="active_study.php" class="px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 <?= $currentPage === 'active_study.php' ? 'bg-amber-50 text-amber-800 font-bold shadow-xs border border-amber-200/50' : 'hover:bg-slate-100 hover:text-slate-900' ?>">
                     <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-500"></i>
@@ -192,6 +220,12 @@ $pageTitle = $pageTitle ?? 'PreMed Test Portal';
         <a href="courses.php" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold <?= in_array($currentPage, ['courses.php', 'exam.php']) ? 'bg-teal-50 text-teal-800 font-bold' : 'text-slate-700 hover:bg-slate-50' ?>">
             <i data-lucide="file-check-2" class="w-4 h-4 text-teal-600"></i>
             <span>Tests</span>
+        </a>
+
+        <!-- Study Combat Mobile Links -->
+        <a href="combat.php" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-purple-900 bg-purple-50 dark:bg-purple-950/50">
+            <i data-lucide="swords" class="w-4 h-4 text-purple-600"></i>
+            <span>Study Combat Arena ⚔️</span>
         </a>
 
         <a href="active_study.php" class="flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold <?= $currentPage === 'active_study.php' ? 'bg-amber-50 text-amber-800 font-bold' : 'text-slate-700 hover:bg-slate-50' ?>">

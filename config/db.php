@@ -198,11 +198,170 @@ class DB {
             )");
         } catch (Exception $e) {}
 
-        // 8. Auto-seed Physics: Physical Quantities & Dimensional Analysis question bank
+        // 8. Ensure Study Combat tables exist
+        try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS combat_rooms (
+              id TEXT PRIMARY KEY,
+              room_code TEXT UNIQUE NOT NULL,
+              room_name TEXT NOT NULL,
+              course_id TEXT NOT NULL,
+              topic_id TEXT NOT NULL,
+              created_by TEXT NOT NULL,
+              mode TEXT NOT NULL DEFAULT '1v1',
+              questions_per_round INTEGER NOT NULL DEFAULT 4,
+              total_rounds INTEGER NOT NULL DEFAULT 4,
+              total_questions INTEGER NOT NULL DEFAULT 16,
+              status TEXT DEFAULT 'waiting',
+              players TEXT,
+              questions_pool TEXT,
+              used_question_ids TEXT,
+              current_round INTEGER DEFAULT 1,
+              current_question_index INTEGER DEFAULT 0,
+              current_turn_user_id TEXT,
+              scores TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              expires_at DATETIME
+            )");
+
+            $pdo->exec("CREATE TABLE IF NOT EXISTS combat_match_logs (
+              id TEXT PRIMARY KEY,
+              room_code TEXT NOT NULL,
+              round_number INTEGER NOT NULL,
+              question_number_in_round INTEGER NOT NULL,
+              turn_type TEXT DEFAULT 'main',
+              question_id TEXT,
+              asked_to_user_id TEXT,
+              bonus_to_user_id TEXT,
+              main_selected_option TEXT,
+              main_is_correct INTEGER,
+              main_time_used REAL,
+              bonus_selected_option TEXT,
+              bonus_is_correct INTEGER,
+              bonus_time_used REAL,
+              points_awarded TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )");
+
+            $pdo->exec("CREATE TABLE IF NOT EXISTS combat_final_results (
+              id TEXT PRIMARY KEY,
+              room_code TEXT NOT NULL,
+              players TEXT,
+              winner_user_id TEXT,
+              loser_user_id TEXT,
+              is_draw INTEGER DEFAULT 0,
+              final_scores TEXT,
+              rounds_summary TEXT,
+              topic_id TEXT,
+              total_questions INTEGER,
+              coins_awarded TEXT,
+              rematched_from TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )");
+
+            $pdo->exec("CREATE TABLE IF NOT EXISTS user_combat_stats (
+              user_id TEXT PRIMARY KEY,
+              matric_no TEXT,
+              student_name TEXT,
+              total_matches INTEGER DEFAULT 0,
+              wins INTEGER DEFAULT 0,
+              losses INTEGER DEFAULT 0,
+              draws INTEGER DEFAULT 0,
+              total_points INTEGER DEFAULT 0,
+              combat_coins INTEGER DEFAULT 0,
+              current_rank TEXT DEFAULT 'Noobie',
+              wins_for_rank INTEGER DEFAULT 0,
+              favorite_topic_id TEXT,
+              last_match_at DATETIME,
+              is_banned_from_combat INTEGER DEFAULT 0,
+              achievements TEXT,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )");
+
+            $pdo->exec("CREATE TABLE IF NOT EXISTS combat_rank_settings (
+              id TEXT PRIMARY KEY,
+              rank_name TEXT NOT NULL,
+              wins_needed INTEGER NOT NULL,
+              badge_color TEXT,
+              sort_order INTEGER NOT NULL
+            )");
+
+            $pdo->exec("CREATE TABLE IF NOT EXISTS combat_anticheat_logs (
+              id TEXT PRIMARY KEY,
+              user_id TEXT,
+              matric_no TEXT,
+              room_code TEXT,
+              activity TEXT,
+              details TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )");
+
+            $pdo->exec("CREATE TABLE IF NOT EXISTS combat_security_settings (
+              key_name TEXT PRIMARY KEY,
+              value TEXT
+            )");
+
+            self::seedCombatRanks($pdo);
+        } catch (Exception $e) {}
+
+        // 9. Auto-seed Physics: Physical Quantities & Dimensional Analysis question bank
         self::seedPhysicsQuestions($pdo);
 
         // 7. Auto-seed Physics: Scalar and Vector Quantities question bank
         self::seedVectorsAndScalarsQuestions($pdo);
+    }
+
+    /**
+     * Auto-seeds official Study Combat ranks table if empty
+     */
+    public static function seedCombatRanks($pdo): void {
+        static $seededRanks = false;
+        if ($seededRanks) return;
+        $seededRanks = true;
+
+        try {
+            $chk = $pdo->query("SELECT COUNT(*) as c FROM combat_rank_settings")->fetch();
+            if ($chk && (int)($chk['c'] ?? 0) > 0) {
+                return;
+            }
+
+            $ranks = [
+                ['0', 'Noobie', 0, '#9CA3AF', 1],
+                ['1', 'Rookie', 1, '#86EFAC', 2],
+                ['2', 'Learner', 2, '#22C55E', 3],
+                ['3', 'Scholar', 3, '#3B82F6', 4],
+                ['4', 'Challenger', 5, '#A855F7', 5],
+                ['5', 'Seeker', 7, '#7E22CE', 6],
+                ['6', 'Striker', 10, '#F97316', 7],
+                ['7', 'Tactician', 12, '#C2410C', 8],
+                ['8', 'Contender', 15, '#EF4444', 9],
+                ['9', 'Warrior', 18, '#991B1B', 10],
+                ['10', 'Champion', 20, '#EAB308', 11],
+                ['11', 'Slayer', 22, '#A16207', 12],
+                ['12', 'Elite', 25, '#94A3B8', 13],
+                ['13', 'Veteran', 27, '#38BDF8', 14],
+                ['14', 'Commander', 30, '#10B981', 15],
+                ['15', 'Conqueror', 32, '#E11D48', 16],
+                ['16', 'Legend', 35, '#F59E0B', 17],
+                ['17', 'Titan', 37, '#2563EB', 18],
+                ['18', 'Warlord', 40, '#DC2626', 19],
+                ['19', 'Overlord', 42, '#18181B', 20],
+                ['20', 'Immortal', 45, '#F8FAFC', 21],
+                ['21', 'Mythic', 47, '#C084FC', 22],
+                ['22', 'Grandmaster', 50, '#F43F5E', 23],
+                ['23', 'Eternal Grandmaster', 55, '#EC4899', 24],
+                ['24', 'Celestial Grandmaster', 60, '#06B6D4', 25],
+                ['25', 'Supreme Grandmaster', 70, '#8B5CF6', 26],
+                ['26', 'God of Study', 80, '#F59E0B', 27],
+                ['27', 'The Unbeatable', 100, '#10B981', 28]
+            ];
+
+            foreach ($ranks as $r) {
+                $stmt = $pdo->prepare("INSERT INTO combat_rank_settings (id, rank_name, wins_needed, badge_color, sort_order) VALUES (?, ?, ?, ?, ?)");
+                $stmt->execute([$r[0], $r[1], $r[2], $r[3], $r[4]]);
+            }
+        } catch (Exception $e) {
+            error_log("Error seeding combat ranks: " . $e->getMessage());
+        }
     }
 
     /**
