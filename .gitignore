@@ -9,3 +9,6 @@ coverage/
 android/
 .gradle/
 .netlify/
+/vendor/
+/.phpunit.cache/
+/composer.lock
