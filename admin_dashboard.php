@@ -981,13 +981,13 @@ require_once __DIR__ . '/includes/header.php';
     <!-- 2. High-Yield KPI Analytics -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- 1. Registered Candidates -->
-        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
             <div class="flex items-center justify-between mb-2">
-                <span class="text-[11px] font-black uppercase tracking-wider text-slate-400">Total Candidates</span>
+                <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">Total Candidates</span>
                 <span class="p-2 rounded-xl bg-indigo-50 text-indigo-600"><i data-lucide="users" class="w-4 h-4"></i></span>
             </div>
             <div class="space-y-1">
-                <span class="text-2xl sm:text-3xl font-black text-slate-900"><?= number_format($totalStudents) ?></span>
+                <span class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white"><?= number_format($totalStudents) ?></span>
                 <div class="text-[11px] text-slate-500 flex items-center gap-1.5 font-medium">
                     <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                     <span><strong><?= $studentsWithBank ?></strong> with bank details (<?= $bankPct ?>%)</span>
@@ -996,9 +996,9 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <!-- 2. Question Bank Total -->
-        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
             <div class="flex items-center justify-between mb-2">
-                <span class="text-[11px] font-black uppercase tracking-wider text-slate-400">Question Bank</span>
+                <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">Question Bank</span>
                 <span class="p-2 rounded-xl bg-emerald-50 text-emerald-600"><i data-lucide="book-open" class="w-4 h-4"></i></span>
             </div>
             <div class="space-y-1">
@@ -1010,9 +1010,9 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <!-- 3. Submissions & Pass Rate -->
-        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
             <div class="flex items-center justify-between mb-2">
-                <span class="text-[11px] font-black uppercase tracking-wider text-slate-400">Exam Submissions</span>
+                <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">Exam Submissions</span>
                 <span class="p-2 rounded-xl bg-violet-50 text-violet-600"><i data-lucide="award" class="w-4 h-4"></i></span>
             </div>
             <div class="space-y-1">
@@ -1024,9 +1024,9 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <!-- 4. Active Live Assessments -->
-        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs flex flex-col justify-between">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
             <div class="flex items-center justify-between mb-2">
-                <span class="text-[11px] font-black uppercase tracking-wider text-slate-400">Live Status</span>
+                <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">Live Status</span>
                 <span class="p-2 rounded-xl bg-amber-50 text-amber-600"><i data-lucide="activity" class="w-4 h-4"></i></span>
             </div>
             <div class="space-y-1">
@@ -1137,31 +1137,31 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 
     <!-- 4. Tabbed Navigation Bar -->
-    <div class="bg-white rounded-2xl p-1.5 border border-slate-200 shadow-xs flex flex-wrap gap-1 text-xs font-bold">
-        <a href="?tab=deployments" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'deployments' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' ?>">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-1.5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap gap-1 text-xs font-bold">
+        <a href="?tab=deployments" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'deployments' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:bg-slate-800/60 dark:hover:bg-slate-800' ?>">
             <i data-lucide="layers" class="w-4 h-4"></i>
             <span>1. Exams &amp; Sittings</span>
-            <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'deployments' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' ?>"><?= count($courses) ?></span>
+            <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'deployments' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' ?>"><?= count($courses) ?></span>
         </a>
-        <a href="?tab=questions" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'questions' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' ?>">
+        <a href="?tab=questions" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'questions' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:bg-slate-800/60 dark:hover:bg-slate-800' ?>">
             <i data-lucide="file-question" class="w-4 h-4"></i>
             <span>2. Question Bank</span>
-            <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'questions' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' ?>"><?= $totalQuestions ?></span>
+            <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'questions' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' ?>"><?= $totalQuestions ?></span>
         </a>
-        <a href="?tab=results" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'results' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' ?>">
+        <a href="?tab=results" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'results' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:bg-slate-800/60 dark:hover:bg-slate-800' ?>">
             <i data-lucide="graduation-cap" class="w-4 h-4"></i>
             <span>3. Scores &amp; Gradebook</span>
-            <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'results' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' ?>"><?= $totalResults ?></span>
+            <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'results' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' ?>"><?= $totalResults ?></span>
         </a>
-        <a href="?tab=students" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'students' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' ?>">
+        <a href="?tab=students" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'students' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:bg-slate-800/60 dark:hover:bg-slate-800' ?>">
             <i data-lucide="id-card" class="w-4 h-4"></i>
             <span>4. Candidates &amp; Cash Prizes</span>
-            <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'students' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' ?>"><?= $totalStudents ?></span>
+            <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'students' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' ?>"><?= $totalStudents ?></span>
         </a>
-        <a href="?tab=proctoring" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'proctoring' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' ?>">
+        <a href="?tab=proctoring" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'proctoring' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:bg-slate-800/60 dark:hover:bg-slate-800' ?>">
             <i data-lucide="shield-alert" class="w-4 h-4"></i>
             <span>5. Live Exam Monitor</span>
-            <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'proctoring' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' ?>"><?= count($proctorSessions) ?></span>
+            <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'proctoring' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' ?>"><?= count($proctorSessions) ?></span>
         </a>
     </div>
 
@@ -1172,9 +1172,9 @@ require_once __DIR__ . '/includes/header.php';
     <div class="space-y-6">
         
         <!-- Add New Assessment Card -->
-        <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
             <div class="flex items-center justify-between">
-                <h3 class="text-sm font-black text-slate-900 flex items-center gap-2">
+                <h3 class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                     <i data-lucide="plus-circle" class="w-4 h-4 text-indigo-600"></i>
                     <span>Add New Subject or Clinical Assessment</span>
                 </h3>
@@ -1183,16 +1183,16 @@ require_once __DIR__ . '/includes/header.php';
             <form method="POST" action="admin_dashboard.php" class="grid grid-cols-1 sm:grid-cols-5 gap-3.5">
                 <input type="hidden" name="action" value="add_course">
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Course Code</label>
-                    <input type="text" name="code" required placeholder="e.g. BIO 101" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono uppercase focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Course Code</label>
+                    <input type="text" name="code" required placeholder="e.g. BIO 101" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-mono uppercase focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <div class="sm:col-span-2">
-                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Full Course Title</label>
-                    <input type="text" name="title" required placeholder="e.g. General Biology & Cell Organization" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Full Course Title</label>
+                    <input type="text" name="title" required placeholder="e.g. General Biology & Cell Organization" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Time Limit (Mins)</label>
-                    <input type="number" name="duration" required value="30" min="5" max="300" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Time Limit (Mins)</label>
+                    <input type="number" name="duration" required value="30" min="5" max="300" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-mono focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <div class="flex items-end">
                     <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-100 transition-all flex items-center justify-center gap-1.5">
@@ -1204,17 +1204,17 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <!-- Assessments & Curriculum Topics Manager -->
-        <div class="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
-                    <h2 class="text-base font-black text-slate-900 flex items-center gap-2">
+                    <h2 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                         <i data-lucide="book-open" class="w-5 h-5 text-indigo-600"></i>
                         <span>Course &amp; Curriculum Topic Manager</span>
                     </h2>
                     <p class="text-xs text-slate-500 mt-0.5">Edit subject parameters, manage individual curriculum topics, monitor question allocations, and control live status.</p>
                 </div>
                 <div class="flex items-center gap-2 w-full sm:w-auto">
-                    <a href="?export=questions_csv" class="w-full sm:w-auto px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+                    <a href="?export=questions_csv" class="w-full sm:w-auto px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5">
                         <i data-lucide="download" class="w-4 h-4 text-indigo-600"></i>
                         <span>Export Question Bank (CSV)</span>
                     </a>
@@ -1229,7 +1229,7 @@ require_once __DIR__ . '/includes/header.php';
                 <?php foreach ($courses as $c):
                     $cTopics = $topicsByCourse[$c['id']] ?? [];
                 ?>
-                <div class="bg-slate-50/70 hover:bg-slate-50 rounded-2xl border border-slate-200/80 p-3.5 space-y-3 transition-all flex flex-col justify-between">
+                <div class="bg-slate-50 dark:bg-slate-800/60/70 hover:bg-slate-50 rounded-2xl border border-slate-200 dark:border-slate-800/80 p-3.5 space-y-3 transition-all flex flex-col justify-between">
 
                     <!-- Top Row: Course Code, Title & Status -->
                     <div class="flex items-start justify-between gap-2.5">
@@ -1239,7 +1239,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <?= htmlspecialchars($c['code']) ?>
                                 </span>
                                 <?php if ($c['is_locked']): ?>
-                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-bold text-[10px]">
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-[10px]">
                                     <i data-lucide="pause-circle" class="w-3 h-3 text-slate-500"></i>
                                     <span>Closed</span>
                                 </span>
@@ -1250,7 +1250,7 @@ require_once __DIR__ . '/includes/header.php';
                                 </span>
                                 <?php endif; ?>
                             </div>
-                            <h3 class="text-xs sm:text-sm font-bold text-slate-900 leading-snug truncate">
+                            <h3 class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-snug truncate">
                                 <?= htmlspecialchars($c['title']) ?>
                             </h3>
                         </div>
@@ -1264,7 +1264,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
 
                     <!-- Middle Row: Question Breakdown Pill Badges & Duration Allotment -->
-                    <div class="flex flex-wrap items-center justify-between gap-2 bg-white p-2.5 rounded-xl border border-slate-200/60 text-xs">
+                    <div class="flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800/60 text-xs">
                         <div class="flex flex-wrap items-center gap-1.5">
                             <a href="?tab=questions&bank_type=past&filter_course=<?= urlencode($c['id']) ?>" class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors text-[11px] font-bold" title="View Past Questions">
                                 📚 <?= (int)$c['past_q_count'] ?> Past
@@ -1275,7 +1275,7 @@ require_once __DIR__ . '/includes/header.php';
                             <span class="text-[10px] text-slate-400 font-medium">Total: <?= (int)$c['q_count'] ?> Qs</span>
                         </div>
 
-                        <div class="font-mono text-[11px] font-bold text-slate-600 flex items-center gap-2">
+                        <div class="font-mono text-[11px] font-bold text-slate-600 dark:text-slate-400 flex items-center gap-2">
                             <span>⏱️ <?= (int)$c['duration'] ?>m</span>
                             <span>&bull;</span>
                             <span>📋 <?= (int)$c['question_limit'] ?> / exam</span>
@@ -1283,7 +1283,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
 
                     <!-- Bottom Action Controls -->
-                    <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/50">
+                    <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-200 dark:border-slate-800/50">
                         <button type="button" onclick="openCourseTopicsModal(<?= htmlspecialchars(json_encode($c)) ?>)" class="text-xs text-indigo-700 font-bold hover:underline flex items-center gap-1">
                             <i data-lucide="folder-plus" class="w-3.5 h-3.5"></i>
                             <span>Curriculum Topics</span>
@@ -1309,7 +1309,7 @@ require_once __DIR__ . '/includes/header.php';
                             </form>
 
                             <!-- Edit Parameters Modal Trigger -->
-                            <button type="button" onclick="openEditCourseModal(<?= htmlspecialchars(json_encode($c)) ?>)" class="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100" title="Edit Parameters">
+                            <button type="button" onclick="openEditCourseModal(<?= htmlspecialchars(json_encode($c)) ?>)" class="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:bg-slate-800" title="Edit Parameters">
                                 <i data-lucide="settings" class="w-3.5 h-3.5"></i>
                             </button>
 
@@ -1341,17 +1341,17 @@ require_once __DIR__ . '/includes/header.php';
 
         <!-- Question Bank Type Switcher & Top Statistics -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <a href="?tab=questions&filter_course=<?= urlencode($selectedCourseFilter) ?>" class="p-4 rounded-3xl border transition-all flex items-center justify-between <?= empty($selectedBankType) ? 'bg-white border-slate-900 shadow-md ring-2 ring-slate-900/10' : 'bg-white/80 border-slate-200 hover:border-slate-300' ?>">
+            <a href="?tab=questions&filter_course=<?= urlencode($selectedCourseFilter) ?>" class="p-4 rounded-3xl border transition-all flex items-center justify-between <?= empty($selectedBankType) ? 'bg-white dark:bg-slate-900 border-slate-900 shadow-md ring-2 ring-slate-900/10' : 'bg-white/80 border-slate-200 dark:border-slate-800 hover:border-slate-300' ?>">
                 <div>
                     <span class="text-[10px] font-black uppercase tracking-wider text-slate-500 block">All Available Questions</span>
-                    <span class="text-2xl font-black text-slate-900"><?= $totalQuestions ?></span>
+                    <span class="text-2xl font-black text-slate-900 dark:text-white"><?= $totalQuestions ?></span>
                 </div>
-                <div class="w-10 h-10 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
+                <div class="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center font-bold">
                     <i data-lucide="layers" class="w-5 h-5"></i>
                 </div>
             </a>
 
-            <a href="?tab=questions&bank_type=past&filter_course=<?= urlencode($selectedCourseFilter) ?>" class="p-4 rounded-3xl border transition-all flex items-center justify-between <?= $selectedBankType === 'past' ? 'bg-emerald-50/70 border-emerald-600 shadow-md ring-2 ring-emerald-500/20' : 'bg-white border-slate-200 hover:border-emerald-300' ?>">
+            <a href="?tab=questions&bank_type=past&filter_course=<?= urlencode($selectedCourseFilter) ?>" class="p-4 rounded-3xl border transition-all flex items-center justify-between <?= $selectedBankType === 'past' ? 'bg-emerald-50/70 border-emerald-600 shadow-md ring-2 ring-emerald-500/20' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-emerald-300' ?>">
                 <div>
                     <span class="text-[10px] font-black uppercase tracking-wider text-emerald-800 block">📚 Past Question Bank</span>
                     <span class="text-2xl font-black text-emerald-900"><?= $totalPastQuestions ?></span>
@@ -1362,7 +1362,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </a>
 
-            <a href="?tab=questions&bank_type=test&filter_course=<?= urlencode($selectedCourseFilter) ?>" class="p-4 rounded-3xl border transition-all flex items-center justify-between <?= $selectedBankType === 'test' ? 'bg-indigo-50/70 border-indigo-600 shadow-md ring-2 ring-indigo-500/20' : 'bg-white border-slate-200 hover:border-indigo-300' ?>">
+            <a href="?tab=questions&bank_type=test&filter_course=<?= urlencode($selectedCourseFilter) ?>" class="p-4 rounded-3xl border transition-all flex items-center justify-between <?= $selectedBankType === 'test' ? 'bg-indigo-50/70 border-indigo-600 shadow-md ring-2 ring-indigo-500/20' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-indigo-300' ?>">
                 <div>
                     <span class="text-[10px] font-black uppercase tracking-wider text-indigo-800 block">⏱️ Test Question Bank</span>
                     <span class="text-2xl font-black text-indigo-900"><?= $totalTestQuestions ?></span>
@@ -1375,7 +1375,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <!-- Filter Bar & Bulk Importer Trigger -->
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-xs">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs">
             <form method="GET" action="admin_dashboard.php" class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                 <input type="hidden" name="tab" value="questions">
                 <?php if (!empty($selectedBankType)): ?>
@@ -1383,7 +1383,7 @@ require_once __DIR__ . '/includes/header.php';
                 <?php endif; ?>
 
                 <!-- Subject Filter -->
-                <select name="filter_course" onchange="this.form.submit()" class="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-700">
+                <select name="filter_course" onchange="this.form.submit()" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs bg-white dark:bg-slate-900 font-bold text-slate-700 dark:text-slate-300">
                     <option value="">All Subjects (<?= $totalQuestions ?> Qs)</option>
                     <?php foreach ($courses as $c): ?>
                     <option value="<?= htmlspecialchars($c['id']) ?>" <?= $selectedCourseFilter === $c['id'] ? 'selected' : '' ?>>
@@ -1393,7 +1393,7 @@ require_once __DIR__ . '/includes/header.php';
                 </select>
 
                 <!-- Topic Filter -->
-                <select name="filter_topic" onchange="this.form.submit()" class="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-700 max-w-[220px]">
+                <select name="filter_topic" onchange="this.form.submit()" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs bg-white dark:bg-slate-900 font-bold text-slate-700 dark:text-slate-300 max-w-[220px]">
                     <option value="">All Topics</option>
                     <?php 
                     $topicsToDisplay = !empty($selectedCourseFilter) ? ($topicsByCourse[$selectedCourseFilter] ?? []) : $allTopics;
@@ -1407,7 +1407,7 @@ require_once __DIR__ . '/includes/header.php';
 
                 <!-- Keyword Search -->
                 <div class="relative flex-1 sm:w-56">
-                    <input type="text" name="q_search" value="<?= htmlspecialchars($searchQuestionKeyword) ?>" placeholder="Search questions..." class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 text-xs">
+                    <input type="text" name="q_search" value="<?= htmlspecialchars($searchQuestionKeyword) ?>" placeholder="Search questions..." class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
                     <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
                 </div>
 
@@ -1422,7 +1422,7 @@ require_once __DIR__ . '/includes/header.php';
                     <i data-lucide="upload-cloud" class="w-4 h-4"></i>
                     <span>Smart Bulk Importer</span>
                 </button>
-                <a href="?export=questions_csv" class="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 flex items-center gap-1.5">
+                <a href="?export=questions_csv" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-50 dark:bg-slate-800/60 flex items-center gap-1.5">
                     <i data-lucide="download" class="w-4 h-4"></i>
                     <span>Export</span>
                 </a>
@@ -1432,7 +1432,7 @@ require_once __DIR__ . '/includes/header.php';
         <!-- ========================================================================= -->
         <!-- SMART BULK IMPORTER PANEL                                                -->
         <!-- ========================================================================= -->
-        <div id="bulkImportCard" class="bg-white rounded-3xl p-6 sm:p-7 border-2 border-indigo-200 shadow-lg space-y-5 animate-in fade-in">
+        <div id="bulkImportCard" class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 border-2 border-indigo-200 shadow-lg space-y-5 animate-in fade-in">
             <div class="flex items-start justify-between border-b border-indigo-100 pb-3">
                 <div>
                     <h3 class="text-base font-black text-indigo-950 flex items-center gap-2">
@@ -1441,7 +1441,7 @@ require_once __DIR__ . '/includes/header.php';
                     </h3>
                     <p class="text-xs text-slate-500 mt-1">Copy and paste questions directly from Microsoft Word, PDF documents, WhatsApp, or ChatGPT. The engine automatically detects questions, 4 options, answer keys, and full step-by-step explanations.</p>
                 </div>
-                <button type="button" onclick="document.getElementById('bulkImportCard').classList.add('hidden')" class="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+                <button type="button" onclick="document.getElementById('bulkImportCard').classList.add('hidden')" class="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:bg-slate-800">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -1450,10 +1450,10 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="hidden" name="action" value="bulk_import_questions">
 
                 <!-- 1. Selection Hierarchy: Subject & Topic -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
                     <div>
-                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">1. Target Subject <span class="text-rose-500">*</span></label>
-                        <select name="course_id" id="bulkCourseSelect" required onchange="onBulkCourseChange(this.value)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <label class="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">1. Target Subject <span class="text-rose-500">*</span></label>
+                        <select name="course_id" id="bulkCourseSelect" required onchange="onBulkCourseChange(this.value)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs bg-white dark:bg-slate-900 font-bold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500">
                             <option value="" disabled selected>-- Select Subject / Course --</option>
                             <?php foreach ($courses as $c): ?>
                             <option value="<?= htmlspecialchars($c['id']) ?>" <?= $selectedCourseFilter === $c['id'] ? 'selected' : '' ?>>
@@ -1464,22 +1464,22 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
 
                     <div>
-                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">2. Target Topic <span class="text-rose-500">*</span></label>
-                        <select name="topic_id" id="bulkTopicSelect" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <label class="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">2. Target Topic <span class="text-rose-500">*</span></label>
+                        <select name="topic_id" id="bulkTopicSelect" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs bg-white dark:bg-slate-900 font-bold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500">
                             <option value="">-- Select an Existing Topic --</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">Or Type New Topic Name</label>
-                        <input type="text" name="new_topic_name" id="bulkNewTopicInput" placeholder="e.g. Physical Quantities & Dimensions" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white focus:ring-2 focus:ring-indigo-500">
+                        <label class="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Or Type New Topic Name</label>
+                        <input type="text" name="new_topic_name" id="bulkNewTopicInput" placeholder="e.g. Physical Quantities & Dimensions" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500">
                         <span class="text-[10px] text-slate-400 mt-0.5 block">Leave empty to use the selected topic above</span>
                     </div>
                 </div>
 
                 <!-- 2. Choose Question Bank: Past Question Bank vs Test Question Bank -->
                 <div class="space-y-1.5">
-                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">3. Select Destination Question Bank Type <span class="text-rose-500">*</span></label>
+                    <label class="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">3. Select Destination Question Bank Type <span class="text-rose-500">*</span></label>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label class="relative flex items-start gap-3 p-4 rounded-2xl border-2 border-emerald-300 bg-emerald-50/40 cursor-pointer hover:bg-emerald-50/80 transition-all has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 shadow-xs">
                             <input type="radio" name="bank_type" value="past" checked class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
@@ -1525,14 +1525,14 @@ require_once __DIR__ . '/includes/header.php';
                             <button type="button" onclick="loadSampleJson()" class="text-xs text-indigo-700 hover:underline font-bold">Sample JSON</button>
                         </div>
                     </div>
-                    <p class="text-[11px] text-slate-600 leading-relaxed">
-                        Simply copy and paste your questions. Each question needs a question line, options <strong class="text-slate-800">A.</strong>, <strong class="text-slate-800">B.</strong>, <strong class="text-slate-800">C.</strong>, <strong class="text-slate-800">D.</strong>, an <strong class="text-slate-800">Answer: X</strong> key, and an optional <strong class="text-slate-800">Explanation:</strong> with working or reasoning.
+                    <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                        Simply copy and paste your questions. Each question needs a question line, options <strong class="text-slate-800 dark:text-slate-200">A.</strong>, <strong class="text-slate-800 dark:text-slate-200">B.</strong>, <strong class="text-slate-800 dark:text-slate-200">C.</strong>, <strong class="text-slate-800 dark:text-slate-200">D.</strong>, an <strong class="text-slate-800 dark:text-slate-200">Answer: X</strong> key, and an optional <strong class="text-slate-800 dark:text-slate-200">Explanation:</strong> with working or reasoning.
                     </p>
                 </div>
 
                 <!-- 4. Question Textarea -->
                 <div>
-                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">4. Paste Questions Below</label>
+                    <label class="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">4. Paste Questions Below</label>
                     <textarea name="raw_data" id="bulkTextarea" required rows="9" placeholder="1. What is the unit of force?
 A. Joule
 B. Newton
@@ -1547,11 +1547,11 @@ B. f = k l √(T/μ)
 C. f = k (1/l) √(μ/T)
 D. f = k l² (T/μ)
 Answer: A
-Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." class="w-full p-4 rounded-2xl border border-slate-200 text-xs font-mono focus:ring-2 focus:ring-indigo-500 leading-relaxed"></textarea>
+Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." class="w-full p-4 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-mono focus:ring-2 focus:ring-indigo-500 leading-relaxed"></textarea>
                 </div>
 
                 <div class="flex items-center justify-end gap-3 pt-1">
-                    <button type="button" onclick="document.getElementById('bulkImportCard').classList.add('hidden')" class="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+                    <button type="button" onclick="document.getElementById('bulkImportCard').classList.add('hidden')" class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:bg-slate-800/60 transition-colors">Cancel</button>
                     <button type="submit" class="px-7 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md shadow-indigo-200 flex items-center gap-2 transition-all">
                         <i data-lucide="check-circle" class="w-4 h-4"></i>
                         <span>Start Smart Bulk Import</span>
@@ -1561,10 +1561,10 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
         </div>
 
         <!-- Add Single Question Form -->
-        <div id="authorSection" class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
+        <div id="authorSection" class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-4">
                 <div>
-                    <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                    <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                         <i data-lucide="edit-3" class="w-5 h-5 text-indigo-600"></i>
                         <span>Add Single Question to Bank</span>
                     </h3>
@@ -1581,8 +1581,8 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
                 
                 <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     <div>
-                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">1. Subject <span class="text-rose-500">*</span></label>
-                        <select name="course_id" id="singleCourseSelect" required onchange="onSingleCourseChange(this.value)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <label class="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">1. Subject <span class="text-rose-500">*</span></label>
+                        <select name="course_id" id="singleCourseSelect" required onchange="onSingleCourseChange(this.value)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs bg-white dark:bg-slate-900 font-bold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500">
                             <option value="" disabled selected>-- Select Subject --</option>
                             <?php foreach ($courses as $c): ?>
                             <option value="<?= htmlspecialchars($c['id']) ?>" <?= $selectedCourseFilter === $c['id'] ? 'selected' : '' ?>>
@@ -1593,22 +1593,22 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
                     </div>
 
                     <div>
-                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">2. Topic <span class="text-rose-500">*</span></label>
-                        <select name="topic_id" id="singleTopicSelect" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <label class="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">2. Topic <span class="text-rose-500">*</span></label>
+                        <select name="topic_id" id="singleTopicSelect" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs bg-white dark:bg-slate-900 font-bold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500">
                             <option value="">-- Select an Existing Topic --</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">3. Bank Group <span class="text-rose-500">*</span></label>
-                        <select name="bank_type" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs bg-white font-black text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <label class="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">3. Bank Group <span class="text-rose-500">*</span></label>
+                        <select name="bank_type" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs bg-white dark:bg-slate-900 font-black text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500">
                             <option value="past">📚 Past Question Bank</option>
                             <option value="test">⏱️ Test Question Bank</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">4. Correct Key <span class="text-rose-500">*</span></label>
+                        <label class="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">4. Correct Key <span class="text-rose-500">*</span></label>
                         <select name="correct_option" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-emerald-500 text-xs bg-emerald-50/50 font-black text-emerald-900 focus:ring-2 focus:ring-emerald-500">
                             <option value="A">Choice A is Correct</option>
                             <option value="B">Choice B is Correct</option>
@@ -1619,21 +1619,21 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
                 </div>
 
                 <div>
-                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">5. Question Prompt <span class="text-rose-500">*</span></label>
-                    <textarea name="text" required rows="3" placeholder="Type the question here (e.g. A stretched string vibrates with frequency f...)" class="w-full p-3.5 rounded-2xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 leading-relaxed"></textarea>
+                    <label class="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">5. Question Prompt <span class="text-rose-500">*</span></label>
+                    <textarea name="text" required rows="3" placeholder="Type the question here (e.g. A stretched string vibrates with frequency f...)" class="w-full p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 leading-relaxed"></textarea>
                     <span class="text-[11px] text-slate-400 mt-1 block">Tip: Formulas work automatically or can be wrapped in dollar signs like <code class="text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded font-mono">$f = \frac{1}{2l}\sqrt{\frac{T}{\mu}}$</code></span>
                 </div>
 
                 <!-- 4 Colored Option Cards -->
                 <div class="space-y-1.5">
-                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">6. Enter The Four Multiple-Choice Options</label>
+                    <label class="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">6. Enter The Four Multiple-Choice Options</label>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div class="p-3 rounded-2xl bg-indigo-50/40 border border-indigo-200/70 space-y-1">
                             <span class="text-[11px] font-black uppercase text-indigo-700 flex items-center gap-1.5">
                                 <span class="w-5 h-5 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">A</span>
                                 <span>Option A <span class="text-rose-500">*</span></span>
                             </span>
-                            <input type="text" name="a" required placeholder="Option A text or formula..." class="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-white text-xs focus:ring-2 focus:ring-indigo-500">
+                            <input type="text" name="a" required placeholder="Option A text or formula..." class="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-indigo-500">
                         </div>
 
                         <div class="p-3 rounded-2xl bg-purple-50/40 border border-purple-200/70 space-y-1">
@@ -1641,7 +1641,7 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
                                 <span class="w-5 h-5 rounded-lg bg-purple-600 text-white flex items-center justify-center text-[10px] font-black">B</span>
                                 <span>Option B <span class="text-rose-500">*</span></span>
                             </span>
-                            <input type="text" name="b" required placeholder="Option B text or formula..." class="w-full px-3 py-2 rounded-xl border border-purple-200 bg-white text-xs focus:ring-2 focus:ring-purple-500">
+                            <input type="text" name="b" required placeholder="Option B text or formula..." class="w-full px-3 py-2 rounded-xl border border-purple-200 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-purple-500">
                         </div>
 
                         <div class="p-3 rounded-2xl bg-amber-50/40 border border-amber-200/70 space-y-1">
@@ -1649,7 +1649,7 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
                                 <span class="w-5 h-5 rounded-lg bg-amber-500 text-white flex items-center justify-center text-[10px] font-black">C</span>
                                 <span>Option C</span>
                             </span>
-                            <input type="text" name="c" placeholder="Option C text or formula..." class="w-full px-3 py-2 rounded-xl border border-amber-200 bg-white text-xs focus:ring-2 focus:ring-amber-500">
+                            <input type="text" name="c" placeholder="Option C text or formula..." class="w-full px-3 py-2 rounded-xl border border-amber-200 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-amber-500">
                         </div>
 
                         <div class="p-3 rounded-2xl bg-emerald-50/40 border border-emerald-200/70 space-y-1">
@@ -1657,14 +1657,14 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
                                 <span class="w-5 h-5 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">D</span>
                                 <span>Option D</span>
                             </span>
-                            <input type="text" name="d" placeholder="Option D text or formula..." class="w-full px-3 py-2 rounded-xl border border-emerald-200 bg-white text-xs focus:ring-2 focus:ring-emerald-500">
+                            <input type="text" name="d" placeholder="Option D text or formula..." class="w-full px-3 py-2 rounded-xl border border-emerald-200 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-emerald-500">
                         </div>
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">7. Explanation &amp; Working (Shown to students during review)</label>
-                    <textarea name="explanation" rows="2" placeholder="Explain step-by-step why the answer is correct..." class="w-full p-3 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500"></textarea>
+                    <label class="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">7. Explanation &amp; Working (Shown to students during review)</label>
+                    <textarea name="explanation" rows="2" placeholder="Explain step-by-step why the answer is correct..." class="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs focus:ring-2 focus:ring-indigo-500"></textarea>
                 </div>
 
                 <div class="pt-2 flex justify-end">
@@ -1677,12 +1677,12 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
         </div>
 
         <!-- Question Bank Viewer List -->
-        <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                 <div>
-                    <h2 class="text-base font-black text-slate-900 flex items-center gap-2">
+                    <h2 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                         <span>Question Bank Records</span>
-                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold <?= $selectedBankType === 'test' ? 'bg-indigo-100 text-indigo-800' : ($selectedBankType === 'past' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800') ?>">
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold <?= $selectedBankType === 'test' ? 'bg-indigo-100 text-indigo-800' : ($selectedBankType === 'past' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200') ?>">
                             <?= !empty($selectedBankType) ? ($selectedBankType === 'test' ? 'Test Question Bank' : 'Past Question Bank') : 'All Question Banks' ?> (<?= count($questionsList) ?> listed)
                         </span>
                     </h2>
@@ -1702,7 +1702,7 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
                         <div class="space-y-1">
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="px-2.5 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 font-black text-[10px] font-mono"><?= htmlspecialchars($rq['course_code']) ?></span>
-                                <span class="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px]"><?= htmlspecialchars($rq['topic_name']) ?></span>
+                                <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold text-[10px]"><?= htmlspecialchars($rq['topic_name']) ?></span>
                                 
                                 <!-- Bank Type Badge -->
                                 <?php if ($isTest): ?>
@@ -1719,7 +1719,7 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
 
                                 <span class="text-[10px] text-slate-400">ID: <?= substr($rq['id'], 0, 8) ?></span>
                             </div>
-                            <p class="text-xs font-semibold text-slate-900 leading-relaxed pt-1"><?= htmlspecialchars($rq['text']) ?></p>
+                            <p class="text-xs font-semibold text-slate-900 dark:text-white leading-relaxed pt-1"><?= htmlspecialchars($rq['text']) ?></p>
                         </div>
 
                         <div class="flex items-center gap-2 shrink-0">
@@ -1743,7 +1743,7 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
                             </form>
 
                             <!-- Edit Question Trigger -->
-                            <button type="button" onclick="openEditQuestionModal(<?= htmlspecialchars(json_encode($rq)) ?>)" class="p-1.5 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors" title="Edit Question">
+                            <button type="button" onclick="openEditQuestionModal(<?= htmlspecialchars(json_encode($rq)) ?>)" class="p-1.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:bg-slate-800 transition-colors" title="Edit Question">
                                 <i data-lucide="edit" class="w-4 h-4"></i>
                             </button>
 
@@ -1760,26 +1760,26 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
 
                     <!-- Options Grid -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                        <div class="p-2.5 rounded-xl <?= $rq['correct_option'] === 'A' ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold' : 'bg-slate-50 text-slate-700' ?>">
+                        <div class="p-2.5 rounded-xl <?= $rq['correct_option'] === 'A' ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold' : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300' ?>">
                             <span class="font-bold">A:</span> <?= htmlspecialchars($rq['a']) ?>
                         </div>
-                        <div class="p-2.5 rounded-xl <?= $rq['correct_option'] === 'B' ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold' : 'bg-slate-50 text-slate-700' ?>">
+                        <div class="p-2.5 rounded-xl <?= $rq['correct_option'] === 'B' ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold' : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300' ?>">
                             <span class="font-bold">B:</span> <?= htmlspecialchars($rq['b']) ?>
                         </div>
                         <?php if (!empty($rq['c'])): ?>
-                        <div class="p-2.5 rounded-xl <?= $rq['correct_option'] === 'C' ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold' : 'bg-slate-50 text-slate-700' ?>">
+                        <div class="p-2.5 rounded-xl <?= $rq['correct_option'] === 'C' ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold' : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300' ?>">
                             <span class="font-bold">C:</span> <?= htmlspecialchars($rq['c']) ?>
                         </div>
                         <?php endif; ?>
                         <?php if (!empty($rq['d'])): ?>
-                        <div class="p-2.5 rounded-xl <?= $rq['correct_option'] === 'D' ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold' : 'bg-slate-50 text-slate-700' ?>">
+                        <div class="p-2.5 rounded-xl <?= $rq['correct_option'] === 'D' ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold' : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300' ?>">
                             <span class="font-bold">D:</span> <?= htmlspecialchars($rq['d']) ?>
                         </div>
                         <?php endif; ?>
                     </div>
 
                     <?php if (!empty($rq['explanation'])): ?>
-                    <p class="text-[11px] text-slate-600 bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/80 leading-relaxed">
+                    <p class="text-[11px] text-slate-600 dark:text-slate-400 bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/80 leading-relaxed">
                         <strong class="text-amber-900 not-italic font-bold">Solution / Rationale:</strong> <?= nl2br(htmlspecialchars($rq['explanation'])) ?>
                     </p>
                     <?php endif; ?>
@@ -1798,10 +1798,10 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
     <?php if ($tab === 'results'): ?>
     <div class="space-y-6">
 
-        <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h2 class="text-base font-black text-slate-900">Examination Transcripts &amp; Gradebook</h2>
+                    <h2 class="text-base font-black text-slate-900 dark:text-white">Examination Transcripts &amp; Gradebook</h2>
                     <p class="text-xs text-slate-500 mt-0.5">Real-time candidate scorecards, percentage benchmarks, and proctoring status.</p>
                 </div>
                 <a href="?export=gradebook_csv" class="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs transition-all flex items-center gap-2 shadow-sm">
@@ -1814,10 +1814,10 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
             <form method="GET" action="admin_dashboard.php" class="flex flex-wrap items-center gap-3 pt-2">
                 <input type="hidden" name="tab" value="results">
                 <div class="relative flex-1 min-w-[200px]">
-                    <input type="text" name="results_search" value="<?= htmlspecialchars($resultsSearch) ?>" placeholder="Search by candidate name or matric..." class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 text-xs">
+                    <input type="text" name="results_search" value="<?= htmlspecialchars($resultsSearch) ?>" placeholder="Search by candidate name or matric..." class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
                     <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
                 </div>
-                <select name="results_course" class="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-bold">
+                <select name="results_course" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs bg-white dark:bg-slate-900 font-bold">
                     <option value="">All Subjects</option>
                     <?php foreach ($courses as $c): ?>
                     <option value="<?= htmlspecialchars($c['id']) ?>" <?= $resultsFilterCourse === $c['id'] ? 'selected' : '' ?>>
@@ -1833,7 +1833,7 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
 
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs">
-                    <thead class="bg-slate-50 border-b border-slate-200 uppercase font-black text-slate-500">
+                    <thead class="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 uppercase font-black text-slate-500">
                         <tr>
                             <th class="px-6 py-3.5">Candidate</th>
                             <th class="px-6 py-3.5">Matric / ID</th>
@@ -1850,14 +1850,14 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
                         <tr><td colspan="8" class="py-8 text-center text-slate-400">No examination submissions match the current filter.</td></tr>
                         <?php else: ?>
                         <?php foreach ($submissions as $sub): ?>
-                        <tr class="hover:bg-slate-50/70 transition-colors">
+                        <tr class="hover:bg-slate-50 dark:bg-slate-800/60/70 transition-colors">
                             <td class="px-6 py-3.5">
-                                <div class="font-bold text-slate-900"><?= htmlspecialchars($sub['student_name'] ?? 'Unknown Candidate') ?></div>
+                                <div class="font-bold text-slate-900 dark:text-white"><?= htmlspecialchars($sub['student_name'] ?? 'Unknown Candidate') ?></div>
                                 <div class="text-[10px] text-slate-400 truncate max-w-[150px]"><?= htmlspecialchars($sub['department'] ?? '') ?></div>
                             </td>
-                            <td class="px-6 py-3.5 font-mono text-slate-600 font-bold"><?= htmlspecialchars($sub['matric_no'] ?? 'N/A') ?></td>
-                            <td class="px-6 py-3.5 font-bold text-slate-800"><?= htmlspecialchars($sub['course_code'] ?? 'Exam') ?></td>
-                            <td class="px-6 py-3.5 text-center font-bold text-slate-900">
+                            <td class="px-6 py-3.5 font-mono text-slate-600 dark:text-slate-400 font-bold"><?= htmlspecialchars($sub['matric_no'] ?? 'N/A') ?></td>
+                            <td class="px-6 py-3.5 font-bold text-slate-800 dark:text-slate-200"><?= htmlspecialchars($sub['course_code'] ?? 'Exam') ?></td>
+                            <td class="px-6 py-3.5 text-center font-bold text-slate-900 dark:text-white">
                                 <?= (int)$sub['total_score'] ?> / <?= (int)$sub['total_questions'] ?>
                             </td>
                             <td class="px-6 py-3.5 text-center font-black text-indigo-700">
@@ -1892,7 +1892,7 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
                                     <form method="POST" action="admin_dashboard.php" class="inline" onsubmit="return confirm('Clear this test submission so candidate can retake?')">
                                         <input type="hidden" name="action" value="clear_submission">
                                         <input type="hidden" name="result_id" value="<?= htmlspecialchars($sub['id']) ?>">
-                                        <button type="submit" class="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50" title="Clear / Reset Sitting">
+                                        <button type="submit" class="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-rose-600 hover:bg-rose-50" title="Clear / Reset Sitting">
                                             <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                                         </button>
                                     </form>
@@ -1915,10 +1915,10 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
     <?php if ($tab === 'students'): ?>
     <div class="space-y-6">
 
-        <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h2 class="text-base font-black text-slate-900">Candidate Directory &amp; Cash Prize Accounts</h2>
+                    <h2 class="text-base font-black text-slate-900 dark:text-white">Candidate Directory &amp; Cash Prize Accounts</h2>
                     <p class="text-xs text-slate-500 mt-0.5">Verified candidate accounts, university matric numbers, and linked bank details for cash prize disbursements.</p>
                 </div>
                 <div class="flex items-center gap-2">
@@ -1933,10 +1933,10 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
             <form method="GET" action="admin_dashboard.php" class="flex flex-wrap items-center gap-3 pt-2">
                 <input type="hidden" name="tab" value="students">
                 <div class="relative flex-1 min-w-[200px]">
-                    <input type="text" name="student_search" value="<?= htmlspecialchars($studentSearch) ?>" placeholder="Search name, matric number, department, or phone..." class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 text-xs">
+                    <input type="text" name="student_search" value="<?= htmlspecialchars($studentSearch) ?>" placeholder="Search name, matric number, department, or phone..." class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
                     <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
                 </div>
-                <select name="bank_filter" class="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-bold">
+                <select name="bank_filter" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs bg-white dark:bg-slate-900 font-bold">
                     <option value="">All Candidates (<?= $totalStudents ?>)</option>
                     <option value="verified" <?= $studentBankFilter === 'verified' ? 'selected' : '' ?>>Bank Details Linked (<?= $studentsWithBank ?>)</option>
                     <option value="pending" <?= $studentBankFilter === 'pending' ? 'selected' : '' ?>>Bank Details Pending (<?= $totalStudents - $studentsWithBank ?>)</option>
@@ -1949,7 +1949,7 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
 
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs">
-                    <thead class="bg-slate-50 border-b border-slate-200 uppercase font-black text-slate-500">
+                    <thead class="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 uppercase font-black text-slate-500">
                         <tr>
                             <th class="px-6 py-3.5">Candidate Name</th>
                             <th class="px-6 py-3.5">Matric / JAMB ID</th>
@@ -1965,16 +1965,16 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
                         <tr><td colspan="7" class="py-8 text-center text-slate-400">No candidates match the specified filter.</td></tr>
                         <?php else: ?>
                         <?php foreach ($students as $st): ?>
-                        <tr class="hover:bg-slate-50/70 transition-colors">
-                            <td class="px-6 py-4 font-bold text-slate-900"><?= htmlspecialchars($st['name']) ?></td>
+                        <tr class="hover:bg-slate-50 dark:bg-slate-800/60/70 transition-colors">
+                            <td class="px-6 py-4 font-bold text-slate-900 dark:text-white"><?= htmlspecialchars($st['name']) ?></td>
                             <td class="px-6 py-4 font-mono font-bold text-indigo-700"><?= htmlspecialchars($st['matric_no']) ?></td>
-                            <td class="px-6 py-4 text-slate-700 font-medium"><?= htmlspecialchars($st['department']) ?></td>
+                            <td class="px-6 py-4 text-slate-700 dark:text-slate-300 font-medium"><?= htmlspecialchars($st['department']) ?></td>
                             <td class="px-6 py-4 font-mono text-slate-500"><?= htmlspecialchars($st['phone'] ?: '—') ?></td>
                             <td class="px-6 py-4">
                                 <?php if (!empty($st['account_number'])): ?>
                                     <div class="space-y-0.5">
                                         <div class="flex items-center gap-1.5">
-                                            <span class="font-mono font-black text-slate-900 tracking-wider"><?= htmlspecialchars($st['account_number']) ?></span>
+                                            <span class="font-mono font-black text-slate-900 dark:text-white tracking-wider"><?= htmlspecialchars($st['account_number']) ?></span>
                                             <button type="button" onclick="copyToClipboard('<?= htmlspecialchars($st['account_number']) ?>', this)" class="text-slate-400 hover:text-indigo-600 transition-colors" title="Copy Account Number">
                                                 <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                                             </button>
@@ -1988,8 +1988,8 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
                                     </span>
                                 <?php endif; ?>
                             </td>
-                            <td class="px-6 py-4 text-center font-bold text-slate-800">
-                                <span class="px-2 py-0.5 rounded-lg bg-slate-100"><?= (int)$st['tests_count'] ?></span>
+                            <td class="px-6 py-4 text-center font-bold text-slate-800 dark:text-slate-200">
+                                <span class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800"><?= (int)$st['tests_count'] ?></span>
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <div class="flex items-center justify-end gap-1.5">
@@ -2030,16 +2030,16 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
     <?php if ($tab === 'proctoring'): ?>
     <div class="space-y-6">
 
-        <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <h2 class="text-base font-black text-slate-900 flex items-center gap-2">
+                    <h2 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                         <i data-lucide="shield-alert" class="w-5 h-5 text-indigo-600"></i>
                         <span>Live Exam Proctoring Surveillance &amp; Infraction Logs</span>
                     </h2>
                     <p class="text-xs text-slate-500 mt-0.5">Real-time candidate focus monitoring, tab switch infractions, and anti-cheating tracking.</p>
                 </div>
-                <button type="button" onclick="window.location.reload()" class="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 flex items-center gap-1.5">
+                <button type="button" onclick="window.location.reload()" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-50 dark:bg-slate-800/60 flex items-center gap-1.5">
                     <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
                     <span>Refresh Feed</span>
                 </button>
@@ -2047,7 +2047,7 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
 
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs">
-                    <thead class="bg-slate-50 border-b border-slate-200 uppercase font-black text-slate-500">
+                    <thead class="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 uppercase font-black text-slate-500">
                         <tr>
                             <th class="px-6 py-3.5">Candidate</th>
                             <th class="px-6 py-3.5">Matric No</th>
@@ -2063,16 +2063,16 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
                         <tr><td colspan="7" class="py-12 text-center text-slate-400">No active exam sessions currently in progress.</td></tr>
                         <?php else: ?>
                         <?php foreach ($proctorSessions as $sess): ?>
-                        <tr class="hover:bg-slate-50/70 transition-colors">
-                            <td class="px-6 py-3.5 font-bold text-slate-900"><?= htmlspecialchars($sess['student_name'] ?? 'Candidate') ?></td>
-                            <td class="px-6 py-3.5 font-mono text-slate-600"><?= htmlspecialchars($sess['matric_no'] ?? '') ?></td>
+                        <tr class="hover:bg-slate-50 dark:bg-slate-800/60/70 transition-colors">
+                            <td class="px-6 py-3.5 font-bold text-slate-900 dark:text-white"><?= htmlspecialchars($sess['student_name'] ?? 'Candidate') ?></td>
+                            <td class="px-6 py-3.5 font-mono text-slate-600 dark:text-slate-400"><?= htmlspecialchars($sess['matric_no'] ?? '') ?></td>
                             <td class="px-6 py-3.5 font-bold text-indigo-700"><?= htmlspecialchars($sess['course_code'] ?? '') ?></td>
                             <td class="px-6 py-3.5 text-center">
-                                <span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] <?= $sess['status'] === 'IN_PROGRESS' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600' ?>">
+                                <span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] <?= $sess['status'] === 'IN_PROGRESS' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400' ?>">
                                     <?= htmlspecialchars($sess['status']) ?>
                                 </span>
                             </td>
-                            <td class="px-6 py-3.5 text-center font-mono font-bold text-slate-900">
+                            <td class="px-6 py-3.5 text-center font-mono font-bold text-slate-900 dark:text-white">
                                 <?= (int)($sess['tab_switches'] ?? 0) ?>
                             </td>
                             <td class="px-6 py-3.5 text-center">
@@ -2105,13 +2105,13 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
 <!-- MODAL: EDIT COURSE PARAMETERS                                            -->
 <!-- ========================================================================= -->
 <div id="editCourseModal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="relative bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-4 shadow-2xl border border-slate-200">
+    <div class="relative bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800">
         <div class="flex items-center justify-between">
-            <h3 class="text-sm font-black text-slate-900 flex items-center gap-2">
+            <h3 class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <i data-lucide="settings" class="w-4 h-4 text-indigo-600"></i>
                 <span>Edit Assessment Parameters</span>
             </h3>
-            <button type="button" onclick="closeEditCourseModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+            <button type="button" onclick="closeEditCourseModal()" class="text-slate-400 hover:text-slate-600 dark:text-slate-400"><i data-lucide="x" class="w-4 h-4"></i></button>
         </div>
 
         <form method="POST" action="admin_dashboard.php" class="space-y-4">
@@ -2119,28 +2119,28 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
             <input type="hidden" name="course_id" id="editCourseId">
 
             <div>
-                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Course Code</label>
-                <input type="text" name="code" id="editCourseCode" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono uppercase">
+                <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Course Code</label>
+                <input type="text" name="code" id="editCourseCode" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-mono uppercase">
             </div>
 
             <div>
-                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Course Title</label>
-                <input type="text" name="title" id="editCourseTitle" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Course Title</label>
+                <input type="text" name="title" id="editCourseTitle" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
             </div>
 
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Duration (Mins)</label>
-                    <input type="number" name="duration" id="editCourseDuration" required min="5" max="300" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono">
+                    <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Duration (Mins)</label>
+                    <input type="number" name="duration" id="editCourseDuration" required min="5" max="300" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-mono">
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Question Limit</label>
-                    <input type="number" name="question_limit" id="editCourseLimit" required min="5" max="300" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono">
+                    <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Question Limit</label>
+                    <input type="number" name="question_limit" id="editCourseLimit" required min="5" max="300" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-mono">
                 </div>
             </div>
 
             <div class="flex items-center justify-end gap-2 pt-2">
-                <button type="button" onclick="closeEditCourseModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600">Cancel</button>
+                <button type="button" onclick="closeEditCourseModal()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400">Cancel</button>
                 <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs">Save Changes</button>
             </div>
         </form>
@@ -2151,13 +2151,13 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
 <!-- MODAL: EDIT QUESTION                                                     -->
 <!-- ========================================================================= -->
 <div id="editQuestionModal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="relative bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-4 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+    <div class="relative bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 sm:p-8 space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between">
-            <h3 class="text-sm font-black text-slate-900 flex items-center gap-2">
+            <h3 class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <i data-lucide="edit-3" class="w-4 h-4 text-indigo-600"></i>
                 <span>Edit Question Details</span>
             </h3>
-            <button type="button" onclick="closeEditQuestionModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+            <button type="button" onclick="closeEditQuestionModal()" class="text-slate-400 hover:text-slate-600 dark:text-slate-400"><i data-lucide="x" class="w-4 h-4"></i></button>
         </div>
 
         <form method="POST" action="admin_dashboard.php" class="space-y-3.5">
@@ -2165,41 +2165,41 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
             <input type="hidden" name="question_id" id="editQuestionId">
 
             <div>
-                <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Question Prompt</label>
-                <textarea name="text" id="editQuestionText" required rows="3" class="w-full p-3 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500"></textarea>
+                <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Question Prompt</label>
+                <textarea name="text" id="editQuestionText" required rows="3" class="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs focus:ring-2 focus:ring-indigo-500"></textarea>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Option A</label>
-                    <input type="text" name="a" id="editQuestionA" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                    <label class="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Option A</label>
+                    <input type="text" name="a" id="editQuestionA" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Option B</label>
-                    <input type="text" name="b" id="editQuestionB" required class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                    <label class="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Option B</label>
+                    <input type="text" name="b" id="editQuestionB" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Option C</label>
-                    <input type="text" name="c" id="editQuestionC" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                    <label class="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Option C</label>
+                    <input type="text" name="c" id="editQuestionC" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Option D</label>
-                    <input type="text" name="d" id="editQuestionD" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                    <label class="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Option D</label>
+                    <input type="text" name="d" id="editQuestionD" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
                 </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Target Curriculum Topic</label>
-                    <select name="topic_id" id="editQuestionTopic" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-bold text-slate-800">
+                    <label class="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Target Curriculum Topic</label>
+                    <select name="topic_id" id="editQuestionTopic" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs bg-white dark:bg-slate-900 font-bold text-slate-800 dark:text-slate-200">
                         <?php foreach ($allTopics as $top): ?>
                         <option value="<?= htmlspecialchars($top['id']) ?>"><?= htmlspecialchars($top['course_code']) ?>: <?= htmlspecialchars($top['name']) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Question Bank Group</label>
-                    <select name="bank_type" id="editQuestionBankType" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white font-black text-slate-800">
+                    <label class="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Question Bank Group</label>
+                    <select name="bank_type" id="editQuestionBankType" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs bg-white dark:bg-slate-900 font-black text-slate-800 dark:text-slate-200">
                         <option value="past">📚 Past Question Bank</option>
                         <option value="test">⏱️ Test Question Bank</option>
                     </select>
@@ -2208,8 +2208,8 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Correct Key</label>
-                    <select name="correct_option" id="editQuestionCorrect" class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-black text-indigo-700 bg-white">
+                    <label class="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Correct Key</label>
+                    <select name="correct_option" id="editQuestionCorrect" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-black text-indigo-700 bg-white dark:bg-slate-900">
                         <option value="A">Choice A is Correct</option>
                         <option value="B">Choice B is Correct</option>
                         <option value="C">Choice C is Correct</option>
@@ -2217,13 +2217,13 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Clinical Rationale / Working</label>
-                    <input type="text" name="explanation" id="editQuestionExplanation" placeholder="Explanation for review..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                    <label class="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">Clinical Rationale / Working</label>
+                    <input type="text" name="explanation" id="editQuestionExplanation" placeholder="Explanation for review..." class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
                 </div>
             </div>
 
             <div class="flex items-center justify-end gap-2 pt-2">
-                <button type="button" onclick="closeEditQuestionModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button type="button" onclick="closeEditQuestionModal()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:bg-slate-800/60">Cancel</button>
                 <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs">Save Question</button>
             </div>
         </form>
@@ -2234,16 +2234,16 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
 <!-- MODAL: MANAGE COURSE TOPICS (COURSE & TOPIC EDITOR)                      -->
 <!-- ========================================================================= -->
 <div id="courseTopicsModal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="relative bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-5 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+    <div class="relative bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-5 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
         <div class="flex items-start justify-between border-b border-slate-100 pb-3">
             <div>
-                <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                     <i data-lucide="folder-tree" class="w-5 h-5 text-indigo-600"></i>
                     <span>Curriculum Topics Editor: <span id="topicModalCourseHeader" class="text-indigo-700 font-mono"></span></span>
                 </h3>
                 <p class="text-xs text-slate-500 mt-0.5">Add, rename, or organize syllabus topics for this subject.</p>
             </div>
-            <button type="button" onclick="closeCourseTopicsModal()" class="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <button type="button" onclick="closeCourseTopicsModal()" class="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:bg-slate-800"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
 
         <!-- Add New Topic to this Course Form -->
@@ -2252,7 +2252,7 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
             <form method="POST" action="admin_dashboard.php" class="flex gap-2">
                 <input type="hidden" name="action" value="add_topic">
                 <input type="hidden" name="course_id" id="topicModalCourseId">
-                <input type="text" name="name" required placeholder="e.g. Physical Quantities, Units & Dimensions" class="flex-1 px-3.5 py-2 rounded-xl border border-indigo-200 bg-white text-xs font-medium focus:ring-2 focus:ring-indigo-500">
+                <input type="text" name="name" required placeholder="e.g. Physical Quantities, Units & Dimensions" class="flex-1 px-3.5 py-2 rounded-xl border border-indigo-200 bg-white dark:bg-slate-900 text-xs font-medium focus:ring-2 focus:ring-indigo-500">
                 <button type="submit" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors shrink-0">
                     <i data-lucide="plus" class="w-4 h-4"></i>
                     <span>Add Topic</span>
@@ -2262,8 +2262,8 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
 
         <!-- List of Current Topics with live question count & rename -->
         <div class="space-y-2.5">
-            <h4 class="text-xs font-black text-slate-700 uppercase tracking-wider">Current Course Topics</h4>
-            <div id="topicModalListContainer" class="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden bg-white">
+            <h4 class="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">Current Course Topics</h4>
+            <div id="topicModalListContainer" class="divide-y divide-slate-100 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900">
                 <!-- Injected dynamically via openCourseTopicsModal() -->
             </div>
         </div>
@@ -2316,13 +2316,13 @@ function openCourseTopicsModal(c) {
         container.innerHTML = '<div class="p-6 text-center text-xs text-slate-400">No topics added to this subject yet. Use the form above to add your first topic!</div>';
     } else {
         container.innerHTML = topics.map((t, idx) => `
-            <div class="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
+            <div class="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 dark:bg-slate-800/60 transition-colors">
                 <div class="space-y-1 min-w-0">
                     <form method="POST" action="admin_dashboard.php" class="flex items-center gap-2">
                         <input type="hidden" name="action" value="update_topic">
                         <input type="hidden" name="topic_id" value="${escapeHtml(t.id)}">
-                        <input type="text" name="name" value="${escapeHtml(t.name)}" class="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-800 bg-white focus:ring-1 focus:ring-indigo-500 w-full sm:w-72" title="Click to edit topic name">
-                        <button type="submit" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 font-bold text-[11px] transition-colors shrink-0">Rename</button>
+                        <input type="text" name="name" value="${escapeHtml(t.name)}" class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-indigo-500 w-full sm:w-72" title="Click to edit topic name">
+                        <button type="submit" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 dark:text-slate-400 font-bold text-[11px] transition-colors shrink-0">Rename</button>
                     </form>
                     <div class="flex items-center gap-2 text-[10px]">
                         <span class="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">📚 ${parseInt(t.past_q_count || 0)} Past Qs</span>
@@ -2330,7 +2330,7 @@ function openCourseTopicsModal(c) {
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
-                    <a href="admin_dashboard.php?tab=questions&filter_course=${encodeURIComponent(c.id)}&filter_topic=${encodeURIComponent(t.id)}" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors">
+                    <a href="admin_dashboard.php?tab=questions&filter_course=${encodeURIComponent(c.id)}&filter_topic=${encodeURIComponent(t.id)}" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors">
                         View Questions &rsaquo;
                     </a>
                     <form method="POST" action="admin_dashboard.php" class="inline" onsubmit="return confirm('Are you sure you want to delete topic: ${escapeHtml(t.name)}?')">

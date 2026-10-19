@@ -35,6 +35,7 @@ $pageTitle = $pageTitle ?? 'PreMed Test Portal';
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
@@ -56,6 +57,17 @@ $pageTitle = $pageTitle ?? 'PreMed Test Portal';
             }
         }
     </script>
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('adminTheme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        })();
+    </script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- KaTeX CSS & JS for math & science formulas -->
@@ -68,11 +80,11 @@ $pageTitle = $pageTitle ?? 'PreMed Test Portal';
         .font-mono { font-family: 'JetBrains Mono', monospace; }
     </style>
 </head>
-<body class="bg-[#f8fafc] text-slate-800 min-h-screen flex flex-col antialiased selection:bg-teal-600 selection:text-white">
+<body class="bg-[#f8fafc] dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col antialiased selection:bg-teal-600 selection:text-white transition-colors duration-200">
 
 <?php if (!$isPublicPage && $currentPage !== 'exam.php'): ?>
 <!-- ================= FIXED & COLLAPSIBLE CLINICAL NAVBAR ================= -->
-<header class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-teal-100/70 shadow-xs">
+<header class="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-teal-100/70 dark:border-slate-800 shadow-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6">
         <div class="flex items-center justify-between h-16 gap-3">
 
@@ -130,9 +142,13 @@ $pageTitle = $pageTitle ?? 'PreMed Test Portal';
                 </a>
 
                 <?php if ($isAdmin): ?>
-                <a href="admin_dashboard.php" class="px-2.5 py-1.5 rounded-lg text-rose-700 bg-rose-50 border border-rose-200 font-bold hover:bg-rose-100 transition-colors ml-1">
+                <a href="admin_dashboard.php" class="px-2.5 py-1.5 rounded-lg text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 font-bold hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors ml-1">
                     <span>Admin</span>
                 </a>
+                <button type="button" id="adminThemeToggleBtn" title="Toggle Dark/Light Mode" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none ml-1">
+                    <i data-lucide="moon" class="w-4 h-4 hidden dark:block text-amber-400"></i>
+                    <i data-lucide="sun" class="w-4 h-4 block dark:hidden text-amber-500"></i>
+                </button>
                 <?php endif; ?>
             </nav>
 
@@ -247,6 +263,16 @@ $pageTitle = $pageTitle ?? 'PreMed Test Portal';
                     if (closedIcon) closedIcon.classList.remove('hidden');
                     if (openIcon) openIcon.classList.add('hidden');
                 }
+            });
+        }
+
+        // Admin Theme Toggle Handler
+        const themeBtn = document.getElementById('adminThemeToggleBtn');
+        if (themeBtn) {
+            themeBtn.addEventListener('click', function() {
+                const isDark = document.documentElement.classList.toggle('dark');
+                localStorage.setItem('adminTheme', isDark ? 'dark' : 'light');
+                if (window.lucide) lucide.createIcons();
             });
         }
 
