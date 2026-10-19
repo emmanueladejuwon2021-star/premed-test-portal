@@ -48,10 +48,11 @@ class DB {
     }
 
     public static function ensureSchema(TursoPDO $pdo): void {
-        if (self::$migrated) {
+        if (self::$migrated || file_exists('/tmp/turso_schema_migrated.lock')) {
             return;
         }
         self::$migrated = true;
+        @file_put_contents('/tmp/turso_schema_migrated.lock', time());
 
         // 1. Ensure students columns exist
         $studentCols = [
