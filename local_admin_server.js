@@ -1475,6 +1475,13 @@ io.on('connection', (socket) => {
       room.status = 'terminated';
       clearInterval(room.timerInterval);
       io.to(roomCode).emit('roomTerminated', { reason: reason || 'Terminated by Admin.' });
+      io.to(roomCode).emit('gameFinished', {
+        winnerUserId: null,
+        winnerName: 'Terminated by Admin',
+        isDraw: false,
+        finalScores: room.scores,
+        coinsAwarded: {} // Edge Case 3: 0 coins to all when admin terminates
+      });
       await tursoExecute("UPDATE combat_rooms SET status = 'terminated' WHERE room_code = ?;", [roomCode]);
       activeCombatRooms.delete(roomCode);
     }
@@ -2082,32 +2089,65 @@ async function getUserCombatStats(userId, matricNo, name) {
 async function updateUserCombatStatsAndCoins(userId, matricNo, name, courseId, topicId, isWin, isLoss, isDraw, pointsEarned, coinsEarned) {
   const stats = await getUserCombatStats(userId, matricNo, name);
 
+  // Edge Case 2: What if winner is banned from combat? Give 0 coins and log
+  if (stats.is_banned_from_combat === 1 || stats.is_banned_from_combat === true) {
+    console.warn(`[COMBAT COINS SKIPPED] Banned user win but no coins given. User: ${userId}`);
+    coinsEarned = 0;
+  }
+
   const newWins = stats.wins + (isWin ? 1 : 0);
   const newLosses = stats.losses + (isLoss ? 1 : 0);
   const newDraws = stats.draws + (isDraw ? 1 : 0);
   const newMatches = stats.total_matches + 1;
   const newPoints = stats.total_points + pointsEarned;
-  const newCoins = stats.combat_coins + coinsEarned;
 
   const newRankObj = calculateRank(newWins);
   const isRankUp = (newRankObj.name !== stats.current_rank);
 
-  await tursoExecute(`
-    UPDATE user_combat_stats
-    SET total_matches = ?, wins = ?, losses = ?, draws = ?, total_points = ?,
-        combat_coins = ?, current_rank = ?, wins_for_rank = ?, favorite_topic_id = ?,
-        last_match_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-    WHERE user_id = ?;
-  `, [newMatches, newWins, newLosses, newDraws, newPoints, newCoins, newRankObj.name, newWins, topicId, userId]);
+  // Edge Case 5: Atomic increment for user_combat_stats
+  let updatedStatsOk = false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      updatedStatsOk = await tursoExecute(`
+        UPDATE user_combat_stats
+        SET total_matches = total_matches + 1,
+            wins = wins + ?,
+            losses = losses + ?,
+            draws = draws + ?,
+            total_points = total_points + ?,
+            combat_coins = combat_coins + ?,
+            current_rank = ?,
+            wins_for_rank = wins_for_rank + ?,
+            favorite_topic_id = ?,
+            last_match_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ?;
+      `, [
+        isWin ? 1 : 0, isLoss ? 1 : 0, isDraw ? 1 : 0,
+        pointsEarned, coinsEarned, newRankObj.name, isWin ? 1 : 0, topicId, userId
+      ]);
+      if (updatedStatsOk) break;
+    } catch (e) {
+      console.error(`[STATS UPDATE ATTEMPT ${attempt} FAILED]`, e.message);
+    }
+  }
 
+  // Edge Case 1: Atomic increment for student_course_coins with retry
   if (coinsEarned > 0 && courseId) {
-    await tursoExecute(`
-      INSERT INTO student_course_coins (id, student_id, course_id, coins_balance, updated_at)
-      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(student_id, course_id) DO UPDATE SET
-        coins_balance = coins_balance + excluded.coins_balance,
-        updated_at = CURRENT_TIMESTAMP;
-    `, [`coin_${Math.random().toString(36).substring(2, 10)}`, userId, courseId, coinsEarned]);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const coinOk = await tursoExecute(`
+          INSERT INTO student_course_coins (id, student_id, course_id, coins_balance, updated_at)
+          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+          ON CONFLICT(student_id, course_id) DO UPDATE SET
+            coins_balance = coins_balance + excluded.coins_balance,
+            updated_at = CURRENT_TIMESTAMP;
+        `, [`coin_${Math.random().toString(36).substring(2, 10)}`, userId, courseId, coinsEarned]);
+        if (coinOk) break;
+      } catch (e) {
+        console.error(`[COURSE COIN UPDATE ATTEMPT ${attempt} FAILED]`, e.message);
+      }
+    }
   }
 
   return { isRankUp, newRank: newRankObj.name };
