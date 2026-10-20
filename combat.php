@@ -581,12 +581,10 @@ $matchHistory = $historyStmt->fetchAll();
                     <!-- Options 2x2 Grid -->
                     <div id="arenaOptionsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
 
-                    <!-- Confirm Answer Action Bar (Shown when active player selects an option) -->
-                    <div id="confirmActionBar" class="hidden pt-2">
-                        <button type="button" id="confirmAnswerBtn" onclick="confirmSelectedAnswer()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm uppercase tracking-wider shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 animate-bounce">
-                            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
-                            <span>CONFIRM & VALIDATE ANSWER ⚡</span>
-                        </button>
+                    <!-- Checking Answer Loading Banner -->
+                    <div id="checkingAnswerBanner" class="hidden my-3 p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/80 border border-purple-300 dark:border-purple-800 text-purple-900 dark:text-purple-200 text-xs font-black flex items-center justify-center gap-2.5 animate-pulse">
+                        <i data-lucide="loader-2" class="w-5 h-5 animate-spin text-purple-600"></i>
+                        <span>Checking answer... ⏳</span>
                     </div>
 
                     <!-- High-Impact Game Result Feedback Overlay (Centered) -->
@@ -668,6 +666,7 @@ $matchHistory = $historyStmt->fetchAll();
     let currentSelectedOptionKey = null;
     let currentTurnIsBonus = false;
     let activeTimerMaxDuration = 30;
+    let isSubmittingAnswer = false;
 
     document.addEventListener('DOMContentLoaded', function () {
         if (window.lucide) lucide.createIcons();
@@ -1090,10 +1089,14 @@ $matchHistory = $historyStmt->fetchAll();
 
             currentTurnIsBonus = true;
             currentSelectedOptionKey = null;
+            isSubmittingAnswer = false;
             activeTimerMaxDuration = data.timerDuration || 15;
             syncTimerDisplay(activeTimerMaxDuration, activeTimerMaxDuration);
 
-            document.getElementById('confirmActionBar').classList.add('hidden');
+            const checkingBanner = document.getElementById('checkingAnswerBanner');
+            if (checkingBanner) checkingBanner.classList.add('hidden');
+            const confirmBar = document.getElementById('confirmActionBar');
+            if (confirmBar) confirmBar.classList.add('hidden');
 
             if (data.bonusUserId === STUDENT_ID) {
                 turnsBadge.textContent = '⚡ BONUS TURN (+1 Pt) ⚡';
@@ -1265,13 +1268,15 @@ $matchHistory = $historyStmt->fetchAll();
     function renderQuestion(data) {
         currentTurnIsBonus = false;
         currentSelectedOptionKey = null;
+        isSubmittingAnswer = false;
         activeTimerMaxDuration = data.timerDuration || 30;
 
         document.getElementById('arenaRoundIndicator').textContent = `Round ${data.roundNumber} / ${data.totalRounds}`;
         document.getElementById('arenaRoomCode').textContent = currentRoom ? currentRoom.roomCode : '';
         document.getElementById('questionNumberHeader').textContent = `Question ${data.questionNumber} of ${data.questionsPerRound}`;
 
-        document.getElementById('confirmActionBar').classList.add('hidden');
+        const checkingBanner = document.getElementById('checkingAnswerBanner');
+        if (checkingBanner) checkingBanner.classList.add('hidden');
 
         const resultOverlay = document.getElementById('battleResultOverlay');
         if (resultOverlay) resultOverlay.classList.add('hidden');
@@ -1323,7 +1328,12 @@ $matchHistory = $historyStmt->fetchAll();
     }
 
     function selectOption(optKey) {
+        if (isSubmittingAnswer) return;
+        isSubmittingAnswer = true;
         currentSelectedOptionKey = optKey;
+
+        // Disable options immediately on first click to prevent double clicks or changing answer
+        disableOptions();
 
         // Highlight selected option button
         const btns = document.querySelectorAll('.opt-btn');
@@ -1333,29 +1343,30 @@ $matchHistory = $historyStmt->fetchAll();
                 const keyBadge = b.querySelector('.opt-key-badge');
                 if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-purple-600 text-white font-black text-xs flex items-center justify-center shrink-0';
             } else {
-                b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-purple-600 disabled:opacity-60 text-left font-semibold text-xs transition-all flex items-center gap-3';
+                b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-left font-semibold text-xs transition-all flex items-center gap-3 opacity-50 cursor-not-allowed';
                 const keyBadge = b.querySelector('.opt-key-badge');
                 if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0';
             }
         });
 
-        // Show CONFIRM & VALIDATE ANSWER button
-        const confirmBar = document.getElementById('confirmActionBar');
-        if (confirmBar) confirmBar.classList.remove('hidden');
+        // Show "Checking answer..." loading indicator
+        const checkingBanner = document.getElementById('checkingAnswerBanner');
+        if (checkingBanner) checkingBanner.classList.remove('hidden');
+
+        // Submit answer to server after brief 300ms visual confirmation delay
+        setTimeout(() => {
+            confirmSelectedAnswer();
+        }, 300);
     }
 
     function confirmSelectedAnswer() {
         if (!currentSelectedOptionKey) return;
 
-        const confirmBar = document.getElementById('confirmActionBar');
-        if (confirmBar) confirmBar.classList.add('hidden');
-
-        disableOptions();
-
         const payload = {
             roomCode: currentRoom ? currentRoom.roomCode : '',
             userId: STUDENT_ID,
-            selectedOption: currentSelectedOptionKey
+            selectedOption: currentSelectedOptionKey,
+            clientSubmitTimestamp: Date.now()
         };
 
         if (socket && socket.connected) {
@@ -1425,6 +1436,9 @@ $matchHistory = $historyStmt->fetchAll();
     }
 
     function showAnswerResult(data) {
+        const checkingBanner = document.getElementById('checkingAnswerBanner');
+        if (checkingBanner) checkingBanner.classList.add('hidden');
+
         const overlay = document.getElementById('battleResultOverlay');
         const iconDiv = document.getElementById('resultOverlayIcon');
         const textDiv = document.getElementById('resultOverlayText');

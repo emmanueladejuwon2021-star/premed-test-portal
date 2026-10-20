@@ -266,6 +266,7 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
     $code = strtoupper(trim($data['roomCode'] ?? ''));
     $userId = $data['userId'] ?? '';
     $selectedOption = $data['selectedOption'] ?? null;
+    $questionId = $data['questionId'] ?? null;
 
     $stmt = $pdo->prepare("SELECT * FROM combat_rooms WHERE room_code = ? LIMIT 1");
     $stmt->execute([$code]);
@@ -278,13 +279,21 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
 
     $scores = json_decode($room['scores'] ?? '{}', true);
 
-    // Get current question correct_option
-    $pastQs = $pdo->prepare("SELECT id, correct_option, explanation FROM questions WHERE topic_id = ?");
-    $pastQs->execute([$room['topic_id']]);
-    $questions = $pastQs->fetchAll(PDO::FETCH_ASSOC);
+    // Get exact question correct_option
+    $currentQ = null;
+    if ($questionId) {
+        $qStmt = $pdo->prepare("SELECT id, correct_option, explanation FROM questions WHERE id = ? LIMIT 1");
+        $qStmt->execute([$questionId]);
+        $currentQ = $qStmt->fetch(PDO::FETCH_ASSOC);
+    }
 
-    $currentIdx = (int)($room['current_question_index'] ?? 0);
-    $currentQ = $questions[$currentIdx] ?? null;
+    if (!$currentQ) {
+        $pastQs = $pdo->prepare("SELECT id, correct_option, explanation FROM questions WHERE topic_id = ? LIMIT 100");
+        $pastQs->execute([$room['topic_id']]);
+        $questions = $pastQs->fetchAll(PDO::FETCH_ASSOC);
+        $currentIdx = (int)($room['current_question_index'] ?? 0);
+        $currentQ = $questions[$currentIdx % max(1, count($questions))] ?? null;
+    }
 
     $isCorrect = ($currentQ && $selectedOption === $currentQ['correct_option']);
     $pts = $isCorrect ? 2 : 0;

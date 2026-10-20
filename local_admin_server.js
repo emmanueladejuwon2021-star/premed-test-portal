@@ -1262,6 +1262,13 @@ io.on('connection', (socket) => {
     const currentQ = room.questionsPool[room.currentQuestionIndex];
     if (!currentQ) return;
 
+    // Check if time had expired before submission
+    const elapsedSec = (Date.now() - (room.turnStartTime || Date.now())) / 1000;
+    if (elapsedSec > (room.timerDuration || 15) + 2.5) {
+      console.warn(`[COMBAT LATE BONUS SUBMISSION BLOCKED] Room: ${roomCode}, Elapsed: ${elapsedSec}s`);
+      return;
+    }
+
     if (room.mode === '2v1') {
       const currentTurnPlayer = room.players.find(p => p.userId === room.currentTurnUserId);
       const isTeamATurn = currentTurnPlayer && currentTurnPlayer.team === 'A';
@@ -1309,6 +1316,12 @@ io.on('connection', (socket) => {
 
     const currentQ = room.questionsPool[room.currentQuestionIndex];
     if (!currentQ) return;
+
+    const elapsedSec = (Date.now() - (room.turnStartTime || Date.now())) / 1000;
+    if (elapsedSec > (room.timerDuration || 30) + 2.5) {
+      console.warn(`[COMBAT LATE MAIN SUBMISSION BLOCKED] Room: ${roomCode}, Elapsed: ${elapsedSec}s`);
+      return;
+    }
 
     if (room.mode === '2v1') {
       const bonusPlayers = room.players.filter(p => p.team === room.bonusTeam);
@@ -1505,6 +1518,8 @@ function startBonusTurn(roomCode) {
 
     const timerDuration = (bonusTeam === 'A') ? 30 : 15;
     room.timeRemaining = timerDuration;
+    room.turnStartTime = Date.now();
+    room.timerDuration = timerDuration;
 
     io.to(roomCode).emit('triggerBonusTurn', {
       bonusUserId: room.bonusUserId,
@@ -1529,6 +1544,8 @@ function startBonusTurn(roomCode) {
     const opponent = room.players.find(p => p.userId !== room.currentTurnUserId);
     room.bonusUserId = opponent.userId;
     room.timeRemaining = 15;
+    room.turnStartTime = Date.now();
+    room.timerDuration = 15;
 
     io.to(roomCode).emit('triggerBonusTurn', {
       bonusUserId: opponent.userId,
@@ -1602,6 +1619,7 @@ function advanceToNextTurn(roomCode) {
     if (currentTurnPlayer.team === 'A') {
       const playerB = room.players.find(p => p.team === 'B');
       room.currentTurnUserId = playerB.userId;
+      room.currentQuestionIndex++;
     } else {
       const playerA = room.players.find(p => p.team === 'A');
       room.currentTurnUserId = playerA.userId;
@@ -1612,6 +1630,7 @@ function advanceToNextTurn(roomCode) {
     const p2 = room.players[1].userId;
     if (room.currentTurnUserId === p1) {
       room.currentTurnUserId = p2;
+      room.currentQuestionIndex++;
     } else {
       room.currentTurnUserId = p1;
       room.currentQuestionIndex++;
@@ -1638,6 +1657,8 @@ function sendNextQuestion(roomCode) {
 
   const clientQ = prepareQuestionForClient(currentQ);
   room.timeRemaining = 30;
+  room.turnStartTime = Date.now();
+  room.timerDuration = 30;
 
   io.to(roomCode).emit('nextQuestion', {
     question: clientQ,
