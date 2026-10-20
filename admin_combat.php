@@ -4,16 +4,20 @@
  * Non-tech savvy interface for Live Monitor, Security Controls, Ranks & Questions Monitor
  */
 
-require_once __DIR__ . '/config/db.php';
-$pageTitle = "Study Combat Admin";
-require_once __DIR__ . '/includes/header.php';
-
-$pdo = DB::connect();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 if (empty($_SESSION['admin'])) {
     header('Location: admin_login.php');
     exit;
 }
+
+require_once __DIR__ . '/config/db.php';
+$pageTitle = "Study Combat Admin";
+require_once __DIR__ . '/includes/header.php';
+
+$pdo = DB::connect();
 
 $tab = $_GET['tab'] ?? 'monitor';
 $alertMsg = null;

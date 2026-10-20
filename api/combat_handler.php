@@ -266,6 +266,7 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
     $code = strtoupper(trim($data['roomCode'] ?? ''));
     $userId = $data['userId'] ?? '';
     $selectedOption = $data['selectedOption'] ?? null;
+    $questionId = $data['questionId'] ?? null;
 
     $stmt = $pdo->prepare("SELECT * FROM combat_rooms WHERE room_code = ? LIMIT 1");
     $stmt->execute([$code]);
@@ -278,13 +279,21 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
 
     $scores = json_decode($room['scores'] ?? '{}', true);
 
-    // Get current question correct_option
-    $pastQs = $pdo->prepare("SELECT id, correct_option, explanation FROM questions WHERE topic_id = ?");
-    $pastQs->execute([$room['topic_id']]);
-    $questions = $pastQs->fetchAll(PDO::FETCH_ASSOC);
+    // Get exact question correct_option
+    $currentQ = null;
+    if ($questionId) {
+        $qStmt = $pdo->prepare("SELECT id, correct_option, explanation FROM questions WHERE id = ? LIMIT 1");
+        $qStmt->execute([$questionId]);
+        $currentQ = $qStmt->fetch(PDO::FETCH_ASSOC);
+    }
 
-    $currentIdx = (int)($room['current_question_index'] ?? 0);
-    $currentQ = $questions[$currentIdx] ?? null;
+    if (!$currentQ) {
+        $pastQs = $pdo->prepare("SELECT id, correct_option, explanation FROM questions WHERE topic_id = ? LIMIT 100");
+        $pastQs->execute([$room['topic_id']]);
+        $questions = $pastQs->fetchAll(PDO::FETCH_ASSOC);
+        $currentIdx = (int)($room['current_question_index'] ?? 0);
+        $currentQ = $questions[$currentIdx % max(1, count($questions))] ?? null;
+    }
 
     $isCorrect = ($currentQ && $selectedOption === $currentQ['correct_option']);
     $pts = $isCorrect ? 2 : 0;
@@ -295,12 +304,31 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
         $upd->execute([json_encode($scores), $code]);
     }
 
+    // Insert match log into DB
+    try {
+        $logId = 'log_' . bin2hex(random_bytes(4));
+        $logStmt = $pdo->prepare("
+            INSERT INTO combat_match_logs (
+                id, room_code, round_number, question_number_in_round, turn_type,
+                question_id, asked_to_user_id, main_selected_option, main_is_correct,
+                main_time_used, points_awarded, created_at
+            ) VALUES (?, ?, ?, ?, 'main', ?, ?, ?, ?, 0.0, ?, CURRENT_TIMESTAMP)
+        ");
+        $logStmt->execute([
+            $logId, $code, (int)($room['current_round'] ?? 1), (int)($room['current_question_index'] ?? 0) + 1,
+            $currentQ['id'] ?? '', $userId, $selectedOption ?: 'TIMEOUT', $isCorrect ? 1 : 0,
+            json_encode([$userId => $pts])
+        ]);
+    } catch (Exception $e) {}
+
     echo json_encode([
         'isCorrect' => $isCorrect,
         'correctOption' => $currentQ ? $currentQ['correct_option'] : 'A',
         'explanation' => $currentQ ? $currentQ['explanation'] : '',
         'pointsAwarded' => $pts,
-        'scores' => $scores
+        'scores' => $scores,
+        'turnUserId' => $room['current_turn_user_id'] ?? $userId,
+        'userId' => $userId
     ]);
     exit;
 }

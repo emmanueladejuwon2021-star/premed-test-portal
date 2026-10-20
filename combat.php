@@ -4,6 +4,10 @@
  * Premed Test Portal
  */
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . '/config/db.php';
 
 $pdo = DB::connect();
@@ -508,13 +512,16 @@ $matchHistory = $historyStmt->fetchAll();
                     <div id="activeRoomCodeDisplay" class="text-4xl sm:text-5xl font-black font-mono tracking-widest text-purple-600 dark:text-purple-400">PREMED-83921</div>
                 </div>
 
-                <div class="flex items-center justify-center gap-3">
+                <div class="flex items-center justify-center flex-wrap gap-3">
                     <button type="button" id="copyCodeBtn" class="px-4 py-2.5 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-xs font-black hover:bg-purple-100 flex items-center gap-1.5">
                         <i data-lucide="copy" class="w-4 h-4"></i> Copy Code
                     </button>
                     <a id="shareWhatsappBtn" target="_blank" href="#" class="px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-black hover:bg-emerald-600 flex items-center gap-1.5 shadow-md">
                         <i data-lucide="share-2" class="w-4 h-4"></i> Share on WhatsApp
                     </a>
+                    <button type="button" onclick="leaveActiveRoom()" class="px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 text-xs font-black hover:bg-rose-100 flex items-center gap-1.5">
+                        <i data-lucide="log-out" class="w-4 h-4"></i> Leave Room
+                    </button>
                 </div>
 
                 <!-- Joined Players List -->
@@ -533,14 +540,15 @@ $matchHistory = $historyStmt->fetchAll();
             <div id="combatArenaScreen" class="hidden space-y-6">
 
                 <!-- STICKY TOP SCOREBAR -->
-                <div class="sticky top-20 z-40 bg-slate-900/95 backdrop-blur-md rounded-2xl p-4 shadow-xl border border-purple-800/50 flex items-center justify-between text-white">
-                    <div class="flex items-center gap-3">
-                        <span id="arenaRoundIndicator" class="px-3 py-1 rounded-xl bg-purple-600 text-white text-xs font-black">Round 1 / 4</span>
-                        <span id="arenaRoomCode" class="text-xs font-mono font-bold text-slate-400 hidden sm:inline-block">PREMED-XXXXX</span>
+                <div class="sticky top-20 z-40 bg-slate-900/95 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 shadow-xl border border-purple-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 text-white">
+                    <!-- Line 1 on Mobile: Round on Left, Room Code on Right -->
+                    <div class="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
+                        <span id="arenaRoundIndicator" class="px-3 py-1 rounded-xl bg-purple-600 text-white text-xs font-black shrink-0">Round 1 / 4</span>
+                        <span id="arenaRoomCode" class="text-xs font-mono font-bold text-purple-300 dark:text-purple-400 bg-purple-950/60 sm:bg-transparent px-2.5 py-1 sm:p-0 rounded-lg border border-purple-800/50 sm:border-none shrink-0">PREMED-XXXXX</span>
                     </div>
 
-                    <!-- Live Scores -->
-                    <div id="arenaLiveScores" class="flex items-center gap-4 text-xs font-black"></div>
+                    <!-- Line 2 on Mobile: Live Scores centered full width -->
+                    <div id="arenaLiveScores" class="flex items-center justify-center sm:justify-end gap-3 sm:gap-4 text-xs font-black w-full sm:w-auto pt-1 sm:pt-0 border-t border-slate-800/80 sm:border-none"></div>
                 </div>
 
                 <!-- QUESTION CARD & TIMER AREA -->
@@ -577,18 +585,17 @@ $matchHistory = $historyStmt->fetchAll();
                     <!-- Options 2x2 Grid -->
                     <div id="arenaOptionsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
 
-                    <!-- Confirm Answer Action Bar (Shown when active player selects an option) -->
-                    <div id="confirmActionBar" class="hidden pt-2">
-                        <button type="button" id="confirmAnswerBtn" onclick="confirmSelectedAnswer()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm uppercase tracking-wider shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 animate-bounce">
-                            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
-                            <span>CONFIRM & VALIDATE ANSWER ⚡</span>
-                        </button>
+                    <!-- Checking Answer Loading Banner -->
+                    <div id="checkingAnswerBanner" class="hidden my-3 p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/80 border border-purple-300 dark:border-purple-800 text-purple-900 dark:text-purple-200 text-xs font-black flex items-center justify-center gap-2.5 animate-pulse">
+                        <i data-lucide="loader-2" class="w-5 h-5 animate-spin text-purple-600"></i>
+                        <span>Checking answer... ⏳</span>
                     </div>
 
-                    <!-- Explanation Box (Shows after answer) -->
-                    <div id="explanationBox" class="hidden p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 text-xs text-purple-900 dark:text-purple-200 space-y-1">
-                        <div class="font-black flex items-center gap-1.5"><i data-lucide="book-open" class="w-4 h-4"></i> Explanation:</div>
-                        <div id="explanationText">--</div>
+                    <!-- High-Impact Game Result Feedback Overlay (Centered) -->
+                    <div id="battleResultOverlay" class="hidden my-4 p-6 rounded-3xl text-center space-y-3 transition-all animate-in zoom-in-90 pointer-events-none mx-auto max-w-sm">
+                        <div id="resultOverlayIcon" class="text-6xl sm:text-7xl font-black animate-bounce"></div>
+                        <div id="resultOverlayText" class="text-xl sm:text-2xl font-black uppercase tracking-wider"></div>
+                        <div id="resultOverlayPoints" class="inline-block px-4 py-1.5 rounded-full text-xs font-black shadow-lg"></div>
                     </div>
                 </div>
             </div>
@@ -609,6 +616,27 @@ $matchHistory = $historyStmt->fetchAll();
 
                     <button type="button" onclick="closeRoundVictoryModal()" class="w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black uppercase tracking-wider shadow-lg">
                         Continue to Next Round
+                    </button>
+                </div>
+            </div>
+
+            <!-- LEVEL UP / RANK UP CELEBRATION MODAL -->
+            <div id="rankUpModal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+                <div class="bg-gradient-to-b from-slate-900 via-purple-950 to-slate-900 rounded-3xl max-w-md w-full p-8 shadow-2xl border-2 border-amber-400/60 text-center space-y-6 animate-in zoom-in-95 text-white">
+                    <div class="w-24 h-24 rounded-3xl bg-gradient-to-br from-amber-400 to-yellow-600 text-white flex items-center justify-center mx-auto shadow-2xl ring-8 ring-amber-400/30 animate-bounce">
+                        <i data-lucide="shield-alert" class="w-14 h-14"></i>
+                    </div>
+
+                    <div class="space-y-2">
+                        <span class="px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-extrabold uppercase tracking-widest">LEVEL UP!</span>
+                        <h2 class="text-3xl font-black text-white tracking-tight">NEW RANK ACHIEVED!</h2>
+                        <div id="newRankBadgeTitle" class="text-2xl font-black text-amber-400">STRIKER ⚡</div>
+                    </div>
+
+                    <p class="text-xs text-slate-300">Congratulations Warrior! Your victories have earned you global prestige on the Study Combat Leaderboard.</p>
+
+                    <button type="button" onclick="closeRankUpModal()" class="w-full py-4 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black uppercase tracking-wider shadow-lg shadow-amber-500/30">
+                        CLAIM RANK & CONTINUE
                     </button>
                 </div>
             </div>
@@ -660,10 +688,10 @@ $matchHistory = $historyStmt->fetchAll();
     let selectedRounds = 4;
 
     // Active Question & Selection State
-    let localTimerInterval = null;
-    let localTimeRemaining = 30;
     let currentSelectedOptionKey = null;
     let currentTurnIsBonus = false;
+    let activeTimerMaxDuration = 30;
+    let isSubmittingAnswer = false;
 
     document.addEventListener('DOMContentLoaded', function () {
         if (window.lucide) lucide.createIcons();
@@ -677,6 +705,7 @@ $matchHistory = $historyStmt->fetchAll();
 
             socket.on('connect', () => {
                 console.log('[COMBAT SOCKET CONNECTED]', socket.id);
+                checkAndRestoreActiveRoom();
             });
 
             socket.on('errorMsg', (msg) => {
@@ -691,6 +720,55 @@ $matchHistory = $historyStmt->fetchAll();
         setupFormInteractions();
         setupJoinCodeValidation();
     });
+
+    async function checkAndRestoreActiveRoom() {
+        const savedCode = localStorage.getItem('activeCombatRoomCode');
+        if (!savedCode) return;
+
+        try {
+            const res = await fetch('api/combat_handler.php?action=get_room_status&roomCode=' + encodeURIComponent(savedCode));
+            const data = await res.json();
+
+            if (data.success && data.room) {
+                currentRoom = data.room;
+                if (data.room.status === 'waiting') {
+                    renderWaitingRoom(savedCode, data.room);
+                    if (socket) {
+                        socket.emit('joinRoom', {
+                            roomCode: savedCode,
+                            userId: STUDENT_ID,
+                            studentName: STUDENT_NAME,
+                            matricNo: MATRIC_NO
+                        });
+                    }
+                } else if (data.room.status === 'playing') {
+                    renderWaitingRoom(savedCode, data.room);
+                    if (socket) {
+                        socket.emit('joinRoom', {
+                            roomCode: savedCode,
+                            userId: STUDENT_ID,
+                            studentName: STUDENT_NAME,
+                            matricNo: MATRIC_NO
+                        });
+                    }
+                    launchBattleArena(data.room);
+                } else {
+                    localStorage.removeItem('activeCombatRoomCode');
+                }
+            } else {
+                localStorage.removeItem('activeCombatRoomCode');
+            }
+        } catch (e) {
+            console.warn('Error restoring room on refresh:', e);
+        }
+    }
+
+    function leaveActiveRoom() {
+        if (confirm('Are you sure you want to leave this battle room?')) {
+            localStorage.removeItem('activeCombatRoomCode');
+            window.location.href = 'combat.php?action=lobby';
+        }
+    }
 
     // Handle Form Pills and Card Selections
     function setupFormInteractions() {
@@ -773,6 +851,7 @@ $matchHistory = $historyStmt->fetchAll();
                 async function handleRoomCreatedData(data) {
                     if (data.success) {
                         currentRoom = data.room;
+                        localStorage.setItem('activeCombatRoomCode', data.roomCode);
                         confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
                         renderWaitingRoom(data.roomCode, data.room);
                         if (socket) {
@@ -914,6 +993,7 @@ $matchHistory = $historyStmt->fetchAll();
             async function handleJoinedRoomData(data) {
                 if (data.success) {
                     currentRoom = data.room;
+                    localStorage.setItem('activeCombatRoomCode', code);
                     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
                     renderWaitingRoom(code, data.room);
                     if (socket) {
@@ -1016,16 +1096,18 @@ $matchHistory = $historyStmt->fetchAll();
         });
 
         socket.on('timerUpdate', (data) => {
-            syncTimerDisplay(data.timeRemaining, 30);
+            syncTimerDisplay(data.timeRemaining, activeTimerMaxDuration);
         });
 
         socket.on('mainAnswerResult', (data) => {
-            stopLocalTimer();
             showAnswerResult(data);
         });
 
         socket.on('bonusAnswerResult', (data) => {
-            stopLocalTimer();
+            showAnswerResult(data);
+        });
+
+        socket.on('lastAnswerResult', (data) => {
             showAnswerResult(data);
         });
 
@@ -1036,21 +1118,25 @@ $matchHistory = $historyStmt->fetchAll();
 
             currentTurnIsBonus = true;
             currentSelectedOptionKey = null;
-            document.getElementById('confirmActionBar').classList.add('hidden');
+            isSubmittingAnswer = false;
+            activeTimerMaxDuration = data.timerDuration || 15;
+            syncTimerDisplay(activeTimerMaxDuration, activeTimerMaxDuration);
 
-            const timerDuration = data.timerDuration || 15;
-            startLocalCountdown(timerDuration);
+            const checkingBanner = document.getElementById('checkingAnswerBanner');
+            if (checkingBanner) checkingBanner.classList.add('hidden');
+            const confirmBar = document.getElementById('confirmActionBar');
+            if (confirmBar) confirmBar.classList.add('hidden');
 
             if (data.bonusUserId === STUDENT_ID) {
-                turnsBadge.textContent = '⚡ BONUS TURN (+1 Pt) ⚡';
-                turnsBadge.className = 'text-xs font-black uppercase tracking-wider text-amber-500 animate-pulse';
+                turnsBadge.textContent = '⚡ BONUS CHANCE! +1 Point or -1 Point! ⚡';
+                turnsBadge.className = 'text-xs sm:text-sm font-black uppercase tracking-wider text-amber-500 animate-pulse bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/30';
                 spectatorBar.classList.add('hidden');
                 enableOptionsForBonus();
             } else {
                 turnsBadge.textContent = 'SPECTATING BONUS TURN';
                 turnsBadge.className = 'text-xs font-black uppercase tracking-wider text-slate-400';
                 spectatorBar.classList.remove('hidden');
-                spectatorText.textContent = 'Opponent is on Bonus Turn... You are spectating.';
+                spectatorText.textContent = 'Opponent is on Bonus Turn (+1 or -1)... You are spectating.';
                 disableOptions();
             }
         });
@@ -1187,42 +1273,19 @@ $matchHistory = $historyStmt->fetchAll();
         if (window.lucide) lucide.createIcons();
     }
 
-    // Timer helper functions
-    function startLocalCountdown(durationSec) {
-        stopLocalTimer();
-        localTimeRemaining = durationSec;
-        syncTimerDisplay(localTimeRemaining, durationSec);
-
-        localTimerInterval = setInterval(() => {
-            localTimeRemaining--;
-            syncTimerDisplay(localTimeRemaining, durationSec);
-
-            if (localTimeRemaining <= 0) {
-                stopLocalTimer();
-                handleTimeout();
-            }
-        }, 1000);
-    }
-
-    function stopLocalTimer() {
-        if (localTimerInterval) {
-            clearInterval(localTimerInterval);
-            localTimerInterval = null;
-        }
-    }
-
+    // Server-Authoritative Timer Display Helper
     function syncTimerDisplay(remTime, maxDuration = 30) {
-        localTimeRemaining = remTime;
         const text = document.getElementById('arenaTimerText');
         const progress = document.getElementById('timerCircleProgress');
-        if (text) text.textContent = Math.max(0, remTime);
+        const val = Math.max(0, remTime);
+        if (text) text.textContent = val;
 
         if (progress) {
-            const pct = Math.max(0, (remTime / maxDuration) * 100);
+            const pct = Math.max(0, (val / maxDuration) * 100);
             progress.setAttribute('stroke-dasharray', `${pct}, 100`);
-            if (remTime <= 5) {
+            if (val <= 5) {
                 progress.setAttribute('class', 'text-rose-500 transition-all duration-300');
-            } else if (remTime <= 12) {
+            } else if (val <= 12) {
                 progress.setAttribute('class', 'text-amber-500 transition-all duration-300');
             } else {
                 progress.setAttribute('class', 'text-emerald-500 transition-all duration-300');
@@ -1230,34 +1293,22 @@ $matchHistory = $historyStmt->fetchAll();
         }
     }
 
-    function handleTimeout() {
-        // If current player selected an option before timer hit 0, validate it now
-        if (currentSelectedOptionKey) {
-            confirmSelectedAnswer();
-        } else {
-            // Auto submit empty/timeout
-            if (socket) {
-                socket.emit(currentTurnIsBonus ? 'bonusAnswerSubmitted' : 'mainAnswerSubmitted', {
-                    roomCode: currentRoom ? currentRoom.roomCode : '',
-                    userId: STUDENT_ID,
-                    selectedOption: null
-                });
-            }
-            disableOptions();
-        }
-    }
-
     // Render Active Question
     function renderQuestion(data) {
         currentTurnIsBonus = false;
         currentSelectedOptionKey = null;
+        isSubmittingAnswer = false;
+        activeTimerMaxDuration = data.timerDuration || 30;
 
         document.getElementById('arenaRoundIndicator').textContent = `Round ${data.roundNumber} / ${data.totalRounds}`;
         document.getElementById('arenaRoomCode').textContent = currentRoom ? currentRoom.roomCode : '';
         document.getElementById('questionNumberHeader').textContent = `Question ${data.questionNumber} of ${data.questionsPerRound}`;
 
-        document.getElementById('confirmActionBar').classList.add('hidden');
-        document.getElementById('explanationBox').classList.add('hidden');
+        const checkingBanner = document.getElementById('checkingAnswerBanner');
+        if (checkingBanner) checkingBanner.classList.add('hidden');
+
+        const resultOverlay = document.getElementById('battleResultOverlay');
+        if (resultOverlay) resultOverlay.classList.add('hidden');
 
         const isMyTurn = (data.turnUserId === STUDENT_ID);
         const turnBadge = document.getElementById('questionTurnBadge');
@@ -1281,9 +1332,9 @@ $matchHistory = $historyStmt->fetchAll();
         document.getElementById('arenaQuestionText').innerHTML = q.text;
 
         grid.innerHTML = q.options.map(o => `
-            <button type="button" data-key="${o.key}" onclick="selectOption('${o.key}')" ${!isMyTurn ? 'disabled' : ''} class="opt-btn p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-purple-600 disabled:opacity-60 disabled:cursor-not-allowed text-left font-semibold text-xs transition-all flex items-center gap-3">
+            <button type="button" data-key="${o.key}" onclick="selectOption('${o.key}')" ${!isMyTurn ? 'disabled' : ''} class="opt-btn w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-purple-600 disabled:opacity-60 disabled:cursor-not-allowed text-left font-semibold text-xs transition-all flex items-center gap-3">
                 <span class="opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0">${o.key}</span>
-                <span class="flex-1">${o.text}</span>
+                <span class="flex-1 break-words">${o.text}</span>
                 ${!isMyTurn ? '<i data-lucide="lock" class="w-4 h-4 text-slate-400 shrink-0"></i>' : ''}
             </button>
         `).join('');
@@ -1297,8 +1348,7 @@ $matchHistory = $historyStmt->fetchAll();
             }).join('<span class="text-slate-600">vs</span>');
         }
 
-        // Start 30s Countdown
-        startLocalCountdown(data.timerDuration || 30);
+        syncTimerDisplay(activeTimerMaxDuration, activeTimerMaxDuration);
 
         if (window.lucide) lucide.createIcons();
         if (window.renderMathInElement) {
@@ -1307,40 +1357,45 @@ $matchHistory = $historyStmt->fetchAll();
     }
 
     function selectOption(optKey) {
+        if (isSubmittingAnswer) return;
+        isSubmittingAnswer = true;
         currentSelectedOptionKey = optKey;
+
+        // Disable options immediately on first click to prevent double clicks or changing answer
+        disableOptions();
 
         // Highlight selected option button
         const btns = document.querySelectorAll('.opt-btn');
         btns.forEach(b => {
             if (b.dataset.key === optKey) {
-                b.className = 'opt-btn p-4 rounded-2xl border-2 border-purple-600 bg-purple-50 dark:bg-purple-950/60 text-purple-900 dark:text-white font-black text-xs transition-all flex items-center gap-3 shadow-md ring-2 ring-purple-500/50';
+                b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-purple-600 bg-purple-50 dark:bg-purple-950/60 text-purple-900 dark:text-white font-black text-xs transition-all flex items-center gap-3 shadow-md ring-2 ring-purple-500/50';
                 const keyBadge = b.querySelector('.opt-key-badge');
                 if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-purple-600 text-white font-black text-xs flex items-center justify-center shrink-0';
             } else {
-                b.className = 'opt-btn p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-purple-600 disabled:opacity-60 text-left font-semibold text-xs transition-all flex items-center gap-3';
+                b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-left font-semibold text-xs transition-all flex items-center gap-3 opacity-50 cursor-not-allowed';
                 const keyBadge = b.querySelector('.opt-key-badge');
                 if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0';
             }
         });
 
-        // Show CONFIRM & VALIDATE ANSWER button
-        const confirmBar = document.getElementById('confirmActionBar');
-        if (confirmBar) confirmBar.classList.remove('hidden');
+        // Show "Checking answer..." loading indicator
+        const checkingBanner = document.getElementById('checkingAnswerBanner');
+        if (checkingBanner) checkingBanner.classList.remove('hidden');
+
+        // Submit answer to server after brief 300ms visual confirmation delay
+        setTimeout(() => {
+            confirmSelectedAnswer();
+        }, 300);
     }
 
     function confirmSelectedAnswer() {
         if (!currentSelectedOptionKey) return;
 
-        stopLocalTimer();
-        const confirmBar = document.getElementById('confirmActionBar');
-        if (confirmBar) confirmBar.classList.add('hidden');
-
-        disableOptions();
-
         const payload = {
             roomCode: currentRoom ? currentRoom.roomCode : '',
             userId: STUDENT_ID,
-            selectedOption: currentSelectedOptionKey
+            selectedOption: currentSelectedOptionKey,
+            clientSubmitTimestamp: Date.now()
         };
 
         if (socket && socket.connected) {
@@ -1361,10 +1416,6 @@ $matchHistory = $historyStmt->fetchAll();
         const btns = document.querySelectorAll('.opt-btn');
         btns.forEach(b => {
             b.disabled = false;
-            b.innerHTML = `
-                <span class="opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0">${b.dataset.key}</span>
-                <span class="flex-1">${b.innerText}</span>
-            `;
             b.onclick = function() {
                 selectOption(b.dataset.key);
             };
@@ -1413,17 +1464,92 @@ $matchHistory = $historyStmt->fetchAll();
         if (modal) modal.classList.add('hidden');
     }
 
-    function showAnswerResult(data) {
-        const explBox = document.getElementById('explanationBox');
-        const explText = document.getElementById('explanationText');
+    function updateLiveScoreboard(scores) {
+        const scoresDiv = document.getElementById('arenaLiveScores');
+        if (scoresDiv && scores && currentRoom && currentRoom.players) {
+            scoresDiv.innerHTML = Object.entries(scores).map(([uid, pts]) => {
+                const p = currentRoom.players.find(x => x.userId === uid);
+                return `<div>${p ? p.name : 'Player'}: <strong class="text-amber-400 font-mono">${pts} pts</strong></div>`;
+            }).join('<span class="text-slate-600">vs</span>');
+        }
+    }
 
-        if (data.isCorrect) {
-            confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
+    function showAnswerResult(data) {
+        const checkingBanner = document.getElementById('checkingAnswerBanner');
+        if (checkingBanner) checkingBanner.classList.add('hidden');
+
+        if (data.scores) {
+            updateLiveScoreboard(data.scores);
         }
 
-        if (data.explanation) {
-            explBox.classList.remove('hidden');
-            explText.textContent = data.explanation;
+        const overlay = document.getElementById('battleResultOverlay');
+        const iconDiv = document.getElementById('resultOverlayIcon');
+        const textDiv = document.getElementById('resultOverlayText');
+        const ptsDiv = document.getElementById('resultOverlayPoints');
+        const cardContainer = document.getElementById('combatArenaScreen');
+
+        if (!overlay) return;
+
+        overlay.classList.remove('hidden');
+
+        // Highlight correct option in green for everyone
+        if (data.correctOption) {
+            const btns = document.querySelectorAll('.opt-btn');
+            btns.forEach(b => {
+                if (b.dataset.key === data.correctOption) {
+                    b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-100 font-black text-xs transition-all flex items-center gap-3 shadow-lg ring-4 ring-emerald-500/30';
+                    const keyBadge = b.querySelector('.opt-key-badge');
+                    if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0';
+                }
+            });
+        }
+
+        const isMainTurnAnswer = (data.userId === STUDENT_ID || data.turnUserId === STUDENT_ID);
+
+        if (isMainTurnAnswer) {
+            // Active Player Answering
+            if (data.isCorrect) {
+                confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 }, disableForReducedMotion: true });
+                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500/50 shadow-2xl animate-in zoom-in-95 pointer-events-none mx-auto max-w-sm';
+                iconDiv.textContent = '✅';
+                textDiv.textContent = 'CORRECT!';
+                textDiv.className = 'text-2xl font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider';
+                ptsDiv.textContent = `+${data.pointsAwarded || 2} Points!`;
+                ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-emerald-500 text-white shadow-md';
+            } else {
+                if (cardContainer) {
+                    cardContainer.classList.add('animate-shake');
+                    setTimeout(() => cardContainer.classList.remove('animate-shake'), 600);
+                }
+                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-500/50 shadow-2xl animate-in zoom-in-95 pointer-events-none mx-auto max-w-sm';
+                iconDiv.textContent = '❌';
+                textDiv.textContent = 'WRONG!';
+                textDiv.className = 'text-2xl font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider';
+                ptsDiv.textContent = `${data.pointsAwarded < 0 ? data.pointsAwarded + ' Points' : 'Wrong! 0 Points'}`;
+                ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-rose-500 text-white shadow-md';
+            }
+        } else {
+            // Spectator Watching Opponent
+            if (data.isCorrect) {
+                confetti({ particleCount: 25, spread: 40, origin: { y: 0.6 }, disableForReducedMotion: true });
+                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500/50 shadow-2xl animate-in zoom-in-95 pointer-events-none mx-auto max-w-sm';
+                iconDiv.textContent = '👀';
+                textDiv.textContent = 'OPPONENT CORRECT! ✅';
+                textDiv.className = 'text-2xl font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider';
+                ptsDiv.textContent = `Opponent got +${data.pointsAwarded || 2} pts`;
+                ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-emerald-500 text-white shadow-md';
+            } else {
+                if (cardContainer) {
+                    cardContainer.classList.add('animate-shake');
+                    setTimeout(() => cardContainer.classList.remove('animate-shake'), 600);
+                }
+                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-500/50 shadow-2xl animate-in zoom-in-95 pointer-events-none mx-auto max-w-sm';
+                iconDiv.textContent = '👀';
+                textDiv.textContent = 'OPPONENT WRONG! ❌';
+                textDiv.className = 'text-2xl font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider';
+                ptsDiv.textContent = 'Opponent Failed!';
+                ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-rose-500 text-white shadow-md';
+            }
         }
     }
 
@@ -1450,6 +1576,12 @@ $matchHistory = $historyStmt->fetchAll();
 
         if (data.winnerUserId === STUDENT_ID) {
             confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 } });
+        }
+
+        if (data.isRankUp && data.newRank) {
+            document.getElementById('newRankBadgeTitle').textContent = data.newRank.toUpperCase() + ' ⚡';
+            document.getElementById('rankUpModal').classList.remove('hidden');
+            confetti({ particleCount: 250, spread: 120, origin: { y: 0.4 } });
         }
 
         document.getElementById('rematchBtn').onclick = () => {

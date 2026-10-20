@@ -1141,7 +1141,45 @@ io.on('connection', (socket) => {
       const { roomCode, userId, studentName, matricNo, requestedTeam } = data;
       const code = (roomCode || '').trim().toUpperCase();
 
-      const room = activeCombatRooms.get(code);
+      let room = activeCombatRooms.get(code);
+
+      // If room was created via native PHP or page refreshed, restore room from DB into memory
+      if (!room) {
+        const dbRows = await tursoQuery("SELECT * FROM combat_rooms WHERE room_code = ? LIMIT 1;", [code]);
+        if (dbRows.length > 0) {
+          const dbRoom = dbRows[0];
+          if (dbRoom.status !== 'finished' && dbRoom.status !== 'terminated') {
+            const numQs = dbRoom.total_questions || 16;
+            const questionsPool = await fetchQuestionPoolForTopic(dbRoom.topic_id, numQs);
+            room = {
+              roomCode: dbRoom.room_code,
+              roomName: dbRoom.room_name,
+              courseId: dbRoom.course_id,
+              topicId: dbRoom.topic_id,
+              courseCode: 'COURSE',
+              topicName: 'Topic',
+              createdBy: dbRoom.created_by,
+              hostName: studentName,
+              mode: dbRoom.mode || '1v1',
+              questionsPerRound: dbRoom.questions_per_round || 4,
+              totalRounds: dbRoom.total_rounds || 4,
+              totalQuestions: numQs,
+              status: dbRoom.status || 'waiting',
+              players: JSON.parse(dbRoom.players || '[]'),
+              questionsPool,
+              currentRound: dbRoom.current_round || 1,
+              currentQuestionIndex: dbRoom.current_question_index || 0,
+              currentTurnUserId: dbRoom.current_turn_user_id || userId,
+              turnType: 'main',
+              scores: JSON.parse(dbRoom.scores || '{}'),
+              roundScores: {},
+              timeRemaining: 30
+            };
+            activeCombatRooms.set(code, room);
+          }
+        }
+      }
+
       if (!room) {
         socket.emit('errorMsg', 'Room not found or expired.');
         return;
@@ -1169,6 +1207,10 @@ io.on('connection', (socket) => {
         }
 
         io.to(code).emit('playerReconnected', { userId, name: studentName, room });
+
+      if (room.lastAnswerResult && (Date.now() - (room.lastAnswerResultTimestamp || 0)) < 4000) {
+        socket.emit('lastAnswerResult', room.lastAnswerResult);
+      }
         return;
       }
 
@@ -1262,6 +1304,13 @@ io.on('connection', (socket) => {
     const currentQ = room.questionsPool[room.currentQuestionIndex];
     if (!currentQ) return;
 
+    // Check if time had expired before submission
+    const elapsedSec = (Date.now() - (room.turnStartTime || Date.now())) / 1000;
+    if (elapsedSec > (room.timerDuration || 15) + 2.5) {
+      console.warn(`[COMBAT LATE BONUS SUBMISSION BLOCKED] Room: ${roomCode}, Elapsed: ${elapsedSec}s`);
+      return;
+    }
+
     if (room.mode === '2v1') {
       const currentTurnPlayer = room.players.find(p => p.userId === room.currentTurnUserId);
       const isTeamATurn = currentTurnPlayer && currentTurnPlayer.team === 'A';
@@ -1309,6 +1358,12 @@ io.on('connection', (socket) => {
 
     const currentQ = room.questionsPool[room.currentQuestionIndex];
     if (!currentQ) return;
+
+    const elapsedSec = (Date.now() - (room.turnStartTime || Date.now())) / 1000;
+    if (elapsedSec > (room.timerDuration || 30) + 2.5) {
+      console.warn(`[COMBAT LATE MAIN SUBMISSION BLOCKED] Room: ${roomCode}, Elapsed: ${elapsedSec}s`);
+      return;
+    }
 
     if (room.mode === '2v1') {
       const bonusPlayers = room.players.filter(p => p.team === room.bonusTeam);
@@ -1443,8 +1498,12 @@ io.on('connection', (socket) => {
 
 async function evaluateMainAnswer(room, selectedOption, currentQ) {
   const roomCode = room.roomCode;
+  clearInterval(room.timerInterval);
+
   const isCorrect = (selectedOption === currentQ.correct_option);
   const turnUserId = room.currentTurnUserId;
+  const timeUsed = Math.min(30, Math.max(0, (Date.now() - (room.turnStartTime || Date.now())) / 1000));
+  const pointsAwarded = isCorrect ? 2 : 0;
 
   if (isCorrect) {
     if (room.mode === '2v1') {
@@ -1459,28 +1518,53 @@ async function evaluateMainAnswer(room, selectedOption, currentQ) {
       room.roundScores[turnUserId] = (room.roundScores[turnUserId] || 0) + 2;
     }
 
-    io.to(roomCode).emit('mainAnswerResult', {
+    const resPayload = {
       isCorrect: true,
       correctOption: currentQ.correct_option,
       selectedOption,
       explanation: currentQ.explanation,
       pointsAwarded: 2,
-      scores: room.scores
-    });
+      scores: room.scores,
+      turnUserId: room.currentTurnUserId,
+      userId: turnUserId
+    };
+    room.lastAnswerResult = resPayload;
+    room.lastAnswerResultTimestamp = Date.now();
+    io.to(roomCode).emit('mainAnswerResult', resPayload);
 
     setTimeout(() => advanceToNextTurn(roomCode), 2500);
   } else {
-    io.to(roomCode).emit('mainAnswerResult', {
+    const resPayload = {
       isCorrect: false,
       correctOption: currentQ.correct_option,
       selectedOption,
       explanation: currentQ.explanation,
       pointsAwarded: 0,
-      scores: room.scores
-    });
+      scores: room.scores,
+      turnUserId: room.currentTurnUserId,
+      userId: turnUserId
+    };
+    room.lastAnswerResult = resPayload;
+    room.lastAnswerResultTimestamp = Date.now();
+    io.to(roomCode).emit('mainAnswerResult', resPayload);
 
     setTimeout(() => startBonusTurn(roomCode), 2000);
   }
+
+  // Insert match log into DB
+  const logId = 'log_' + Math.random().toString(36).substring(2, 10);
+  const qNum = (room.currentQuestionIndex % room.questionsPerRound) + 1;
+  tursoExecute(`
+    INSERT INTO combat_match_logs (
+      id, room_code, round_number, question_number_in_round, turn_type,
+      question_id, asked_to_user_id, main_selected_option, main_is_correct,
+      main_time_used, points_awarded, created_at
+    ) VALUES (?, ?, ?, ?, 'main', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+  `, [
+    logId, roomCode, room.currentRound, qNum,
+    currentQ.id, turnUserId, selectedOption || 'TIMEOUT', isCorrect ? 1 : 0,
+    timeUsed, JSON.stringify({ [turnUserId]: pointsAwarded })
+  ]).catch(err => console.error('Error logging main match:', err));
 }
 
 function startBonusTurn(roomCode) {
@@ -1499,6 +1583,8 @@ function startBonusTurn(roomCode) {
 
     const timerDuration = (bonusTeam === 'A') ? 30 : 15;
     room.timeRemaining = timerDuration;
+    room.turnStartTime = Date.now();
+    room.timerDuration = timerDuration;
 
     io.to(roomCode).emit('triggerBonusTurn', {
       bonusUserId: room.bonusUserId,
@@ -1513,6 +1599,8 @@ function startBonusTurn(roomCode) {
         correctOption: room.questionsPool[room.currentQuestionIndex].correct_option,
         pointsAwarded: 0,
         scores: room.scores,
+        turnUserId: room.bonusUserId,
+        userId: room.bonusUserId,
         message: 'Bonus Time Expired!'
       });
       setTimeout(() => advanceToNextTurn(roomCode), 2000);
@@ -1521,6 +1609,8 @@ function startBonusTurn(roomCode) {
     const opponent = room.players.find(p => p.userId !== room.currentTurnUserId);
     room.bonusUserId = opponent.userId;
     room.timeRemaining = 15;
+    room.turnStartTime = Date.now();
+    room.timerDuration = 15;
 
     io.to(roomCode).emit('triggerBonusTurn', {
       bonusUserId: opponent.userId,
@@ -1534,6 +1624,8 @@ function startBonusTurn(roomCode) {
         correctOption: room.questionsPool[room.currentQuestionIndex].correct_option,
         pointsAwarded: 0,
         scores: room.scores,
+        turnUserId: room.bonusUserId,
+        userId: room.bonusUserId,
         message: 'Bonus Time Expired!'
       });
       setTimeout(() => advanceToNextTurn(roomCode), 2000);
@@ -1543,7 +1635,10 @@ function startBonusTurn(roomCode) {
 
 async function evaluateBonusAnswer(room, selectedOption, currentQ) {
   const roomCode = room.roomCode;
+  clearInterval(room.timerInterval);
+
   const isCorrect = (selectedOption === currentQ.correct_option);
+  const timeUsed = Math.min(15, Math.max(0, (Date.now() - (room.turnStartTime || Date.now())) / 1000));
 
   let pointsAwarded = 0;
   if (isCorrect) {
@@ -1555,25 +1650,45 @@ async function evaluateBonusAnswer(room, selectedOption, currentQ) {
   if (room.mode === '2v1') {
     const bonusPlayers = room.players.filter(p => p.team === room.bonusTeam);
     bonusPlayers.forEach(p => {
-      room.scores[p.userId] = Math.max(0, (room.scores[p.userId] || 0) + pointsAwarded);
-      room.roundScores[p.userId] = Math.max(0, (room.roundScores[p.userId] || 0) + pointsAwarded);
+      room.scores[p.userId] = Math.max(-10, (room.scores[p.userId] || 0) + pointsAwarded);
+      room.roundScores[p.userId] = Math.max(-10, (room.roundScores[p.userId] || 0) + pointsAwarded);
     });
   } else {
     const bId = room.bonusUserId;
-    room.scores[bId] = Math.max(0, (room.scores[bId] || 0) + pointsAwarded);
-    room.roundScores[bId] = Math.max(0, (room.roundScores[bId] || 0) + pointsAwarded);
+    room.scores[bId] = Math.max(-10, (room.scores[bId] || 0) + pointsAwarded);
+    room.roundScores[bId] = Math.max(-10, (room.roundScores[bId] || 0) + pointsAwarded);
   }
 
-  io.to(roomCode).emit('bonusAnswerResult', {
+  const resPayload = {
     isCorrect,
     selectedOption,
     correctOption: currentQ.correct_option,
     explanation: currentQ.explanation,
     pointsAwarded,
-    scores: room.scores
-  });
+    scores: room.scores,
+    turnUserId: room.bonusUserId,
+    userId: room.bonusUserId
+  };
+  room.lastAnswerResult = resPayload;
+  room.lastAnswerResultTimestamp = Date.now();
+  io.to(roomCode).emit('bonusAnswerResult', resPayload);
 
   setTimeout(() => advanceToNextTurn(roomCode), 2500);
+
+  // Insert bonus match log into DB
+  const logId = 'log_' + Math.random().toString(36).substring(2, 10);
+  const qNum = (room.currentQuestionIndex % room.questionsPerRound) + 1;
+  tursoExecute(`
+    INSERT INTO combat_match_logs (
+      id, room_code, round_number, question_number_in_round, turn_type,
+      question_id, bonus_to_user_id, bonus_selected_option, bonus_is_correct,
+      bonus_time_used, points_awarded, created_at
+    ) VALUES (?, ?, ?, ?, 'bonus', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+  `, [
+    logId, roomCode, room.currentRound, qNum,
+    currentQ.id, room.bonusUserId, selectedOption || 'TIMEOUT', isCorrect ? 1 : 0,
+    timeUsed, JSON.stringify({ [room.bonusUserId]: pointsAwarded })
+  ]).catch(err => console.error('Error logging bonus match:', err));
 }
 
 function advanceToNextTurn(roomCode) {
@@ -1588,6 +1703,7 @@ function advanceToNextTurn(roomCode) {
     if (currentTurnPlayer.team === 'A') {
       const playerB = room.players.find(p => p.team === 'B');
       room.currentTurnUserId = playerB.userId;
+      room.currentQuestionIndex++;
     } else {
       const playerA = room.players.find(p => p.team === 'A');
       room.currentTurnUserId = playerA.userId;
@@ -1598,6 +1714,7 @@ function advanceToNextTurn(roomCode) {
     const p2 = room.players[1].userId;
     if (room.currentTurnUserId === p1) {
       room.currentTurnUserId = p2;
+      room.currentQuestionIndex++;
     } else {
       room.currentTurnUserId = p1;
       room.currentQuestionIndex++;
@@ -1624,6 +1741,8 @@ function sendNextQuestion(roomCode) {
 
   const clientQ = prepareQuestionForClient(currentQ);
   room.timeRemaining = 30;
+  room.turnStartTime = Date.now();
+  room.timerDuration = 30;
 
   io.to(roomCode).emit('nextQuestion', {
     question: clientQ,
@@ -1642,6 +1761,8 @@ function sendNextQuestion(roomCode) {
       correctOption: currentQ.correct_option,
       pointsAwarded: 0,
       scores: room.scores,
+      turnUserId: room.currentTurnUserId,
+      userId: room.currentTurnUserId,
       message: 'Time Expired!'
     });
     setTimeout(() => startBonusTurn(roomCode), 2000);
