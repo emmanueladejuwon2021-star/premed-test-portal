@@ -262,6 +262,49 @@ if ($action === 'join_room' || isset($data['join_room'])) {
     exit;
 }
 
+if ($action === 'submit_answer' || isset($data['submit_answer'])) {
+    $code = strtoupper(trim($data['roomCode'] ?? ''));
+    $userId = $data['userId'] ?? '';
+    $selectedOption = $data['selectedOption'] ?? null;
+
+    $stmt = $pdo->prepare("SELECT * FROM combat_rooms WHERE room_code = ? LIMIT 1");
+    $stmt->execute([$code]);
+    $room = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$room) {
+        echo json_encode(['success' => false, 'message' => 'Room not found.']);
+        exit;
+    }
+
+    $scores = json_decode($room['scores'] ?? '{}', true);
+
+    // Get current question correct_option
+    $pastQs = $pdo->prepare("SELECT id, correct_option, explanation FROM questions WHERE topic_id = ?");
+    $pastQs->execute([$room['topic_id']]);
+    $questions = $pastQs->fetchAll(PDO::FETCH_ASSOC);
+
+    $currentIdx = (int)($room['current_question_index'] ?? 0);
+    $currentQ = $questions[$currentIdx] ?? null;
+
+    $isCorrect = ($currentQ && $selectedOption === $currentQ['correct_option']);
+    $pts = $isCorrect ? 2 : 0;
+
+    if ($isCorrect) {
+        $scores[$userId] = ($scores[$userId] ?? 0) + $pts;
+        $upd = $pdo->prepare("UPDATE combat_rooms SET scores = ? WHERE room_code = ?");
+        $upd->execute([json_encode($scores), $code]);
+    }
+
+    echo json_encode([
+        'isCorrect' => $isCorrect,
+        'correctOption' => $currentQ ? $currentQ['correct_option'] : 'A',
+        'explanation' => $currentQ ? $currentQ['explanation'] : '',
+        'pointsAwarded' => $pts,
+        'scores' => $scores
+    ]);
+    exit;
+}
+
 if ($action === 'start_game' || isset($data['start_game'])) {
     $code = strtoupper(trim($data['roomCode'] ?? ''));
     $userId = $data['userId'] ?? '';
