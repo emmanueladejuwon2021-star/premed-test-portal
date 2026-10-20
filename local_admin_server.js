@@ -423,6 +423,87 @@ const server = http.createServer(async (req, res) => {
     }));
   }
 
+  // REST API: Join Battle Room
+  if (req.method === 'POST' && pathname === '/api/combat/join-room') {
+    const data = await parseBody(req);
+    const { roomCode, userId, studentName, matricNo } = data;
+    const code = (roomCode || '').trim().toUpperCase();
+
+    const room = activeCombatRooms.get(code);
+    if (room) {
+      const existingPlayer = room.players.find(p => p.userId === userId);
+      if (!existingPlayer) {
+        const maxPlayers = room.mode === '2v1' ? 3 : 2;
+        if (room.players.length >= maxPlayers) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          return res.end(JSON.stringify({ success: false, message: 'Room is full.' }));
+        }
+
+        const newPlayer = {
+          userId,
+          name: studentName,
+          matricNo,
+          team: room.mode === '2v1' ? (room.players.filter(p => p.team === 'A').length < 2 ? 'A' : 'B') : 'B',
+          isHost: false,
+          socketId: null,
+          joinedAt: new Date(),
+          connected: true,
+          stats: await getUserCombatStats(userId, matricNo, studentName)
+        };
+
+        room.players.push(newPlayer);
+        room.scores[userId] = 0;
+        room.roundScores[userId] = 0;
+
+        await tursoExecute("UPDATE combat_rooms SET players = ?, scores = ? WHERE room_code = ?;", [
+          JSON.stringify(room.players), JSON.stringify(room.scores), code
+        ]);
+
+        io.to(code).emit('playerJoined', { player: newPlayer, room });
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      return res.end(JSON.stringify({ success: true, roomCode: code, room }));
+    }
+
+    // Query Turso DB
+    const rows = await tursoQuery("SELECT * FROM combat_rooms WHERE room_code = ? LIMIT 1;", [code]);
+    if (rows.length === 0) {
+      res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      return res.end(JSON.stringify({ success: false, message: 'Room code not found.' }));
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify({ success: true, roomCode: code, room: rows[0] }));
+  }
+
+  // REST API: Start Game
+  if (req.method === 'POST' && pathname === '/api/combat/start-game') {
+    const data = await parseBody(req);
+    const { roomCode, userId } = data;
+    const code = (roomCode || '').trim().toUpperCase();
+
+    const room = activeCombatRooms.get(code);
+    if (room) {
+      room.status = 'playing';
+      room.currentRound = 1;
+      room.currentQuestionIndex = 0;
+      room.currentTurnUserId = room.players[0].userId;
+      room.turnType = 'main';
+
+      await tursoExecute("UPDATE combat_rooms SET status = 'playing' WHERE room_code = ?;", [code]);
+
+      io.to(code).emit('gameStarted', { room });
+      sendNextQuestion(code);
+
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      return res.end(JSON.stringify({ success: true, room }));
+    }
+
+    res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify({ success: false, message: 'Room not found.' }));
+  }
+
   // REST API: Create Battle Room
   if (req.method === 'POST' && pathname === '/api/combat/create-room') {
     const data = await parseBody(req);
