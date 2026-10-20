@@ -37,11 +37,12 @@ This website gives medical students a realistic, distraction-free environment to
 
 ### 4. Study Combat ⚔️ (Real-Time Student PvP Battle Arena)
 - **Real-Time Academic Duels**: Challenge classmates in live head-to-head duels on specific course topics.
-- **Fair & Synchronized 30-Second Timer**:
-  - **Server-Controlled Timer**: The 30-second question countdown is driven entirely by the central website server, not by individual phones or laptops. This prevents the timer from freezing or getting stuck at 21 seconds.
-  - **Identical Display**: Both the player answering and the friend spectating see the exact same second-by-second countdown simultaneously.
-  - **Instant Single-Click Locking**: Clicking an option locks the answer immediately, showing a friendly *"Checking answer... ⏳"* indicator while preventing accidental double clicks.
-  - **Automatic Progression**: After an answer is evaluated, the game automatically shows a big **✅ Correct (+2 Pts)** or **❌ Wrong (0 Pts)** visual overlay for 2 seconds before smoothly moving to the next turn or bonus round.
+- **Fair & Resilient 30-Second Timer**:
+  - **Unstoppable Dual-Engine Timer**: The 30-second question clock runs on a smart local countdown combined with live server synchronization. Even if internet connectivity drops or WebSockets stall, the timer ticks smoothly from 30 down to 0 without freezing at 21 seconds or staying stuck.
+  - **Guaranteed Automatic Question Advancement**: When the timer reaches 0 seconds, the game automatically locks the turn, displays a *"Time Expired! ❌"* notification, and seamlessly moves to the next question or bonus turn after 2 seconds.
+  - **Identical Display**: Both the active player and the spectating opponent see the exact same second-by-second countdown in real time.
+  - **Instant Single-Click Locking**: Clicking an option locks the choice immediately, displaying a friendly *"Checking answer... ⏳"* indicator while preventing accidental double taps.
+  - **Automatic Progression**: After an answer is evaluated, the game shows a big visual overlay (**✅ Correct (+2 Pts)** or **❌ Wrong (0 Pts)**) for 2 seconds before smoothly loading the next question.
   - **Refresh & Connection Safety**: If a player refreshes their browser or loses internet briefly, their active battle room, `PREMED-` code, and current match score are preserved automatically without forcing them to recreate a new room.
 
 ### 5. Immediate Results & Performance Feedback

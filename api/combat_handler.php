@@ -300,9 +300,22 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
 
     if ($isCorrect) {
         $scores[$userId] = ($scores[$userId] ?? 0) + $pts;
-        $upd = $pdo->prepare("UPDATE combat_rooms SET scores = ? WHERE room_code = ?");
-        $upd->execute([json_encode($scores), $code]);
     }
+
+    $players = json_decode($room['players'] ?? '[]', true);
+    $nextIdx = (int)($room['current_question_index'] ?? 0) + 1;
+    $nextTurnUserId = $userId;
+    if (count($players) > 1) {
+        foreach ($players as $p) {
+            if ($p['userId'] !== $userId) {
+                $nextTurnUserId = $p['userId'];
+                break;
+            }
+        }
+    }
+
+    $upd = $pdo->prepare("UPDATE combat_rooms SET scores = ?, current_question_index = ?, current_turn_user_id = ? WHERE room_code = ?");
+    $upd->execute([json_encode($scores), $nextIdx, $nextTurnUserId, $code]);
 
     // Insert match log into DB
     try {

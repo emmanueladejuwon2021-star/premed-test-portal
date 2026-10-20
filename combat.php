@@ -1135,7 +1135,7 @@ $matchHistory = $historyStmt->fetchAll();
             currentSelectedOptionKey = null;
             isSubmittingAnswer = false;
             activeTimerMaxDuration = data.timerDuration || 15;
-            syncTimerDisplay(activeTimerMaxDuration, activeTimerMaxDuration);
+            startResilientCountdown(activeTimerMaxDuration);
 
             const checkingBanner = document.getElementById('checkingAnswerBanner');
             if (checkingBanner) checkingBanner.classList.add('hidden');
@@ -1312,6 +1312,62 @@ $matchHistory = $historyStmt->fetchAll();
         if (window.lucide) lucide.createIcons();
     }
 
+    // Resilient Local Countdown Timer Engine
+    let localCountdownInterval = null;
+    let localTimeRemaining = 30;
+
+    function startResilientCountdown(durationSec) {
+        stopResilientCountdown();
+        activeTimerMaxDuration = durationSec || 30;
+        localTimeRemaining = activeTimerMaxDuration;
+        syncTimerDisplay(localTimeRemaining, activeTimerMaxDuration);
+
+        localCountdownInterval = setInterval(() => {
+            localTimeRemaining--;
+            syncTimerDisplay(localTimeRemaining, activeTimerMaxDuration);
+
+            if (localTimeRemaining <= 0) {
+                stopResilientCountdown();
+                if (!isSubmittingAnswer) {
+                    handleLocalTimeout();
+                }
+            }
+        }, 1000);
+    }
+
+    function stopResilientCountdown() {
+        if (localCountdownInterval) {
+            clearInterval(localCountdownInterval);
+            localCountdownInterval = null;
+        }
+    }
+
+    function handleLocalTimeout() {
+        if (isSubmittingAnswer) return;
+        isSubmittingAnswer = true;
+        disableOptions();
+
+        const checkingBanner = document.getElementById('checkingAnswerBanner');
+        if (checkingBanner) {
+            checkingBanner.classList.remove('hidden');
+            const txt = checkingBanner.querySelector('span');
+            if (txt) txt.textContent = 'Time Expired! Moving to next turn... ⏳';
+        }
+
+        setTimeout(() => {
+            if (currentRoom) {
+                fetch('api/combat_handler.php?action=get_room_status&roomCode=' + encodeURIComponent(currentRoom.roomCode))
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success && data.room) {
+                            currentRoom = data.room;
+                            launchBattleArena(data.room);
+                        }
+                    }).catch(e => console.warn('Timeout status check error:', e));
+            }
+        }, 1500);
+    }
+
     // Server-Authoritative Timer Display Helper
     function syncTimerDisplay(remTime, maxDuration = 30) {
         const text = document.getElementById('arenaTimerText');
@@ -1387,7 +1443,7 @@ $matchHistory = $historyStmt->fetchAll();
             }).join('<span class="text-slate-600">vs</span>');
         }
 
-        syncTimerDisplay(activeTimerMaxDuration, activeTimerMaxDuration);
+        startResilientCountdown(activeTimerMaxDuration);
 
         if (window.lucide) lucide.createIcons();
         if (window.renderMathInElement) {
@@ -1399,6 +1455,9 @@ $matchHistory = $historyStmt->fetchAll();
         if (isSubmittingAnswer) return;
         isSubmittingAnswer = true;
         currentSelectedOptionKey = optKey;
+
+        // Stop timer immediately on choice selection
+        stopResilientCountdown();
 
         // Disable options immediately on first click to prevent double clicks or changing answer
         disableOptions();
