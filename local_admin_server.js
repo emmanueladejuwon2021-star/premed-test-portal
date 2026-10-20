@@ -303,18 +303,41 @@ async function fetchQuestionPoolForTopic(topicId, neededCount) {
     combined = await tursoQuery("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions LIMIT 50;");
   }
 
+  // Deduplicate questions by ID
+  const uniqueMap = new Map();
+  combined.forEach(q => {
+    if (!uniqueMap.has(q.id)) {
+      uniqueMap.set(q.id, q);
+    }
+  });
+  combined = Array.from(uniqueMap.values());
+
+  // Fisher-Yates shuffle
   for (let i = combined.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [combined[i], combined[j]] = [combined[j], combined[i]];
   }
 
+  // Ensure no repeat question IDs if sufficient questions exist
   const result = [];
-  while (result.length < neededCount && combined.length > 0) {
-    for (const q of combined) {
-      if (result.length >= neededCount) break;
+  const usedIds = new Set();
+
+  for (const q of combined) {
+    if (result.length >= neededCount) break;
+    if (!usedIds.has(q.id)) {
+      usedIds.add(q.id);
       result.push(q);
     }
   }
+
+  // If pool has fewer unique questions than needed, reuse with shuffled options
+  while (result.length < neededCount && combined.length > 0) {
+    for (const q of combined) {
+      if (result.length >= neededCount) break;
+      result.push({ ...q, id: q.id + '_dup_' + result.length });
+    }
+  }
+
   return result;
 }
 
@@ -1752,6 +1775,7 @@ function sendNextQuestion(roomCode) {
 
   const currentQ = room.questionsPool[room.currentQuestionIndex];
   if (!currentQ) {
+    io.to(roomCode).emit('gameNotice', { message: 'No more questions in pool. Ending match...' });
     handleGameFinished(room);
     return;
   }
