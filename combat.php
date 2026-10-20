@@ -780,32 +780,21 @@ $matchHistory = $historyStmt->fetchAll();
                 }
 
                 try {
-                    // Try Socket.io REST server first
-                    const res = await fetch(SOCKET_URL + '/api/combat/create-room', {
+                    // Fast direct call to native handler
+                    const resPhp = await fetch('api/combat_handler.php?action=create_room', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    const data = await res.json();
-                    handleRoomCreatedData(data);
+                    const dataPhp = await resPhp.json();
+                    handleRoomCreatedData(dataPhp);
                 } catch (err) {
-                    console.warn('Node server offline, using PHP fallback engine:', err);
-                    try {
-                        const resPhp = await fetch('api/combat_handler.php?action=create_room', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-                        const dataPhp = await resPhp.json();
-                        handleRoomCreatedData(dataPhp);
-                    } catch (e2) {
-                        console.error('PHP fallback error:', e2);
-                        alert('Could not connect to room server. Please check network connection.');
-                        if (submitBtn) {
-                            submitBtn.disabled = false;
-                            submitBtn.innerHTML = '<i data-lucide="sparkles" class="w-5 h-5"></i><span>GENERATE PREMED- CODE & CREATE ROOM</span>';
-                            if (window.lucide) lucide.createIcons();
-                        }
+                    console.error('Create room error:', err);
+                    alert('Could not connect to room server. Please check network connection.');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i data-lucide="sparkles" class="w-5 h-5"></i><span>GENERATE PREMED- CODE & CREATE ROOM</span>';
+                        if (window.lucide) lucide.createIcons();
                     }
                 }
             });
@@ -871,26 +860,15 @@ $matchHistory = $historyStmt->fetchAll();
                 }
 
                 try {
-                    const res = await fetch(SOCKET_URL + '/api/combat/validate-code', {
+                    const resPhp = await fetch('api/combat_handler.php?action=validate_code', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ code: val })
                     });
-                    const data = await res.json();
-                    applyValidationResult(data);
+                    const dataPhp = await resPhp.json();
+                    applyValidationResult(dataPhp);
                 } catch (e) {
-                    console.warn('Node server validation offline, using PHP fallback:', e);
-                    try {
-                        const resPhp = await fetch('api/combat_handler.php?action=validate_code', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ code: val })
-                        });
-                        const dataPhp = await resPhp.json();
-                        applyValidationResult(dataPhp);
-                    } catch (e2) {
-                        console.error('Validation error:', e2);
-                    }
+                    console.error('Validation error:', e);
                 }
             } else {
                 box.classList.add('hidden');
@@ -935,29 +913,18 @@ $matchHistory = $historyStmt->fetchAll();
             }
 
             try {
-                const res = await fetch(SOCKET_URL + '/api/combat/join-room', {
+                const resPhp = await fetch('api/combat_handler.php?action=join_room', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                const data = await res.json();
-                handleJoinedRoomData(data);
+                const dataPhp = await resPhp.json();
+                handleJoinedRoomData(dataPhp);
             } catch (err) {
-                console.warn('Node server offline for join, using PHP fallback:', err);
-                try {
-                    const resPhp = await fetch('api/combat_handler.php?action=join_room', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const dataPhp = await resPhp.json();
-                    handleJoinedRoomData(dataPhp);
-                } catch (e2) {
-                    console.error('PHP fallback join error:', e2);
-                    alert('Could not join room. Please check your network connection.');
-                    joinBtn.disabled = false;
-                    joinBtn.textContent = 'Agree to Topic & Join Battle';
-                }
+                console.error('Join room error:', err);
+                alert('Could not join room. Please check your network connection.');
+                joinBtn.disabled = false;
+                joinBtn.textContent = 'Agree to Topic & Join Battle';
             }
         });
     }
@@ -1184,7 +1151,7 @@ $matchHistory = $historyStmt->fetchAll();
 
         checkStartBtnState(room);
 
-        // Start 2.5-second polling timer for seamless launch
+        // Ultra-fast 1-second polling timer for instant launch
         lobbyPollingInterval = setInterval(async () => {
             try {
                 const res = await fetch('api/combat_handler.php?action=get_room_status&roomCode=' + encodeURIComponent(code));
@@ -1201,7 +1168,7 @@ $matchHistory = $historyStmt->fetchAll();
             } catch (e) {
                 console.warn('Lobby polling check error:', e);
             }
-        }, 2500);
+        }, 1000);
 
         if (window.lucide) lucide.createIcons();
     }
