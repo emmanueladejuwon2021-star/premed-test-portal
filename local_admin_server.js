@@ -1467,7 +1467,9 @@ async function evaluateMainAnswer(room, selectedOption, currentQ) {
       selectedOption,
       explanation: currentQ.explanation,
       pointsAwarded: 2,
-      scores: room.scores
+      scores: room.scores,
+      turnUserId: room.currentTurnUserId,
+      userId: turnUserId
     });
 
     setTimeout(() => advanceToNextTurn(roomCode), 2500);
@@ -1478,7 +1480,9 @@ async function evaluateMainAnswer(room, selectedOption, currentQ) {
       selectedOption,
       explanation: currentQ.explanation,
       pointsAwarded: 0,
-      scores: room.scores
+      scores: room.scores,
+      turnUserId: room.currentTurnUserId,
+      userId: turnUserId
     });
 
     setTimeout(() => startBonusTurn(roomCode), 2000);
@@ -1574,7 +1578,9 @@ async function evaluateBonusAnswer(room, selectedOption, currentQ) {
     correctOption: currentQ.correct_option,
     explanation: currentQ.explanation,
     pointsAwarded,
-    scores: room.scores
+    scores: room.scores,
+    turnUserId: room.bonusUserId,
+    userId: room.bonusUserId
   });
 
   setTimeout(() => advanceToNextTurn(roomCode), 2500);

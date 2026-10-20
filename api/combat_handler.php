@@ -300,7 +300,9 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
         'correctOption' => $currentQ ? $currentQ['correct_option'] : 'A',
         'explanation' => $currentQ ? $currentQ['explanation'] : '',
         'pointsAwarded' => $pts,
-        'scores' => $scores
+        'scores' => $scores,
+        'turnUserId' => $room['current_turn_user_id'] ?? $userId,
+        'userId' => $userId
     ]);
     exit;
 }

@@ -586,10 +586,11 @@ $matchHistory = $historyStmt->fetchAll();
                         </button>
                     </div>
 
-                    <!-- Explanation Box (Shows after answer) -->
-                    <div id="explanationBox" class="hidden p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 text-xs text-purple-900 dark:text-purple-200 space-y-1">
-                        <div class="font-black flex items-center gap-1.5"><i data-lucide="book-open" class="w-4 h-4"></i> Explanation:</div>
-                        <div id="explanationText">--</div>
+                    <!-- High-Impact Game Result Feedback Overlay (Centered) -->
+                    <div id="battleResultOverlay" class="hidden my-4 p-6 rounded-3xl text-center space-y-3 transition-all animate-in zoom-in-90">
+                        <div id="resultOverlayIcon" class="text-6xl sm:text-7xl font-black animate-bounce"></div>
+                        <div id="resultOverlayText" class="text-xl sm:text-2xl font-black uppercase tracking-wider"></div>
+                        <div id="resultOverlayPoints" class="inline-block px-4 py-1.5 rounded-full text-xs font-black shadow-lg"></div>
                     </div>
                 </div>
             </div>
@@ -1216,7 +1217,9 @@ $matchHistory = $historyStmt->fetchAll();
         document.getElementById('questionNumberHeader').textContent = `Question ${data.questionNumber} of ${data.questionsPerRound}`;
 
         document.getElementById('confirmActionBar').classList.add('hidden');
-        document.getElementById('explanationBox').classList.add('hidden');
+
+        const resultOverlay = document.getElementById('battleResultOverlay');
+        if (resultOverlay) resultOverlay.classList.add('hidden');
 
         const isMyTurn = (data.turnUserId === STUDENT_ID);
         const turnBadge = document.getElementById('questionTurnBadge');
@@ -1271,11 +1274,11 @@ $matchHistory = $historyStmt->fetchAll();
         const btns = document.querySelectorAll('.opt-btn');
         btns.forEach(b => {
             if (b.dataset.key === optKey) {
-                b.className = 'opt-btn p-4 rounded-2xl border-2 border-purple-600 bg-purple-50 dark:bg-purple-950/60 text-purple-900 dark:text-white font-black text-xs transition-all flex items-center gap-3 shadow-md ring-2 ring-purple-500/50';
+                b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-purple-600 bg-purple-50 dark:bg-purple-950/60 text-purple-900 dark:text-white font-black text-xs transition-all flex items-center gap-3 shadow-md ring-2 ring-purple-500/50';
                 const keyBadge = b.querySelector('.opt-key-badge');
                 if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-purple-600 text-white font-black text-xs flex items-center justify-center shrink-0';
             } else {
-                b.className = 'opt-btn p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-purple-600 disabled:opacity-60 text-left font-semibold text-xs transition-all flex items-center gap-3';
+                b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-purple-600 disabled:opacity-60 text-left font-semibold text-xs transition-all flex items-center gap-3';
                 const keyBadge = b.querySelector('.opt-key-badge');
                 if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0';
             }
@@ -1318,10 +1321,6 @@ $matchHistory = $historyStmt->fetchAll();
         const btns = document.querySelectorAll('.opt-btn');
         btns.forEach(b => {
             b.disabled = false;
-            b.innerHTML = `
-                <span class="opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0">${b.dataset.key}</span>
-                <span class="flex-1">${b.innerText}</span>
-            `;
             b.onclick = function() {
                 selectOption(b.dataset.key);
             };
@@ -1371,16 +1370,70 @@ $matchHistory = $historyStmt->fetchAll();
     }
 
     function showAnswerResult(data) {
-        const explBox = document.getElementById('explanationBox');
-        const explText = document.getElementById('explanationText');
+        const overlay = document.getElementById('battleResultOverlay');
+        const iconDiv = document.getElementById('resultOverlayIcon');
+        const textDiv = document.getElementById('resultOverlayText');
+        const ptsDiv = document.getElementById('resultOverlayPoints');
+        const cardContainer = document.getElementById('combatArenaScreen');
 
-        if (data.isCorrect) {
-            confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
+        if (!overlay) return;
+
+        overlay.classList.remove('hidden');
+
+        // Highlight correct option in green for everyone
+        if (data.correctOption) {
+            const btns = document.querySelectorAll('.opt-btn');
+            btns.forEach(b => {
+                if (b.dataset.key === data.correctOption) {
+                    b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-100 font-black text-xs transition-all flex items-center gap-3 shadow-lg ring-4 ring-emerald-500/30';
+                    const keyBadge = b.querySelector('.opt-key-badge');
+                    if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0';
+                }
+            });
         }
 
-        if (data.explanation) {
-            explBox.classList.remove('hidden');
-            explText.textContent = data.explanation;
+        const isMainTurnAnswer = (data.userId === STUDENT_ID || data.turnUserId === STUDENT_ID);
+
+        if (isMainTurnAnswer) {
+            // Active Player Answering
+            if (data.isCorrect) {
+                confetti({ particleCount: 90, spread: 80, origin: { y: 0.6 } });
+                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500/50 shadow-2xl animate-in zoom-in-95';
+                iconDiv.textContent = '✅';
+                textDiv.textContent = 'CORRECT!';
+                textDiv.className = 'text-2xl font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider';
+                ptsDiv.textContent = `+${data.pointsAwarded || 2} Points!`;
+                ptsDiv.className = 'inline-block px-4 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-md';
+            } else {
+                if (cardContainer) {
+                    cardContainer.classList.add('animate-shake');
+                    setTimeout(() => cardContainer.classList.remove('animate-shake'), 600);
+                }
+                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-500/50 shadow-2xl animate-in zoom-in-95';
+                iconDiv.textContent = '❌';
+                textDiv.textContent = 'WRONG!';
+                textDiv.className = 'text-2xl font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider';
+                ptsDiv.textContent = `${data.pointsAwarded < 0 ? data.pointsAwarded : '0'} Points`;
+                ptsDiv.className = 'inline-block px-4 py-1 rounded-full text-xs font-black bg-rose-500 text-white shadow-md';
+            }
+        } else {
+            // Spectator Watching Opponent
+            if (data.isCorrect) {
+                confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
+                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500/50 shadow-2xl animate-in zoom-in-95';
+                iconDiv.textContent = '✅';
+                textDiv.textContent = 'OPPONENT CORRECT!';
+                textDiv.className = 'text-2xl font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider';
+                ptsDiv.textContent = `Opponent got +${data.pointsAwarded || 2} pts`;
+                ptsDiv.className = 'inline-block px-4 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-md';
+            } else {
+                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-500/50 shadow-2xl animate-in zoom-in-95';
+                iconDiv.textContent = '❌';
+                textDiv.textContent = 'OPPONENT WRONG!';
+                textDiv.className = 'text-2xl font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider';
+                ptsDiv.textContent = 'Opponent Failed!';
+                ptsDiv.className = 'inline-block px-4 py-1 rounded-full text-xs font-black bg-rose-500 text-white shadow-md';
+            }
         }
     }
 
