@@ -1967,19 +1967,25 @@ async function handleGameFinished(room) {
     room.players.forEach(p => { coinsAwarded[p.userId] = 0; });
   }
 
-  // Edge Case 4: 3-retry attempt for database saving
+  // Snapshots of player names and topic name
+  const playerNamesSnapshot = {};
+  room.players.forEach(p => { playerNamesSnapshot[p.userId] = p.name; });
+
+  // Edge Case 4: 3-retry attempt for database saving with snapshots
   let savedOk = false;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const ok = await tursoExecute(`
         INSERT INTO combat_final_results (
           id, room_code, players, winner_user_id, loser_user_id, is_draw,
-          final_scores, topic_id, total_questions, coins_awarded, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+          final_scores, topic_id, topic_name_snapshot, player_names_snapshot,
+          total_questions, coins_awarded, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
       `, [
         `res_${Math.random().toString(36).substring(2, 10)}`,
         room.roomCode, JSON.stringify(room.players.map(p => p.userId)), winnerUserId, loserUserId,
-        isDraw ? 1 : 0, JSON.stringify(room.scores), room.topicId, room.totalQuestions, JSON.stringify(coinsAwarded)
+        isDraw ? 1 : 0, JSON.stringify(room.scores), room.topicId, room.topicName || 'Topic',
+        JSON.stringify(playerNamesSnapshot), room.totalQuestions, JSON.stringify(coinsAwarded)
       ]);
       if (ok) {
         savedOk = true;

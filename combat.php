@@ -394,21 +394,32 @@ $matchHistory = $historyStmt->fetchAll();
                 <?php if (empty($matchHistory)): ?>
                 <p class="text-xs text-slate-400 py-4 text-center">No battles fought yet. Go create or join a room to get started!</p>
                 <?php else: ?>
-                <div class="space-y-3">
-                    <?php foreach ($matchHistory as $mh): ?>
-                    <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <div id="matchHistoryContainer" class="space-y-3">
+                    <?php $count = 0; foreach ($matchHistory as $mh): $count++; ?>
+                    <?php
+                        $topicSnap = !empty($mh['topic_name_snapshot']) ? $mh['topic_name_snapshot'] : 'Topic Duel';
+                        $isWin = ($mh['winner_user_id'] === $studentId);
+                        $isDraw = !empty($mh['is_draw']);
+                    ?>
+                    <div class="history-item <?= $count > 5 ? 'hidden' : '' ?> p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
                         <div>
-                            <div class="text-xs font-mono font-bold text-purple-600"><?= htmlspecialchars($mh['room_code']) ?></div>
-                            <div class="text-[11px] text-slate-400"><?= htmlspecialchars($mh['created_at']) ?></div>
+                            <div class="text-xs font-mono font-bold text-purple-600"><?= htmlspecialchars($mh['room_code']) ?> <span class="text-slate-400 font-sans font-normal ml-2">(<?= htmlspecialchars($topicSnap) ?>)</span></div>
+                            <div class="text-[11px] text-slate-400 mt-0.5"><?= htmlspecialchars($mh['created_at']) ?></div>
                         </div>
                         <div class="text-right">
-                            <span class="text-xs font-bold px-2.5 py-1 rounded-lg <?= $mh['winner_user_id'] === $studentId ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700' ?>">
-                                <?= $mh['winner_user_id'] === $studentId ? 'WIN (+50 Coins)' : 'LOSS (0 Coins)' ?>
+                            <span class="text-xs font-bold px-2.5 py-1 rounded-lg <?= $isWin ? 'bg-emerald-100 text-emerald-700' : ($isDraw ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700') ?>">
+                                <?= $isWin ? 'WIN (+50 Coins)' : ($isDraw ? 'DRAW (+25 Coins)' : 'LOSS (0 Coins)') ?>
                             </span>
                         </div>
                     </div>
                     <?php endforeach; ?>
                 </div>
+
+                <?php if (count($matchHistory) > 5): ?>
+                <button type="button" onclick="loadMoreHistory()" id="loadMoreHistoryBtn" class="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 transition-colors">
+                    Load More Matches ▾
+                </button>
+                <?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -1538,6 +1549,20 @@ $matchHistory = $historyStmt->fetchAll();
         }
         const modal = document.getElementById('roundVictoryModal');
         if (modal) modal.classList.add('hidden');
+    }
+
+    function loadMoreHistory() {
+        const hiddenItems = document.querySelectorAll('.history-item.hidden');
+        hiddenItems.forEach((item, index) => {
+            if (index < 5) {
+                item.classList.remove('hidden');
+            }
+        });
+        const remaining = document.querySelectorAll('.history-item.hidden').length;
+        if (remaining === 0) {
+            const btn = document.getElementById('loadMoreHistoryBtn');
+            if (btn) btn.classList.add('hidden');
+        }
     }
 
     function updateLiveScoreboard(scores) {
