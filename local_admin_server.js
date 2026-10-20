@@ -1894,15 +1894,30 @@ function handleRoundFinished(room) {
 }
 
 function startNextRound(room) {
-  if (!room || room.status !== 'round_break') return;
+  if (!room || room.status !== 'round_break' || room.isStartingNextRound) return;
+
+  if (room.currentRound >= room.totalRounds) {
+    handleGameFinished(room);
+    return;
+  }
+
+  room.isStartingNextRound = true;
+
   if (room.roundAutoTimer) {
     clearTimeout(room.roundAutoTimer);
     room.roundAutoTimer = null;
   }
-  room.currentRound++;
-  room.status = 'playing';
-  io.to(room.roomCode).emit('nextRoundStarted', { roundNumber: room.currentRound });
-  sendNextQuestion(room.roomCode);
+
+  // 3-second countdown transition before starting next round questions
+  io.to(room.roomCode).emit('nextRoundStarting', { countdownSec: 3, nextRoundNumber: room.currentRound + 1 });
+
+  setTimeout(() => {
+    room.currentRound++;
+    room.status = 'playing';
+    room.isStartingNextRound = false;
+    io.to(room.roomCode).emit('nextRoundStarted', { roundNumber: room.currentRound });
+    sendNextQuestion(room.roomCode);
+  }, 3000);
 }
 
 async function handleGameFinished(room) {

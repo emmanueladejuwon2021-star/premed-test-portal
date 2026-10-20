@@ -1149,6 +1149,26 @@ $matchHistory = $historyStmt->fetchAll();
             showRoundVictoryModal(data);
         });
 
+        socket.on('nextRoundStarting', (data) => {
+            const hostBtn = document.getElementById('hostNextRoundBtn');
+            if (hostBtn) hostBtn.disabled = true;
+
+            let c = data.countdownSec || 3;
+            const specText = document.getElementById('spectatorNextRoundText');
+            if (specText) {
+                specText.innerHTML = `<span class="text-amber-400 font-black text-sm animate-pulse">⚡ Next round starting in ${c}... ⚡</span>`;
+            }
+
+            const cTimer = setInterval(() => {
+                c--;
+                if (c > 0 && specText) {
+                    specText.innerHTML = `<span class="text-amber-400 font-black text-sm animate-pulse">⚡ Next round starting in ${c}... ⚡</span>`;
+                } else {
+                    clearInterval(cTimer);
+                }
+            }, 1000);
+        });
+
         socket.on('nextRoundStarted', (data) => {
             closeRoundVictoryModal();
         });
