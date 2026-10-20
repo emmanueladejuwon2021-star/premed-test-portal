@@ -138,6 +138,134 @@ if ($action === 'create_room' || isset($data['create_room'])) {
     exit;
 }
 
+if ($action === 'join_room' || isset($data['join_room'])) {
+    $code = strtoupper(trim($data['roomCode'] ?? ''));
+    $userId = $data['userId'] ?? ($_SESSION['student_id'] ?? ($sessionStudent['id'] ?? ($sessionAdmin['id'] ?? 'usr_' . bin2hex(random_bytes(4)))));
+    $studentName = $data['studentName'] ?? ($_SESSION['student_name'] ?? ($sessionStudent['name'] ?? ($sessionAdmin['name'] ?? 'Warrior')));
+    $matricNo = $data['matricNo'] ?? ($_SESSION['student_matric'] ?? ($sessionStudent['matric_no'] ?? ($sessionAdmin['matric_no'] ?? 'STU001')));
+
+    $stmt = $pdo->prepare("SELECT * FROM combat_rooms WHERE room_code = ? LIMIT 1");
+    $stmt->execute([$code]);
+    $room = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$room) {
+        echo json_encode(['success' => false, 'message' => 'Room code not found.']);
+        exit;
+    }
+
+    if (in_array($room['status'], ['finished', 'terminated'])) {
+        echo json_encode(['success' => false, 'message' => 'This room has finished or expired.']);
+        exit;
+    }
+
+    $players = json_decode($room['players'] ?? '[]', true);
+    $scores = json_decode($room['scores'] ?? '{}', true);
+
+    $existing = false;
+    foreach ($players as &$p) {
+        if ($p['userId'] === $userId) {
+            $existing = true;
+            $p['connected'] = true;
+            break;
+        }
+    }
+
+    if (!$existing) {
+        $maxPlayers = ($room['mode'] === '2v1') ? 3 : 2;
+        if (count($players) >= $maxPlayers) {
+            echo json_encode(['success' => false, 'message' => 'Room is full.']);
+            exit;
+        }
+
+        $newPlayer = [
+            'userId' => $userId,
+            'name' => $studentName,
+            'matricNo' => $matricNo,
+            'team' => 'B',
+            'isHost' => false,
+            'socketId' => null,
+            'joinedAt' => date('Y-m-d H:i:s'),
+            'connected' => true
+        ];
+        $players[] = $newPlayer;
+        $scores[$userId] = 0;
+
+        $upd = $pdo->prepare("UPDATE combat_rooms SET players = ?, scores = ? WHERE room_code = ?");
+        $upd->execute([json_encode($players), json_encode($scores), $code]);
+    }
+
+    $roomState = [
+        'roomCode' => $code,
+        'roomName' => $room['room_name'],
+        'courseId' => $room['course_id'],
+        'topicId' => $room['topic_id'],
+        'createdBy' => $room['created_by'],
+        'mode' => $room['mode'],
+        'questionsPerRound' => (int)$room['questions_per_round'],
+        'totalRounds' => (int)$room['total_rounds'],
+        'totalQuestions' => (int)$room['total_questions'],
+        'status' => $room['status'],
+        'players' => $players,
+        'scores' => $scores
+    ];
+
+    echo json_encode(['success' => true, 'roomCode' => $code, 'room' => $roomState]);
+    exit;
+}
+
+if ($action === 'start_game' || isset($data['start_game'])) {
+    $code = strtoupper(trim($data['roomCode'] ?? ''));
+    $userId = $data['userId'] ?? '';
+
+    $stmt = $pdo->prepare("SELECT * FROM combat_rooms WHERE room_code = ? LIMIT 1");
+    $stmt->execute([$code]);
+    $room = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$room) {
+        echo json_encode(['success' => false, 'message' => 'Room not found.']);
+        exit;
+    }
+
+    $upd = $pdo->prepare("UPDATE combat_rooms SET status = 'playing' WHERE room_code = ?");
+    $upd->execute([$code]);
+
+    $players = json_decode($room['players'] ?? '[]', true);
+    $scores = json_decode($room['scores'] ?? '{}', true);
+
+    // Fetch Questions Pool
+    $pastQs = $pdo->prepare("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions WHERE topic_id = ?");
+    $pastQs->execute([$room['topic_id']]);
+    $questionsPool = $pastQs->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($questionsPool)) {
+        $fallback = $pdo->query("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions LIMIT 40");
+        $questionsPool = $fallback->fetchAll(PDO::FETCH_ASSOC);
+    }
+    shuffle($questionsPool);
+
+    $roomState = [
+        'roomCode' => $code,
+        'roomName' => $room['room_name'],
+        'courseId' => $room['course_id'],
+        'topicId' => $room['topic_id'],
+        'createdBy' => $room['created_by'],
+        'mode' => $room['mode'],
+        'questionsPerRound' => (int)$room['questions_per_round'],
+        'totalRounds' => (int)$room['total_rounds'],
+        'totalQuestions' => (int)$room['total_questions'],
+        'status' => 'playing',
+        'players' => $players,
+        'questionsPool' => $questionsPool,
+        'currentRound' => 1,
+        'currentQuestionIndex' => 0,
+        'currentTurnUserId' => $players[0]['userId'] ?? $userId,
+        'scores' => $scores
+    ];
+
+    echo json_encode(['success' => true, 'room' => $roomState]);
+    exit;
+}
+
 if ($action === 'validate_code' || isset($data['validate_code'])) {
     $code = strtoupper(trim($data['code'] ?? ''));
 

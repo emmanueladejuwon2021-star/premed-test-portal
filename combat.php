@@ -907,14 +907,58 @@ $matchHistory = $historyStmt->fetchAll();
             joinBtn.disabled = !checkbox.checked;
         }
 
-        joinBtn.addEventListener('click', function () {
+        joinBtn.addEventListener('click', async function () {
             const code = input.value.trim().toUpperCase();
-            socket.emit('joinRoom', {
+            joinBtn.disabled = true;
+            joinBtn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Agreeing & Joining Battle...';
+
+            const payload = {
                 roomCode: code,
                 userId: STUDENT_ID,
                 studentName: STUDENT_NAME,
                 matricNo: MATRIC_NO
-            });
+            };
+
+            async function handleJoinedRoomData(data) {
+                if (data.success) {
+                    currentRoom = data.room;
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                    renderWaitingRoom(code, data.room);
+                    if (socket) {
+                        socket.emit('joinRoom', payload);
+                    }
+                } else {
+                    alert('Error joining room: ' + (data.message || 'Unknown error'));
+                    joinBtn.disabled = false;
+                    joinBtn.textContent = 'Agree to Topic & Join Battle';
+                }
+            }
+
+            try {
+                const res = await fetch(SOCKET_URL + '/api/combat/join-room', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                handleJoinedRoomData(data);
+            } catch (err) {
+                console.warn('Node server offline for join, using PHP fallback:', err);
+                try {
+                    const resPhp = await fetch('api/combat_handler.php?action=join_room', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const dataPhp = await resPhp.json();
+                    handleJoinedRoomData(dataPhp);
+                } catch (e2) {
+                    console.error('PHP fallback join error:', e2);
+                    alert('Could not join room. Please check your network connection.');
+                    joinBtn.disabled = false;
+                    joinBtn.textContent = 'Agree to Topic & Join Battle';
+                }
+            }
         });
     }
 
@@ -1050,8 +1094,28 @@ $matchHistory = $historyStmt->fetchAll();
         const startBtn = document.getElementById('startBattleBtn');
         if (room.createdBy === STUDENT_ID && room.players.length >= (room.mode === '2v1' ? 3 : 2)) {
             startBtn.classList.remove('hidden');
-            startBtn.onclick = () => {
-                socket.emit('startGame', { roomCode: code, userId: STUDENT_ID });
+            startBtn.onclick = async () => {
+                startBtn.disabled = true;
+                startBtn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Launching Battle Arena...';
+
+                const payload = { roomCode: code, userId: STUDENT_ID };
+                if (socket) {
+                    socket.emit('startGame', payload);
+                }
+
+                try {
+                    await fetch(SOCKET_URL + '/api/combat/start-game', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } catch (e) {
+                    await fetch('api/combat_handler.php?action=start_game', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
             };
         } else {
             startBtn.classList.add('hidden');
