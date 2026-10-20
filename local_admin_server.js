@@ -1528,6 +1528,17 @@ async function evaluateMainAnswer(room, selectedOption, currentQ) {
   const timeUsed = Math.min(30, Math.max(0, (Date.now() - (room.turnStartTime || Date.now())) / 1000));
   const pointsAwarded = isCorrect ? 2 : 0;
 
+  // Initialize per-round tracking
+  room.roundMetrics = room.roundMetrics || {};
+  room.roundMetrics[turnUserId] = room.roundMetrics[turnUserId] || { wins: 0, fails: 0, totalTime: 0, count: 0, bonusWins: 0 };
+  room.roundMetrics[turnUserId].count++;
+  room.roundMetrics[turnUserId].totalTime += timeUsed;
+  if (isCorrect) {
+    room.roundMetrics[turnUserId].wins++;
+  } else {
+    room.roundMetrics[turnUserId].fails++;
+  }
+
   if (isCorrect) {
     if (room.mode === '2v1') {
       const currentTurnPlayer = room.players.find(p => p.userId === turnUserId);
@@ -1683,6 +1694,10 @@ async function evaluateBonusAnswer(room, selectedOption, currentQ) {
   let pointsAwarded = 0;
   if (isCorrect) {
     pointsAwarded = 1;
+    const bId = room.bonusUserId;
+    room.roundMetrics = room.roundMetrics || {};
+    room.roundMetrics[bId] = room.roundMetrics[bId] || { wins: 0, fails: 0, totalTime: 0, count: 0, bonusWins: 0 };
+    room.roundMetrics[bId].bonusWins++;
   } else {
     pointsAwarded = -1;
   }
@@ -1761,7 +1776,8 @@ function advanceToNextTurn(roomCode) {
     }
   }
 
-  const questionsPerRoundTotal = room.questionsPerRound;
+  const numPlayers = room.mode === '2v1' ? 2 : room.players.length;
+  const questionsPerRoundTotal = room.questionsPerRound * numPlayers;
   if (room.currentQuestionIndex >= room.currentRound * questionsPerRoundTotal) {
     handleRoundFinished(room);
   } else {
@@ -1827,9 +1843,11 @@ function runServerTimer(room, duration, onTimeout) {
 
 function handleRoundFinished(room) {
   clearInterval(room.timerInterval);
+  if (room.roundAutoTimer) clearTimeout(room.roundAutoTimer);
+
   room.status = 'round_break';
 
-  let maxPoints = -1;
+  let maxPoints = -100;
   let roundWinnerName = 'Draw';
   room.players.forEach(p => {
     const pts = room.roundScores[p.userId] || 0;
@@ -1839,31 +1857,52 @@ function handleRoundFinished(room) {
     }
   });
 
-  const roundStatsTable = room.players.map(p => ({
-    userId: p.userId,
-    name: p.name,
-    pointsThisRound: room.roundScores[p.userId] || 0,
-    totalPoints: room.scores[p.userId] || 0
-  }));
+  const roundStatsTable = room.players.map(p => {
+    const m = (room.roundMetrics && room.roundMetrics[p.userId]) || { wins: 0, fails: 0, totalTime: 0, count: 0, bonusWins: 0 };
+    const avgT = m.count > 0 ? (m.totalTime / m.count).toFixed(1) : '0.0';
+    return {
+      userId: p.userId,
+      name: p.name,
+      pointsThisRound: room.roundScores[p.userId] || 0,
+      totalPoints: room.scores[p.userId] || 0,
+      wins: m.wins,
+      fails: m.fails,
+      avgTime: avgT,
+      bonusWins: m.bonusWins
+    };
+  });
 
   io.to(room.roomCode).emit('roundFinished', {
     roundNumber: room.currentRound,
     winnerName: roundWinnerName,
     statsTable: roundStatsTable,
-    isFinalRound: (room.currentRound >= room.totalRounds)
+    isFinalRound: (room.currentRound >= room.totalRounds),
+    autoStartSec: 10
   });
 
   room.players.forEach(p => { room.roundScores[p.userId] = 0; });
+  room.roundMetrics = {};
 
   if (room.currentRound >= room.totalRounds) {
     setTimeout(() => handleGameFinished(room), 4000);
   } else {
-    setTimeout(() => {
-      room.currentRound++;
-      room.status = 'playing';
-      sendNextQuestion(room.roomCode);
-    }, 6000);
+    // 10-second auto-start next round or host click
+    room.roundAutoTimer = setTimeout(() => {
+      startNextRound(room);
+    }, 10000);
   }
+}
+
+function startNextRound(room) {
+  if (!room || room.status !== 'round_break') return;
+  if (room.roundAutoTimer) {
+    clearTimeout(room.roundAutoTimer);
+    room.roundAutoTimer = null;
+  }
+  room.currentRound++;
+  room.status = 'playing';
+  io.to(room.roomCode).emit('nextRoundStarted', { roundNumber: room.currentRound });
+  sendNextQuestion(room.roomCode);
 }
 
 async function handleGameFinished(room) {
