@@ -1633,39 +1633,60 @@ $matchHistory = $historyStmt->fetchAll();
 
     function showFinalVictoryModal(data) {
         const modal = document.getElementById('finalVictoryModal');
+        if (!modal) return;
         modal.classList.remove('hidden');
 
-        document.getElementById('victorySubtitle').textContent = `Winner: ${data.winnerName}`;
+        if (data.isDraw) {
+            document.getElementById('victorySubtitle').textContent = 'Result: Draw! 🤝 (Both won 25 Coins!)';
+        } else {
+            document.getElementById('victorySubtitle').textContent = `Winner: ${data.winnerName}`;
+        }
 
         const table = document.getElementById('finalScoresTable');
-        table.innerHTML = Object.entries(data.finalScores).map(([uid, pts]) => {
-            const p = currentRoom.players.find(x => x.userId === uid);
-            const coins = data.coinsAwarded[uid] || 0;
-            return `
-                <div class="flex items-center justify-between text-xs font-bold py-2 border-b border-slate-200 dark:border-slate-700">
-                    <span>${p ? p.name : 'Player'}</span>
-                    <div class="flex items-center gap-3">
-                        <span class="text-amber-500 font-mono">${pts} pts</span>
-                        <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px]">+${coins} Coins</span>
+        if (table && data.finalScores) {
+            table.innerHTML = Object.entries(data.finalScores).map(([uid, pts]) => {
+                const p = currentRoom && currentRoom.players ? currentRoom.players.find(x => x.userId === uid) : null;
+                const coins = (data.coinsAwarded && data.coinsAwarded[uid]) || 0;
+                return `
+                    <div class="flex items-center justify-between text-xs font-bold py-2.5 border-b border-slate-200 dark:border-slate-700">
+                        <span class="text-slate-900 dark:text-white font-black">${p ? p.name : 'Player'} ${uid === data.winnerUserId ? '🏆' : ''}</span>
+                        <div class="flex items-center gap-3">
+                            <span class="text-amber-500 font-mono font-black text-sm">${pts} pts</span>
+                            <span class="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-black text-[11px]">+${coins} Coins</span>
+                        </div>
                     </div>
-                </div>
-            `;
-        }).join('');
+                `;
+            }).join('');
+        }
 
-        if (data.winnerUserId === STUDENT_ID) {
-            confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 } });
+        // Edge Case 5: Light confetti that auto-stops to avoid lag
+        if (data.winnerUserId === STUDENT_ID || data.isDraw) {
+            confetti({ particleCount: 100, spread: 80, origin: { y: 0.5 }, disableForReducedMotion: true });
         }
 
         if (data.isRankUp && data.newRank) {
             document.getElementById('newRankBadgeTitle').textContent = data.newRank.toUpperCase() + ' ⚡';
             document.getElementById('rankUpModal').classList.remove('hidden');
-            confetti({ particleCount: 250, spread: 120, origin: { y: 0.4 } });
+            confetti({ particleCount: 150, spread: 90, origin: { y: 0.4 }, disableForReducedMotion: true });
         }
 
-        document.getElementById('rematchBtn').onclick = () => {
-            socket.emit('rematchRequest', { roomCode: currentRoom.roomCode, userId: STUDENT_ID });
-            alert('Rematch request sent! Waiting for opponent...');
-        };
+        // Edge Case 8: Disable rematch button for 2 seconds after final screen appears
+        const rematchBtn = document.getElementById('rematchBtn');
+        if (rematchBtn) {
+            rematchBtn.disabled = true;
+            rematchBtn.className = 'w-full py-3.5 rounded-xl bg-purple-600/50 cursor-not-allowed text-white text-xs font-black uppercase tracking-wider shadow-lg opacity-60';
+            setTimeout(() => {
+                rematchBtn.disabled = false;
+                rematchBtn.className = 'w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black uppercase tracking-wider shadow-lg';
+            }, 2000);
+
+            rematchBtn.onclick = () => {
+                if (socket && currentRoom) {
+                    socket.emit('rematchRequest', { roomCode: currentRoom.roomCode, userId: STUDENT_ID });
+                    alert('Rematch request sent! Waiting for opponent...');
+                }
+            };
+        }
 
         if (window.lucide) lucide.createIcons();
     }

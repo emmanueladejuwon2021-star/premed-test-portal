@@ -1924,7 +1924,7 @@ async function handleGameFinished(room) {
   clearInterval(room.timerInterval);
   room.status = 'finished';
 
-  let highestScore = -1;
+  let highestScore = -100;
   let winners = [];
   let isDraw = false;
 
@@ -1945,14 +1945,47 @@ async function handleGameFinished(room) {
   const winnerUserId = isDraw ? null : winners[0].userId;
   const loserUserId = isDraw ? null : room.players.find(p => p.userId !== winnerUserId)?.userId;
 
+  // Edge Case 3: Prevent duplicate coin awards on refresh
   const coinsAwarded = {};
-  if (isDraw) {
-    room.players.forEach(p => { coinsAwarded[p.userId] = 25; });
+  if (!room.coinsAlreadyAwarded) {
+    if (isDraw) {
+      room.players.forEach(p => { coinsAwarded[p.userId] = 25; });
+    } else {
+      room.players.forEach(p => {
+        coinsAwarded[p.userId] = (p.userId === winnerUserId) ? 50 : 0;
+      });
+    }
+    room.coinsAlreadyAwarded = true;
   } else {
-    room.players.forEach(p => {
-      coinsAwarded[p.userId] = (p.userId === winnerUserId) ? 50 : 0;
-    });
+    room.players.forEach(p => { coinsAwarded[p.userId] = 0; });
   }
+
+  // Edge Case 4: 3-retry attempt for database saving
+  let savedOk = false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const ok = await tursoExecute(`
+        INSERT INTO combat_final_results (
+          id, room_code, players, winner_user_id, loser_user_id, is_draw,
+          final_scores, topic_id, total_questions, coins_awarded, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+      `, [
+        `res_${Math.random().toString(36).substring(2, 10)}`,
+        room.roomCode, JSON.stringify(room.players.map(p => p.userId)), winnerUserId, loserUserId,
+        isDraw ? 1 : 0, JSON.stringify(room.scores), room.topicId, room.totalQuestions, JSON.stringify(coinsAwarded)
+      ]);
+      if (ok) {
+        savedOk = true;
+        break;
+      }
+    } catch (e) {
+      console.error(`[FINAL RESULT SAVE ATTEMPT ${attempt} FAILED]`, e.message);
+    }
+  }
+
+  // Edge Case 7: Update stats and leaderboards AFTER final result save
+  let winnerRankUp = false;
+  let winnerRankName = '';
 
   for (const p of room.players) {
     const pts = room.scores[p.userId] || 0;
@@ -1960,28 +1993,23 @@ async function handleGameFinished(room) {
     const isWin = (p.userId === winnerUserId);
     const isLoss = (p.userId === loserUserId);
 
-    await updateUserCombatStatsAndCoins(p.userId, p.matricNo, p.name, room.courseId, room.topicId, isWin, isLoss, isDraw, pts, coins);
+    const rankRes = await updateUserCombatStatsAndCoins(p.userId, p.matricNo, p.name, room.courseId, room.topicId, isWin, isLoss, isDraw, pts, coins);
+    if (isWin && rankRes && rankRes.isRankUp) {
+      winnerRankUp = true;
+      winnerRankName = rankRes.newRank;
+    }
   }
-
-  await tursoExecute(`
-    INSERT INTO combat_final_results (
-      id, room_code, players, winner_user_id, loser_user_id, is_draw,
-      final_scores, topic_id, total_questions, coins_awarded, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
-  `, [
-    `res_${Math.random().toString(36).substring(2, 10)}`,
-    room.roomCode, JSON.stringify(room.players.map(p => p.userId)), winnerUserId, loserUserId,
-    isDraw ? 1 : 0, JSON.stringify(room.scores), room.topicId, room.totalQuestions, JSON.stringify(coinsAwarded)
-  ]);
 
   await tursoExecute("UPDATE combat_rooms SET status = 'finished' WHERE room_code = ?;", [room.roomCode]);
 
   io.to(room.roomCode).emit('gameFinished', {
     winnerUserId,
-    winnerName: isDraw ? 'Draw' : winners[0].name,
+    winnerName: isDraw ? 'Draw! 🤝' : winners[0].name,
     isDraw,
     finalScores: room.scores,
-    coinsAwarded
+    coinsAwarded,
+    isRankUp: winnerRankUp,
+    newRank: winnerRankName
   });
 
   io.emit('adminRoomUpdate', { roomCode: room.roomCode, room });
