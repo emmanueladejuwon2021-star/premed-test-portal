@@ -4,6 +4,10 @@
  * Premed Test Portal
  */
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . '/config/db.php';
 
 $pdo = DB::connect();
@@ -612,6 +616,27 @@ $matchHistory = $historyStmt->fetchAll();
 
                     <button type="button" onclick="closeRoundVictoryModal()" class="w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black uppercase tracking-wider shadow-lg">
                         Continue to Next Round
+                    </button>
+                </div>
+            </div>
+
+            <!-- LEVEL UP / RANK UP CELEBRATION MODAL -->
+            <div id="rankUpModal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+                <div class="bg-gradient-to-b from-slate-900 via-purple-950 to-slate-900 rounded-3xl max-w-md w-full p-8 shadow-2xl border-2 border-amber-400/60 text-center space-y-6 animate-in zoom-in-95 text-white">
+                    <div class="w-24 h-24 rounded-3xl bg-gradient-to-br from-amber-400 to-yellow-600 text-white flex items-center justify-center mx-auto shadow-2xl ring-8 ring-amber-400/30 animate-bounce">
+                        <i data-lucide="shield-alert" class="w-14 h-14"></i>
+                    </div>
+
+                    <div class="space-y-2">
+                        <span class="px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-extrabold uppercase tracking-widest">LEVEL UP!</span>
+                        <h2 class="text-3xl font-black text-white tracking-tight">NEW RANK ACHIEVED!</h2>
+                        <div id="newRankBadgeTitle" class="text-2xl font-black text-amber-400">STRIKER ⚡</div>
+                    </div>
+
+                    <p class="text-xs text-slate-300">Congratulations Warrior! Your victories have earned you global prestige on the Study Combat Leaderboard.</p>
+
+                    <button type="button" onclick="closeRankUpModal()" class="w-full py-4 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black uppercase tracking-wider shadow-lg shadow-amber-500/30">
+                        CLAIM RANK & CONTINUE
                     </button>
                 </div>
             </div>
@@ -1529,6 +1554,12 @@ $matchHistory = $historyStmt->fetchAll();
 
         if (data.winnerUserId === STUDENT_ID) {
             confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 } });
+        }
+
+        if (data.isRankUp && data.newRank) {
+            document.getElementById('newRankBadgeTitle').textContent = data.newRank.toUpperCase() + ' ⚡';
+            document.getElementById('rankUpModal').classList.remove('hidden');
+            confetti({ particleCount: 250, spread: 120, origin: { y: 0.4 } });
         }
 
         document.getElementById('rematchBtn').onclick = () => {

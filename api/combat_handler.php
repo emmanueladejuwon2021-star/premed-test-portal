@@ -304,6 +304,23 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
         $upd->execute([json_encode($scores), $code]);
     }
 
+    // Insert match log into DB
+    try {
+        $logId = 'log_' . bin2hex(random_bytes(4));
+        $logStmt = $pdo->prepare("
+            INSERT INTO combat_match_logs (
+                id, room_code, round_number, question_number_in_round, turn_type,
+                question_id, asked_to_user_id, main_selected_option, main_is_correct,
+                main_time_used, points_awarded, created_at
+            ) VALUES (?, ?, ?, ?, 'main', ?, ?, ?, ?, 0.0, ?, CURRENT_TIMESTAMP)
+        ");
+        $logStmt->execute([
+            $logId, $code, (int)($room['current_round'] ?? 1), (int)($room['current_question_index'] ?? 0) + 1,
+            $currentQ['id'] ?? '', $userId, $selectedOption ?: 'TIMEOUT', $isCorrect ? 1 : 0,
+            json_encode([$userId => $pts])
+        ]);
+    } catch (Exception $e) {}
+
     echo json_encode([
         'isCorrect' => $isCorrect,
         'correctOption' => $currentQ ? $currentQ['correct_option'] : 'A',
