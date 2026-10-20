@@ -8,14 +8,17 @@ require_once __DIR__ . '/config/db.php';
 
 $pdo = DB::connect();
 
-$studentId = $_SESSION['student_id'] ?? ($_SESSION['student']['id'] ?? null);
-$studentName = $_SESSION['student_name'] ?? ($_SESSION['student']['name'] ?? 'Student');
-$matricNo = $_SESSION['student_matric'] ?? ($_SESSION['student']['matric_no'] ?? 'STU' . rand(1000, 9999));
+$student = $_SESSION['student'] ?? null;
+$admin = $_SESSION['admin'] ?? null;
 
-if (!$studentId && empty($_SESSION['admin'])) {
+if (!$student && !$admin) {
     header('Location: login.php');
     exit;
 }
+
+$studentId = $_SESSION['student_id'] ?? ($student['id'] ?? ($admin['id'] ?? 'usr_' . bin2hex(random_bytes(4))));
+$studentName = $_SESSION['student_name'] ?? ($student['name'] ?? ($admin['name'] ?? 'Warrior'));
+$matricNo = $_SESSION['student_matric'] ?? ($student['matric_no'] ?? ($admin['matric_no'] ?? 'STU' . rand(1000, 9999)));
 
 $pageTitle = "Study Combat Arena ⚔️";
 require_once __DIR__ . '/includes/header.php';

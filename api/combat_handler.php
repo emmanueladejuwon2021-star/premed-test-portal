@@ -17,14 +17,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $pdo = DB::connect();
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 $action = $_GET['action'] ?? ($_POST['action'] ?? '');
 $rawBody = file_get_contents('php://input');
 $data = json_decode($rawBody, true) ?: $_POST;
 
+$sessionStudent = $_SESSION['student'] ?? null;
+$sessionAdmin = $_SESSION['admin'] ?? null;
+
 if ($action === 'create_room' || isset($data['create_room'])) {
-    $userId = $data['userId'] ?? ($_SESSION['student_id'] ?? null);
-    $studentName = $data['studentName'] ?? ($_SESSION['student_name'] ?? 'Student');
-    $matricNo = $data['matricNo'] ?? ($_SESSION['student_matric'] ?? 'STU001');
+    $userId = $data['userId'] ?? ($_SESSION['student_id'] ?? ($sessionStudent['id'] ?? ($sessionAdmin['id'] ?? 'usr_' . bin2hex(random_bytes(4)))));
+    $studentName = $data['studentName'] ?? ($_SESSION['student_name'] ?? ($sessionStudent['name'] ?? ($sessionAdmin['name'] ?? 'Warrior')));
+    $matricNo = $data['matricNo'] ?? ($_SESSION['student_matric'] ?? ($sessionStudent['matric_no'] ?? ($sessionAdmin['matric_no'] ?? 'STU001')));
     $roomName = trim($data['roomName'] ?? ($studentName . "'s Battle"));
     $courseId = $data['courseId'] ?? '';
     $topicId = $data['topicId'] ?? '';
