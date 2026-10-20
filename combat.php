@@ -533,14 +533,15 @@ $matchHistory = $historyStmt->fetchAll();
             <div id="combatArenaScreen" class="hidden space-y-6">
 
                 <!-- STICKY TOP SCOREBAR -->
-                <div class="sticky top-20 z-40 bg-slate-900/95 backdrop-blur-md rounded-2xl p-4 shadow-xl border border-purple-800/50 flex items-center justify-between text-white">
-                    <div class="flex items-center gap-3">
-                        <span id="arenaRoundIndicator" class="px-3 py-1 rounded-xl bg-purple-600 text-white text-xs font-black">Round 1 / 4</span>
-                        <span id="arenaRoomCode" class="text-xs font-mono font-bold text-slate-400 hidden sm:inline-block">PREMED-XXXXX</span>
+                <div class="sticky top-20 z-40 bg-slate-900/95 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 shadow-xl border border-purple-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 text-white">
+                    <!-- Line 1 on Mobile: Round on Left, Room Code on Right -->
+                    <div class="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
+                        <span id="arenaRoundIndicator" class="px-3 py-1 rounded-xl bg-purple-600 text-white text-xs font-black shrink-0">Round 1 / 4</span>
+                        <span id="arenaRoomCode" class="text-xs font-mono font-bold text-purple-300 dark:text-purple-400 bg-purple-950/60 sm:bg-transparent px-2.5 py-1 sm:p-0 rounded-lg border border-purple-800/50 sm:border-none shrink-0">PREMED-XXXXX</span>
                     </div>
 
-                    <!-- Live Scores -->
-                    <div id="arenaLiveScores" class="flex items-center gap-4 text-xs font-black"></div>
+                    <!-- Line 2 on Mobile: Live Scores centered full width -->
+                    <div id="arenaLiveScores" class="flex items-center justify-center sm:justify-end gap-3 sm:gap-4 text-xs font-black w-full sm:w-auto pt-1 sm:pt-0 border-t border-slate-800/80 sm:border-none"></div>
                 </div>
 
                 <!-- QUESTION CARD & TIMER AREA -->
@@ -1281,9 +1282,9 @@ $matchHistory = $historyStmt->fetchAll();
         document.getElementById('arenaQuestionText').innerHTML = q.text;
 
         grid.innerHTML = q.options.map(o => `
-            <button type="button" data-key="${o.key}" onclick="selectOption('${o.key}')" ${!isMyTurn ? 'disabled' : ''} class="opt-btn p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-purple-600 disabled:opacity-60 disabled:cursor-not-allowed text-left font-semibold text-xs transition-all flex items-center gap-3">
+            <button type="button" data-key="${o.key}" onclick="selectOption('${o.key}')" ${!isMyTurn ? 'disabled' : ''} class="opt-btn w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-purple-600 disabled:opacity-60 disabled:cursor-not-allowed text-left font-semibold text-xs transition-all flex items-center gap-3">
                 <span class="opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0">${o.key}</span>
-                <span class="flex-1">${o.text}</span>
+                <span class="flex-1 break-words">${o.text}</span>
                 ${!isMyTurn ? '<i data-lucide="lock" class="w-4 h-4 text-slate-400 shrink-0"></i>' : ''}
             </button>
         `).join('');
