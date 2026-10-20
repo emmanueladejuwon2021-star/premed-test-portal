@@ -1207,6 +1207,10 @@ io.on('connection', (socket) => {
         }
 
         io.to(code).emit('playerReconnected', { userId, name: studentName, room });
+
+      if (room.lastAnswerResult && (Date.now() - (room.lastAnswerResultTimestamp || 0)) < 4000) {
+        socket.emit('lastAnswerResult', room.lastAnswerResult);
+      }
         return;
       }
 
@@ -1514,7 +1518,7 @@ async function evaluateMainAnswer(room, selectedOption, currentQ) {
       room.roundScores[turnUserId] = (room.roundScores[turnUserId] || 0) + 2;
     }
 
-    io.to(roomCode).emit('mainAnswerResult', {
+    const resPayload = {
       isCorrect: true,
       correctOption: currentQ.correct_option,
       selectedOption,
@@ -1523,11 +1527,14 @@ async function evaluateMainAnswer(room, selectedOption, currentQ) {
       scores: room.scores,
       turnUserId: room.currentTurnUserId,
       userId: turnUserId
-    });
+    };
+    room.lastAnswerResult = resPayload;
+    room.lastAnswerResultTimestamp = Date.now();
+    io.to(roomCode).emit('mainAnswerResult', resPayload);
 
     setTimeout(() => advanceToNextTurn(roomCode), 2500);
   } else {
-    io.to(roomCode).emit('mainAnswerResult', {
+    const resPayload = {
       isCorrect: false,
       correctOption: currentQ.correct_option,
       selectedOption,
@@ -1536,7 +1543,10 @@ async function evaluateMainAnswer(room, selectedOption, currentQ) {
       scores: room.scores,
       turnUserId: room.currentTurnUserId,
       userId: turnUserId
-    });
+    };
+    room.lastAnswerResult = resPayload;
+    room.lastAnswerResultTimestamp = Date.now();
+    io.to(roomCode).emit('mainAnswerResult', resPayload);
 
     setTimeout(() => startBonusTurn(roomCode), 2000);
   }
@@ -1649,7 +1659,7 @@ async function evaluateBonusAnswer(room, selectedOption, currentQ) {
     room.roundScores[bId] = Math.max(-10, (room.roundScores[bId] || 0) + pointsAwarded);
   }
 
-  io.to(roomCode).emit('bonusAnswerResult', {
+  const resPayload = {
     isCorrect,
     selectedOption,
     correctOption: currentQ.correct_option,
@@ -1658,7 +1668,10 @@ async function evaluateBonusAnswer(room, selectedOption, currentQ) {
     scores: room.scores,
     turnUserId: room.bonusUserId,
     userId: room.bonusUserId
-  });
+  };
+  room.lastAnswerResult = resPayload;
+  room.lastAnswerResultTimestamp = Date.now();
+  io.to(roomCode).emit('bonusAnswerResult', resPayload);
 
   setTimeout(() => advanceToNextTurn(roomCode), 2500);
 

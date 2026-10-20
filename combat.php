@@ -1107,6 +1107,10 @@ $matchHistory = $historyStmt->fetchAll();
             showAnswerResult(data);
         });
 
+        socket.on('lastAnswerResult', (data) => {
+            showAnswerResult(data);
+        });
+
         socket.on('triggerBonusTurn', (data) => {
             const turnsBadge = document.getElementById('questionTurnBadge');
             const spectatorBar = document.getElementById('spectatorStatusBar');
@@ -1529,15 +1533,19 @@ $matchHistory = $historyStmt->fetchAll();
             if (data.isCorrect) {
                 confetti({ particleCount: 25, spread: 40, origin: { y: 0.6 }, disableForReducedMotion: true });
                 overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500/50 shadow-2xl animate-in zoom-in-95 pointer-events-none mx-auto max-w-sm';
-                iconDiv.textContent = '✅';
-                textDiv.textContent = 'OPPONENT CORRECT!';
+                iconDiv.textContent = '👀';
+                textDiv.textContent = 'OPPONENT CORRECT! ✅';
                 textDiv.className = 'text-2xl font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider';
                 ptsDiv.textContent = `Opponent got +${data.pointsAwarded || 2} pts`;
                 ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-emerald-500 text-white shadow-md';
             } else {
+                if (cardContainer) {
+                    cardContainer.classList.add('animate-shake');
+                    setTimeout(() => cardContainer.classList.remove('animate-shake'), 600);
+                }
                 overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-500/50 shadow-2xl animate-in zoom-in-95 pointer-events-none mx-auto max-w-sm';
-                iconDiv.textContent = '❌';
-                textDiv.textContent = 'OPPONENT WRONG!';
+                iconDiv.textContent = '👀';
+                textDiv.textContent = 'OPPONENT WRONG! ❌';
                 textDiv.className = 'text-2xl font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider';
                 ptsDiv.textContent = 'Opponent Failed!';
                 ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-rose-500 text-white shadow-md';
