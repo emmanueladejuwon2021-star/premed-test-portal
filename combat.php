@@ -592,7 +592,7 @@ $matchHistory = $historyStmt->fetchAll();
                     </div>
 
                     <!-- High-Impact Game Result Feedback Overlay (Centered) -->
-                    <div id="battleResultOverlay" class="hidden my-4 p-6 rounded-3xl text-center space-y-3 transition-all animate-in zoom-in-90">
+                    <div id="battleResultOverlay" class="hidden my-4 p-6 rounded-3xl text-center space-y-3 transition-all animate-in zoom-in-90 pointer-events-none mx-auto max-w-sm">
                         <div id="resultOverlayIcon" class="text-6xl sm:text-7xl font-black animate-bounce"></div>
                         <div id="resultOverlayText" class="text-xl sm:text-2xl font-black uppercase tracking-wider"></div>
                         <div id="resultOverlayPoints" class="inline-block px-4 py-1.5 rounded-full text-xs font-black shadow-lg"></div>
@@ -1505,42 +1505,42 @@ $matchHistory = $historyStmt->fetchAll();
         if (isMainTurnAnswer) {
             // Active Player Answering
             if (data.isCorrect) {
-                confetti({ particleCount: 90, spread: 80, origin: { y: 0.6 } });
-                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500/50 shadow-2xl animate-in zoom-in-95';
+                confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 }, disableForReducedMotion: true });
+                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500/50 shadow-2xl animate-in zoom-in-95 pointer-events-none mx-auto max-w-sm';
                 iconDiv.textContent = '✅';
                 textDiv.textContent = 'CORRECT!';
                 textDiv.className = 'text-2xl font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider';
                 ptsDiv.textContent = `+${data.pointsAwarded || 2} Points!`;
-                ptsDiv.className = 'inline-block px-4 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-md';
+                ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-emerald-500 text-white shadow-md';
             } else {
                 if (cardContainer) {
                     cardContainer.classList.add('animate-shake');
                     setTimeout(() => cardContainer.classList.remove('animate-shake'), 600);
                 }
-                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-500/50 shadow-2xl animate-in zoom-in-95';
+                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-500/50 shadow-2xl animate-in zoom-in-95 pointer-events-none mx-auto max-w-sm';
                 iconDiv.textContent = '❌';
                 textDiv.textContent = 'WRONG!';
                 textDiv.className = 'text-2xl font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider';
-                ptsDiv.textContent = `${data.pointsAwarded < 0 ? data.pointsAwarded : '0'} Points`;
-                ptsDiv.className = 'inline-block px-4 py-1 rounded-full text-xs font-black bg-rose-500 text-white shadow-md';
+                ptsDiv.textContent = `${data.pointsAwarded < 0 ? data.pointsAwarded + ' Points' : 'Wrong! 0 Points'}`;
+                ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-rose-500 text-white shadow-md';
             }
         } else {
             // Spectator Watching Opponent
             if (data.isCorrect) {
-                confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
-                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500/50 shadow-2xl animate-in zoom-in-95';
+                confetti({ particleCount: 25, spread: 40, origin: { y: 0.6 }, disableForReducedMotion: true });
+                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500/50 shadow-2xl animate-in zoom-in-95 pointer-events-none mx-auto max-w-sm';
                 iconDiv.textContent = '✅';
                 textDiv.textContent = 'OPPONENT CORRECT!';
                 textDiv.className = 'text-2xl font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider';
                 ptsDiv.textContent = `Opponent got +${data.pointsAwarded || 2} pts`;
-                ptsDiv.className = 'inline-block px-4 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-md';
+                ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-emerald-500 text-white shadow-md';
             } else {
-                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-500/50 shadow-2xl animate-in zoom-in-95';
+                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-500/50 shadow-2xl animate-in zoom-in-95 pointer-events-none mx-auto max-w-sm';
                 iconDiv.textContent = '❌';
                 textDiv.textContent = 'OPPONENT WRONG!';
                 textDiv.className = 'text-2xl font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider';
                 ptsDiv.textContent = 'Opponent Failed!';
-                ptsDiv.className = 'inline-block px-4 py-1 rounded-full text-xs font-black bg-rose-500 text-white shadow-md';
+                ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-rose-500 text-white shadow-md';
             }
         }
     }
