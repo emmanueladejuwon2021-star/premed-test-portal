@@ -1128,15 +1128,15 @@ $matchHistory = $historyStmt->fetchAll();
             if (confirmBar) confirmBar.classList.add('hidden');
 
             if (data.bonusUserId === STUDENT_ID) {
-                turnsBadge.textContent = '⚡ BONUS TURN (+1 Pt) ⚡';
-                turnsBadge.className = 'text-xs font-black uppercase tracking-wider text-amber-500 animate-pulse';
+                turnsBadge.textContent = '⚡ BONUS CHANCE! +1 Point or -1 Point! ⚡';
+                turnsBadge.className = 'text-xs sm:text-sm font-black uppercase tracking-wider text-amber-500 animate-pulse bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/30';
                 spectatorBar.classList.add('hidden');
                 enableOptionsForBonus();
             } else {
                 turnsBadge.textContent = 'SPECTATING BONUS TURN';
                 turnsBadge.className = 'text-xs font-black uppercase tracking-wider text-slate-400';
                 spectatorBar.classList.remove('hidden');
-                spectatorText.textContent = 'Opponent is on Bonus Turn... You are spectating.';
+                spectatorText.textContent = 'Opponent is on Bonus Turn (+1 or -1)... You are spectating.';
                 disableOptions();
             }
         });
