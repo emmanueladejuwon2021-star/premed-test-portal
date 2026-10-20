@@ -1469,7 +1469,9 @@ $matchHistory = $historyStmt->fetchAll();
         if (scoresDiv && scores && currentRoom && currentRoom.players) {
             scoresDiv.innerHTML = Object.entries(scores).map(([uid, pts]) => {
                 const p = currentRoom.players.find(x => x.userId === uid);
-                return `<div>${p ? p.name : 'Player'}: <strong class="text-amber-400 font-mono">${pts} pts</strong></div>`;
+                const isNeg = (pts < 0);
+                const ptsClass = isNeg ? 'text-rose-500 font-mono font-black' : 'text-amber-400 font-mono font-black';
+                return `<div>${p ? p.name : 'Player'}: <strong class="${ptsClass}">${pts} pts</strong></div>`;
             }).join('<span class="text-slate-600">vs</span>');
         }
     }

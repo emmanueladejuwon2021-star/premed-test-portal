@@ -1578,7 +1578,16 @@ function startBonusTurn(roomCode) {
     const bonusTeam = currentTurnPlayer.team === 'A' ? 'B' : 'A';
     room.bonusTeam = bonusTeam;
     const bonusPlayers = room.players.filter(p => p.team === bonusTeam);
-    room.bonusUserId = bonusPlayers[0].userId;
+
+    // In 2v1, Team Captain (first joined member) answers bonus turns for Team A
+    const captain = bonusPlayers[0];
+    if (!captain || captain.connected === false) {
+      // If team captain or opponent is offline, skip bonus turn without penalty
+      advanceToNextTurn(roomCode);
+      return;
+    }
+
+    room.bonusUserId = captain.userId;
     room.teamASelection = {};
 
     const timerDuration = (bonusTeam === 'A') ? 30 : 15;
@@ -1607,6 +1616,13 @@ function startBonusTurn(roomCode) {
     });
   } else {
     const opponent = room.players.find(p => p.userId !== room.currentTurnUserId);
+
+    // If opponent left or is offline, cancel bonus and move to next question
+    if (!opponent || opponent.connected === false) {
+      advanceToNextTurn(roomCode);
+      return;
+    }
+
     room.bonusUserId = opponent.userId;
     room.timeRemaining = 15;
     room.turnStartTime = Date.now();
@@ -1619,6 +1635,7 @@ function startBonusTurn(roomCode) {
     });
 
     runServerTimer(room, 15, () => {
+      // Award 0 points if offline/timeout
       io.to(roomCode).emit('bonusAnswerResult', {
         isCorrect: false,
         correctOption: room.questionsPool[room.currentQuestionIndex].correct_option,
