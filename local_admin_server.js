@@ -13,7 +13,7 @@ const { renderHtml } = require('./admin_ui_template.js');
 const PORT = process.env.PORT || 8899;
 
 const TURSO_URL = process.env.TURSO_DATABASE_URL || process.env.TURSO_URL || 'https://premed-test-portal-emmanueladejuwon2021-star.aws-us-east-1.turso.io/v2/pipeline';
-const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN || process.env.TURSO_TOKEN || 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTE3NDk0MzQsImlkIjoiMDFhMTJiNTYtZmEwMS03MmMzLWJlMjctYzRmMDhmMjkxNmJiIiwia2lkIjoiel90TE1SckVpVnk2a28xZ0tEbGc4RkgyUnpWUkJJd1FUcG05UV9PdXRhZyIsInJpZCI6IjNlZmQ3MDQ0LWU2ZTAtNDQ1NS05MGQ5LTY0N2EwNjlkZjcwMyJ9.08Klb4LcVxUkzyLgz6G8s6RnshFl7cMHpVKYaygdBcZpYI8jiyXtEQEw7TNoq66rRCta9ajGYxWiaUBCTs_zBA';
+const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN || process.env.TURSO_TOKEN || '';
 
 const DEPARTMENTS = [
   'Medicine & Surgery (MBBS)',
@@ -1329,8 +1329,8 @@ io.on('connection', (socket) => {
 
     // Check if time had expired before submission
     const elapsedSec = (Date.now() - (room.turnStartTime || Date.now())) / 1000;
-    if (elapsedSec > (room.timerDuration || 15) + 2.5) {
-      console.warn(`[COMBAT LATE BONUS SUBMISSION BLOCKED] Room: ${roomCode}, Elapsed: ${elapsedSec}s`);
+    if (elapsedSec > (room.timerDuration || 30) + 2.5) {
+      console.warn(`[COMBAT LATE MAIN SUBMISSION BLOCKED] Room: ${roomCode}, Elapsed: ${elapsedSec}s`);
       return;
     }
 
@@ -1383,8 +1383,8 @@ io.on('connection', (socket) => {
     if (!currentQ) return;
 
     const elapsedSec = (Date.now() - (room.turnStartTime || Date.now())) / 1000;
-    if (elapsedSec > (room.timerDuration || 30) + 2.5) {
-      console.warn(`[COMBAT LATE MAIN SUBMISSION BLOCKED] Room: ${roomCode}, Elapsed: ${elapsedSec}s`);
+    if (elapsedSec > (room.timerDuration || 15) + 2.5) {
+      console.warn(`[COMBAT LATE BONUS SUBMISSION BLOCKED] Room: ${roomCode}, Elapsed: ${elapsedSec}s`);
       return;
     }
 
@@ -1405,6 +1405,7 @@ io.on('connection', (socket) => {
           const allAgree = choices.every(c => c === firstChoice);
 
           if (!allAgree) {
+            room.teamASelection = {};
             io.to(roomCode).emit('teamADisagreed', { message: 'Team members disagree! Rethink and agree on one option!' });
             return;
           }
@@ -1807,6 +1808,13 @@ function sendNextQuestion(roomCode) {
   room.timeRemaining = 30;
   room.turnStartTime = Date.now();
   room.timerDuration = 30;
+
+  // Persist current question index and turn user ID to Turso DB for REST fallbacks
+  tursoExecute(`
+    UPDATE combat_rooms
+    SET current_question_index = ?, current_round = ?, current_turn_user_id = ?, scores = ?
+    WHERE room_code = ?;
+  `, [room.currentQuestionIndex, room.currentRound, room.currentTurnUserId, JSON.stringify(room.scores), roomCode]).catch(() => {});
 
   io.to(roomCode).emit('nextQuestion', {
     question: clientQ,
