@@ -104,19 +104,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $adminPassword = trim($_POST['admin_password'] ?? '');
 
             $envPass = getenv('ADMIN_PASSWORD') ?: getenv('ADMIN_PASS');
-            $passMatch = ($adminPassword === '12345678' || $adminPassword === '123456789' || (!empty($envPass) && $adminPassword === $envPass));
-
             $envMatric = strtoupper(trim(getenv('ADMIN_MATRIC') ?: ''));
-            $matricMatch = ($adminMatric === '250811024' || 
-                            strtolower($adminMatric) === 'emmanueladejuwon2025@gmail.com' || 
-                            (!empty($envMatric) && $adminMatric === $envMatric));
 
-            if (empty($adminMatric) || empty($adminPassword)) {
+            if (empty($envPass) || empty($envMatric)) {
+                $error = 'Admin authentication is not configured. Please set ADMIN_PASSWORD and ADMIN_MATRIC environment variables.';
+            } elseif (empty($adminMatric) || empty($adminPassword)) {
                 $error = 'Both Admin Matric Number and Password are required.';
-            } elseif ($matricMatch && $passMatch) {
+            } elseif ($adminMatric === $envMatric && $adminPassword === $envPass) {
                 unset($_SESSION['admin_fail_count'], $_SESSION['admin_locked_until']);
                 $adminData = [
-                    'matric_no' => '250811024',
+                    'matric_no' => $envMatric,
                     'email' => 'admin@premedportal.edu',
                     'name' => 'System Administrator',
                     'logged_in_at' => time()
@@ -392,191 +389,111 @@ require_once __DIR__ . '/includes/header.php';
 
             <div>
                 <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Matric Number / JAMB Reg Number</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="user-check" class="w-4 h-4"></i>
-                    </span>
-                    <input type="text" name="matric_no" required placeholder="e.g. 230911024 or 202412345678AB" minlength="4" maxlength="25" value="<?= htmlspecialchars($_POST['matric_no'] ?? '') ?>" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono uppercase bg-slate-50/50">
-                </div>
+                <input type="text" name="matric_no" required class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500" placeholder="e.g. 2021/123456 or JAMB12345678" value="<?= htmlspecialchars($_POST['matric_no'] ?? '') ?>">
             </div>
 
             <div>
                 <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="lock" class="w-4 h-4"></i>
-                    </span>
-                    <input type="password" name="password" required placeholder="Enter your password" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-slate-50/50">
-                </div>
+                <input type="password" name="password" required class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500" placeholder="Enter your password">
             </div>
 
-            <button type="submit" class="w-full py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm shadow-xs transition-all flex items-center justify-center gap-2">
-                <span>Sign In</span>
-                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-xl transition-colors text-sm shadow-sm">
+                Sign In
             </button>
-
-            <div class="pt-2 text-center">
-                <p class="text-xs text-slate-500">
-                    New here? 
-                    <button type="button" onclick="showTab('register')" class="text-teal-700 font-bold hover:underline">Create an account</button>
-                </p>
-            </div>
         </form>
 
-        <!-- 2. STUDENT REGISTRATION FORM (NEW STUDENTS WITH STRICT VALIDATION) -->
-        <form id="registerSection" method="POST" action="" onsubmit="return validateRegisterForm()" class="space-y-4 <?= $activeTab === 'register' ? '' : 'hidden' ?>">
+        <!-- 2. STUDENT REGISTER FORM -->
+        <form id="registerSection" method="POST" action="" class="space-y-4 <?= $activeTab === 'register' ? '' : 'hidden' ?>">
             <input type="hidden" name="action" value="student_register">
 
             <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Name <span class="text-rose-500">*</span></label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="id-card" class="w-4 h-4"></i>
-                    </span>
-                    <input type="text" name="name" id="regName" required minlength="4" placeholder="Firstname & Surname" value="<?= htmlspecialchars($_POST['name'] ?? '') ?>" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <span class="text-[10px] text-slate-400 mt-0.5 block">Must include both first name and surname</span>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Name</label>
+                <input type="text" name="name" required class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500" placeholder="First Name Surname" value="<?= htmlspecialchars($_POST['name'] ?? '') ?>">
             </div>
 
             <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Matric Number / JAMB Reg Number <span class="text-rose-500">*</span></label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="hash" class="w-4 h-4"></i>
-                    </span>
-                    <input type="text" name="matric_no" id="regMatric" required minlength="4" maxlength="25" placeholder="e.g. 230911024, 202412345678AB" value="<?= htmlspecialchars($_POST['matric_no'] ?? '') ?>" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono uppercase">
-                </div>
-                <span class="text-[10px] text-slate-400 mt-0.5 block">Use your university Matric No or JAMB Registration Number</span>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Matric Number / JAMB Reg Number</label>
+                <input type="text" name="matric_no" required class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500" placeholder="e.g. 2021/123456" value="<?= htmlspecialchars($_POST['matric_no'] ?? '') ?>">
             </div>
 
             <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Department <span class="text-rose-500">*</span></label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="building" class="w-4 h-4"></i>
-                    </span>
-                    <select name="department" id="regDept" required class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                        <option value="" disabled <?= empty($_POST['department']) ? 'selected' : '' ?>>-- Select your Department --</option>
-                        <?php foreach ($allowedDepts as $dept): ?>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Department</label>
+                <select name="department" required class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 bg-white">
+                    <option value="">Select Department</option>
+                    <?php foreach ($allowedDepts as $dept): ?>
                         <option value="<?= htmlspecialchars($dept) ?>" <?= (($_POST['department'] ?? '') === $dept) ? 'selected' : '' ?>><?= htmlspecialchars($dept) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
+                    <?php endforeach; ?>
+                </select>
             </div>
 
             <div>
                 <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Phone Number (Optional)</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="phone" class="w-4 h-4"></i>
-                    </span>
-                    <input type="tel" name="phone" id="regPhone" placeholder="08012345678" maxlength="15" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                </div>
+                <input type="tel" name="phone" class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500" placeholder="08012345678" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>">
             </div>
 
-            <!-- Banking Details (optional, required for cash prizes) -->
-            <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Account Number (Optional)</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="credit-card" class="w-4 h-4"></i>
-                    </span>
-                    <input type="text" name="account_number" id="regAccountNumber" placeholder="e.g. 0123456789" maxlength="12" value="<?= htmlspecialchars($_POST['account_number'] ?? '') ?>" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono" />
-                </div>
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Bank (Optional)</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="building-2" class="w-4 h-4"></i>
-                    </span>
-                    <select name="bank" id="regBank" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                        <option value="" <?= empty($_POST['bank']) ? 'selected' : '' ?>>-- Select your Bank (Optional) --</option>
-                        <?php foreach ($allowedBanks as $b): ?>
-                        <option value="<?= htmlspecialchars($b) ?>" <?= (($_POST['bank'] ?? '') === $b) ? 'selected' : '' ?>><?= htmlspecialchars($b) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Account Name (Optional)</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="user" class="w-4 h-4"></i>
-                    </span>
-                    <input type="text" name="account_name" id="regAccountName" placeholder="e.g. John Doe" value="<?= htmlspecialchars($_POST['account_name'] ?? '') ?>" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password <span class="text-rose-500">*</span></label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                            <i data-lucide="key" class="w-4 h-4"></i>
-                        </span>
-                        <input type="password" name="password" id="regPass" required minlength="6" placeholder="Min. 6 characters" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password</label>
+                    <input type="password" name="password" required minlength="6" class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500" placeholder="Min 6 chars">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Confirm</label>
+                    <input type="password" name="confirm_password" required class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500" placeholder="Repeat">
+                </div>
+            </div>
+
+            <!-- Optional Banking -->
+            <details class="text-xs">
+                <summary class="cursor-pointer text-teal-700 font-semibold">Add Banking Details (Optional)</summary>
+                <div class="mt-3 space-y-3 pt-2 border-t border-slate-100">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Account Number</label>
+                        <input type="text" name="account_number" class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl" placeholder="10-12 digits" value="<?= htmlspecialchars($_POST['account_number'] ?? '') ?>">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Bank</label>
+                        <select name="bank" class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl bg-white">
+                            <option value="">Select Bank</option>
+                            <?php foreach ($allowedBanks as $b): ?>
+                                <option value="<?= htmlspecialchars($b) ?>" <?= (($_POST['bank'] ?? '') === $b) ? 'selected' : '' ?>><?= htmlspecialchars($b) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Account Name</label>
+                        <input type="text" name="account_name" class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl" placeholder="Full name on account" value="<?= htmlspecialchars($_POST['account_name'] ?? '') ?>">
                     </div>
                 </div>
+            </details>
 
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Confirm Password <span class="text-rose-500">*</span></label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                            <i data-lucide="check-check" class="w-4 h-4"></i>
-                        </span>
-                        <input type="password" name="confirm_password" id="regConfirmPass" required minlength="6" placeholder="Repeat password" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                </div>
-            </div>
-
-            <div id="jsClientError" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold"></div>
-
-            <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm shadow-md shadow-emerald-100 transition-all flex items-center justify-center gap-2">
-                <span>Create Account</span>
-                <i data-lucide="check" class="w-4 h-4"></i>
+            <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-xl transition-colors text-sm shadow-sm">
+                Create Account
             </button>
-
-            <div class="pt-2 text-center">
-                <p class="text-xs text-slate-500">
-                    Already have an account? 
-                    <button type="button" onclick="showTab('login')" class="text-indigo-600 font-bold hover:underline">Sign In here</button>
-                </p>
-            </div>
         </form>
 
-        <!-- 3. ADMINISTRATOR SIGN IN FORM -->
+        <!-- 3. ADMIN / FACULTY LOGIN FORM -->
         <form id="adminSection" method="POST" action="" class="space-y-4 <?= $activeTab === 'admin' ? '' : 'hidden' ?>">
             <input type="hidden" name="action" value="admin_login">
 
-            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-start gap-2">
-                <i data-lucide="shield-alert" class="w-4 h-4 shrink-0 text-amber-600 mt-0.5"></i>
-                <span class="leading-relaxed">Restricted to authorized faculty administrators and test coordinators only.</span>
+            <div class="text-center mb-2">
+                <span class="inline-flex items-center gap-1.5 text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1 rounded-full border border-rose-200">
+                    <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+                    Faculty / Admin Access
+                </span>
             </div>
 
             <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Admin Matric / ID</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="shield" class="w-4 h-4"></i>
-                    </span>
-                    <input type="text" name="admin_matric" required placeholder="e.g. 250811024" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/50 font-mono">
-                </div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Admin Matric / Email</label>
+                <input type="text" name="admin_matric" required class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500" placeholder="Configured admin identifier" value="<?= htmlspecialchars($_POST['admin_matric'] ?? '') ?>">
             </div>
 
             <div>
                 <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password</label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                        <i data-lucide="lock" class="w-4 h-4"></i>
-                    </span>
-                    <input type="password" name="admin_password" required placeholder="Enter admin password" class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50/50">
-                </div>
+                <input type="password" name="admin_password" required class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500" placeholder="Admin password">
             </div>
 
-            <button type="submit" class="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm shadow-xs transition-all flex items-center justify-center gap-2">
-                <i data-lucide="shield-check" class="w-4 h-4"></i>
-                <span>Sign In as Admin</span>
+            <button type="submit" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 px-4 rounded-xl transition-colors text-sm shadow-sm">
+                Admin Sign In
             </button>
         </form>
 
@@ -584,161 +501,25 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 
 <script>
-function showTab(type) {
-    const loginSec = document.getElementById('loginSection');
-    const registerSec = document.getElementById('registerSection');
-    const adminSec = document.getElementById('adminSection');
-    const tabLogin = document.getElementById('tabLoginBtn');
-    const tabRegister = document.getElementById('tabRegisterBtn');
-    const tabAdmin = document.getElementById('tabAdminBtn');
-
-    loginSec.classList.add('hidden');
-    registerSec.classList.add('hidden');
-    adminSec.classList.add('hidden');
-
-    tabLogin.className = "flex-1 py-2 rounded-lg transition-all hover:text-slate-900";
-    tabRegister.className = "flex-1 py-2 rounded-lg transition-all hover:text-slate-900";
-    if (tabAdmin) {
-        const isHidden = tabAdmin.classList.contains('hidden');
-        tabAdmin.className = "flex-1 py-2 rounded-lg transition-all hover:text-slate-900 text-slate-500" + (isHidden ? " hidden" : "");
-    }
-
-    if (type === 'login') {
-        loginSec.classList.remove('hidden');
-        tabLogin.className = "flex-1 py-2 rounded-lg bg-white shadow-xs text-teal-800 font-extrabold transition-all";
-    } else if (type === 'register') {
-        registerSec.classList.remove('hidden');
-        tabRegister.className = "flex-1 py-2 rounded-lg bg-white shadow-xs text-teal-800 font-extrabold transition-all";
-    } else if (type === 'admin') {
-        if (tabAdmin) tabAdmin.classList.remove('hidden');
-        adminSec.classList.remove('hidden');
-        if (tabAdmin) tabAdmin.className = "flex-1 py-2 rounded-lg bg-white shadow-xs text-rose-700 font-extrabold transition-all";
-    }
-
-    if (window.lucide) {
-        lucide.createIcons();
-    }
+function showTab(tab) {
+    document.getElementById('loginSection').classList.toggle('hidden', tab !== 'login');
+    document.getElementById('registerSection').classList.toggle('hidden', tab !== 'register');
+    document.getElementById('adminSection').classList.toggle('hidden', tab !== 'admin');
+    document.getElementById('tabLoginBtn').className = 'flex-1 py-2 rounded-lg transition-all ' + (tab === 'login' ? 'bg-white shadow-xs text-teal-800 font-extrabold' : 'hover:text-slate-900');
+    document.getElementById('tabRegisterBtn').className = 'flex-1 py-2 rounded-lg transition-all ' + (tab === 'register' ? 'bg-white shadow-xs text-teal-800 font-extrabold' : 'hover:text-slate-900');
+    document.getElementById('tabAdminBtn').className = 'flex-1 py-2 rounded-lg transition-all ' + (tab === 'admin' ? 'bg-white shadow-xs text-rose-700 font-extrabold' : 'hover:text-slate-900 text-slate-500');
 }
-
-// Secret Knock on Emblem / Brand Header (5 rapid taps or 1.5s press)
+// Secret knock on logo to unlock admin tab
 let knockCount = 0;
-let lastKnockTime = 0;
-let pressTimer = null;
-
-function unlockFacultyAdmin() {
-    const tabAdmin = document.getElementById('tabAdminBtn');
-    if (tabAdmin) {
-        tabAdmin.classList.remove('hidden');
-        showTab('admin');
-        // Drop 60-day stealth cookie so user's phone stays authorized
-        document.cookie = "premed_admin_stealth=1; max-age=" + (86400 * 60) + "; path=/; SameSite=Lax";
-        if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
-        const badge = document.getElementById('secretKnockBadge');
-        if (badge) {
-            badge.innerText = 'Faculty Portal Unlocked';
-            badge.className = 'inline-block text-[10px] uppercase font-bold tracking-widest text-rose-800 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-300 mb-1 font-mono animate-bounce';
-        }
-    }
-}
-
-function handleSecretKnock() {
-    const now = Date.now();
-    if (now - lastKnockTime > 2500) {
-        knockCount = 0;
-    }
-    lastKnockTime = now;
+let knockTimer = null;
+document.getElementById('secretBrandLogo')?.addEventListener('click', function() {
     knockCount++;
-
+    clearTimeout(knockTimer);
+    knockTimer = setTimeout(() => { knockCount = 0; }, 1500);
     if (knockCount >= 5) {
+        document.getElementById('tabAdminBtn').classList.remove('hidden');
+        document.getElementById('secretKnockBadge').textContent = 'Faculty Unlocked';
         knockCount = 0;
-        unlockFacultyAdmin();
-    }
-}
-
-
-function validateRegisterForm() {
-    const name = document.getElementById('regName').value.trim();
-    const matric = document.getElementById('regMatric').value.trim();
-    const dept = document.getElementById('regDept').value;
-    const accountNumber = document.getElementById('regAccountNumber').value.trim();
-    const bank = document.getElementById('regBank').value;
-    const accountName = document.getElementById('regAccountName').value.trim();
-    const pass = document.getElementById('regPass').value;
-    const confirm = document.getElementById('regConfirmPass').value;
-    const errBox = document.getElementById('jsClientError');
-
-    const showError = (msg) => {
-        errBox.innerText = msg;
-        errBox.classList.remove('hidden');
-        errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return false;
-    };
-
-    // Name validation
-    const words = name.split(/\s+/).filter(Boolean);
-    if (words.length < 2) {
-        return showError('Please provide both your First Name and Surname.');
-    }
-
-    // Matric / JAMB validation
-    if (matric.length < 4) {
-        return showError('Matric Number or JAMB Reg Number is too short.');
-    }
-
-    // Department validation
-    if (!dept) {
-        return showError('Please select your department.');
-    }
-
-    // Banking Details (Optional during initial registration, verified only if supplied)
-    if (accountNumber || bank || accountName) {
-        if (!/^[0-9]{10,12}$/.test(accountNumber)) {
-            return showError('If providing banking details, Account Number must be 10-12 digits.');
-        }
-        if (!bank || bank.length < 2) {
-            return showError('If providing banking details, please select your bank.');
-        }
-        if (!accountName || accountName.length < 3) {
-            return showError('If providing banking details, Full Account Name must be at least 3 characters.');
-        }
-    }
-
-    // Password validation
-    if (pass.length < 6) {
-        return showError('Password must be at least 6 characters long.');
-    }
-
-    if (pass !== confirm) {
-        return showError('Passwords do not match. Please re-type your password confirmation.');
-    }
-
-    errBox.classList.add('hidden');
-    return true;
-}
-
-
-// Auto-switch tab on DOM ready based on URL param or PHP state
-document.addEventListener('DOMContentLoaded', function() {
-    const params = new URLSearchParams(window.location.search);
-    const tabParam = params.get('tab') || '<?= htmlspecialchars($activeTab) ?>';
-    if (tabParam === 'admin' || tabParam === 'register' || tabParam === 'login') {
-        showTab(tabParam);
-    }
-
-    const brandLogo = document.getElementById('secretBrandLogo');
-    if (brandLogo) {
-        brandLogo.addEventListener('click', handleSecretKnock);
-
-        // Mobile touch hold / long press (1.5 seconds)
-        brandLogo.addEventListener('touchstart', function(e) {
-            pressTimer = setTimeout(unlockFacultyAdmin, 1500);
-        }, { passive: true });
-        brandLogo.addEventListener('touchend', function() {
-            clearTimeout(pressTimer);
-        });
-        brandLogo.addEventListener('touchmove', function() {
-            clearTimeout(pressTimer);
-        });
     }
 });
 </script>
