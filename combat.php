@@ -661,10 +661,9 @@ $matchHistory = $historyStmt->fetchAll();
     let selectedRounds = 4;
 
     // Active Question & Selection State
-    let localTimerInterval = null;
-    let localTimeRemaining = 30;
     let currentSelectedOptionKey = null;
     let currentTurnIsBonus = false;
+    let activeTimerMaxDuration = 30;
 
     document.addEventListener('DOMContentLoaded', function () {
         if (window.lucide) lucide.createIcons();
@@ -1017,16 +1016,14 @@ $matchHistory = $historyStmt->fetchAll();
         });
 
         socket.on('timerUpdate', (data) => {
-            syncTimerDisplay(data.timeRemaining, 30);
+            syncTimerDisplay(data.timeRemaining, activeTimerMaxDuration);
         });
 
         socket.on('mainAnswerResult', (data) => {
-            stopLocalTimer();
             showAnswerResult(data);
         });
 
         socket.on('bonusAnswerResult', (data) => {
-            stopLocalTimer();
             showAnswerResult(data);
         });
 
@@ -1037,10 +1034,10 @@ $matchHistory = $historyStmt->fetchAll();
 
             currentTurnIsBonus = true;
             currentSelectedOptionKey = null;
-            document.getElementById('confirmActionBar').classList.add('hidden');
+            activeTimerMaxDuration = data.timerDuration || 15;
+            syncTimerDisplay(activeTimerMaxDuration, activeTimerMaxDuration);
 
-            const timerDuration = data.timerDuration || 15;
-            startLocalCountdown(timerDuration);
+            document.getElementById('confirmActionBar').classList.add('hidden');
 
             if (data.bonusUserId === STUDENT_ID) {
                 turnsBadge.textContent = '⚡ BONUS TURN (+1 Pt) ⚡';
@@ -1188,42 +1185,19 @@ $matchHistory = $historyStmt->fetchAll();
         if (window.lucide) lucide.createIcons();
     }
 
-    // Timer helper functions
-    function startLocalCountdown(durationSec) {
-        stopLocalTimer();
-        localTimeRemaining = durationSec;
-        syncTimerDisplay(localTimeRemaining, durationSec);
-
-        localTimerInterval = setInterval(() => {
-            localTimeRemaining--;
-            syncTimerDisplay(localTimeRemaining, durationSec);
-
-            if (localTimeRemaining <= 0) {
-                stopLocalTimer();
-                handleTimeout();
-            }
-        }, 1000);
-    }
-
-    function stopLocalTimer() {
-        if (localTimerInterval) {
-            clearInterval(localTimerInterval);
-            localTimerInterval = null;
-        }
-    }
-
+    // Server-Authoritative Timer Display Helper
     function syncTimerDisplay(remTime, maxDuration = 30) {
-        localTimeRemaining = remTime;
         const text = document.getElementById('arenaTimerText');
         const progress = document.getElementById('timerCircleProgress');
-        if (text) text.textContent = Math.max(0, remTime);
+        const val = Math.max(0, remTime);
+        if (text) text.textContent = val;
 
         if (progress) {
-            const pct = Math.max(0, (remTime / maxDuration) * 100);
+            const pct = Math.max(0, (val / maxDuration) * 100);
             progress.setAttribute('stroke-dasharray', `${pct}, 100`);
-            if (remTime <= 5) {
+            if (val <= 5) {
                 progress.setAttribute('class', 'text-rose-500 transition-all duration-300');
-            } else if (remTime <= 12) {
+            } else if (val <= 12) {
                 progress.setAttribute('class', 'text-amber-500 transition-all duration-300');
             } else {
                 progress.setAttribute('class', 'text-emerald-500 transition-all duration-300');
@@ -1231,27 +1205,11 @@ $matchHistory = $historyStmt->fetchAll();
         }
     }
 
-    function handleTimeout() {
-        // If current player selected an option before timer hit 0, validate it now
-        if (currentSelectedOptionKey) {
-            confirmSelectedAnswer();
-        } else {
-            // Auto submit empty/timeout
-            if (socket) {
-                socket.emit(currentTurnIsBonus ? 'bonusAnswerSubmitted' : 'mainAnswerSubmitted', {
-                    roomCode: currentRoom ? currentRoom.roomCode : '',
-                    userId: STUDENT_ID,
-                    selectedOption: null
-                });
-            }
-            disableOptions();
-        }
-    }
-
     // Render Active Question
     function renderQuestion(data) {
         currentTurnIsBonus = false;
         currentSelectedOptionKey = null;
+        activeTimerMaxDuration = data.timerDuration || 30;
 
         document.getElementById('arenaRoundIndicator').textContent = `Round ${data.roundNumber} / ${data.totalRounds}`;
         document.getElementById('arenaRoomCode').textContent = currentRoom ? currentRoom.roomCode : '';
@@ -1298,8 +1256,7 @@ $matchHistory = $historyStmt->fetchAll();
             }).join('<span class="text-slate-600">vs</span>');
         }
 
-        // Start 30s Countdown
-        startLocalCountdown(data.timerDuration || 30);
+        syncTimerDisplay(activeTimerMaxDuration, activeTimerMaxDuration);
 
         if (window.lucide) lucide.createIcons();
         if (window.renderMathInElement) {
@@ -1332,7 +1289,6 @@ $matchHistory = $historyStmt->fetchAll();
     function confirmSelectedAnswer() {
         if (!currentSelectedOptionKey) return;
 
-        stopLocalTimer();
         const confirmBar = document.getElementById('confirmActionBar');
         if (confirmBar) confirmBar.classList.add('hidden');
 

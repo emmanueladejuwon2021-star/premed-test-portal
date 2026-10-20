@@ -1443,6 +1443,8 @@ io.on('connection', (socket) => {
 
 async function evaluateMainAnswer(room, selectedOption, currentQ) {
   const roomCode = room.roomCode;
+  clearInterval(room.timerInterval);
+
   const isCorrect = (selectedOption === currentQ.correct_option);
   const turnUserId = room.currentTurnUserId;
 
@@ -1543,6 +1545,8 @@ function startBonusTurn(roomCode) {
 
 async function evaluateBonusAnswer(room, selectedOption, currentQ) {
   const roomCode = room.roomCode;
+  clearInterval(room.timerInterval);
+
   const isCorrect = (selectedOption === currentQ.correct_option);
 
   let pointsAwarded = 0;
