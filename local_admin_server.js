@@ -1519,6 +1519,8 @@ function startBonusTurn(roomCode) {
         correctOption: room.questionsPool[room.currentQuestionIndex].correct_option,
         pointsAwarded: 0,
         scores: room.scores,
+        turnUserId: room.bonusUserId,
+        userId: room.bonusUserId,
         message: 'Bonus Time Expired!'
       });
       setTimeout(() => advanceToNextTurn(roomCode), 2000);
@@ -1540,6 +1542,8 @@ function startBonusTurn(roomCode) {
         correctOption: room.questionsPool[room.currentQuestionIndex].correct_option,
         pointsAwarded: 0,
         scores: room.scores,
+        turnUserId: room.bonusUserId,
+        userId: room.bonusUserId,
         message: 'Bonus Time Expired!'
       });
       setTimeout(() => advanceToNextTurn(roomCode), 2000);
@@ -1652,6 +1656,8 @@ function sendNextQuestion(roomCode) {
       correctOption: currentQ.correct_option,
       pointsAwarded: 0,
       scores: room.scores,
+      turnUserId: room.currentTurnUserId,
+      userId: room.currentTurnUserId,
       message: 'Time Expired!'
     });
     setTimeout(() => startBonusTurn(roomCode), 2000);

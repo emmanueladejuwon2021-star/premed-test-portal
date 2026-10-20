@@ -508,13 +508,16 @@ $matchHistory = $historyStmt->fetchAll();
                     <div id="activeRoomCodeDisplay" class="text-4xl sm:text-5xl font-black font-mono tracking-widest text-purple-600 dark:text-purple-400">PREMED-83921</div>
                 </div>
 
-                <div class="flex items-center justify-center gap-3">
+                <div class="flex items-center justify-center flex-wrap gap-3">
                     <button type="button" id="copyCodeBtn" class="px-4 py-2.5 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-xs font-black hover:bg-purple-100 flex items-center gap-1.5">
                         <i data-lucide="copy" class="w-4 h-4"></i> Copy Code
                     </button>
                     <a id="shareWhatsappBtn" target="_blank" href="#" class="px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-black hover:bg-emerald-600 flex items-center gap-1.5 shadow-md">
                         <i data-lucide="share-2" class="w-4 h-4"></i> Share on WhatsApp
                     </a>
+                    <button type="button" onclick="leaveActiveRoom()" class="px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 text-xs font-black hover:bg-rose-100 flex items-center gap-1.5">
+                        <i data-lucide="log-out" class="w-4 h-4"></i> Leave Room
+                    </button>
                 </div>
 
                 <!-- Joined Players List -->
@@ -678,6 +681,7 @@ $matchHistory = $historyStmt->fetchAll();
 
             socket.on('connect', () => {
                 console.log('[COMBAT SOCKET CONNECTED]', socket.id);
+                checkAndRestoreActiveRoom();
             });
 
             socket.on('errorMsg', (msg) => {
@@ -692,6 +696,55 @@ $matchHistory = $historyStmt->fetchAll();
         setupFormInteractions();
         setupJoinCodeValidation();
     });
+
+    async function checkAndRestoreActiveRoom() {
+        const savedCode = localStorage.getItem('activeCombatRoomCode');
+        if (!savedCode) return;
+
+        try {
+            const res = await fetch('api/combat_handler.php?action=get_room_status&roomCode=' + encodeURIComponent(savedCode));
+            const data = await res.json();
+
+            if (data.success && data.room) {
+                currentRoom = data.room;
+                if (data.room.status === 'waiting') {
+                    renderWaitingRoom(savedCode, data.room);
+                    if (socket) {
+                        socket.emit('joinRoom', {
+                            roomCode: savedCode,
+                            userId: STUDENT_ID,
+                            studentName: STUDENT_NAME,
+                            matricNo: MATRIC_NO
+                        });
+                    }
+                } else if (data.room.status === 'playing') {
+                    renderWaitingRoom(savedCode, data.room);
+                    if (socket) {
+                        socket.emit('joinRoom', {
+                            roomCode: savedCode,
+                            userId: STUDENT_ID,
+                            studentName: STUDENT_NAME,
+                            matricNo: MATRIC_NO
+                        });
+                    }
+                    launchBattleArena(data.room);
+                } else {
+                    localStorage.removeItem('activeCombatRoomCode');
+                }
+            } else {
+                localStorage.removeItem('activeCombatRoomCode');
+            }
+        } catch (e) {
+            console.warn('Error restoring room on refresh:', e);
+        }
+    }
+
+    function leaveActiveRoom() {
+        if (confirm('Are you sure you want to leave this battle room?')) {
+            localStorage.removeItem('activeCombatRoomCode');
+            window.location.href = 'combat.php?action=lobby';
+        }
+    }
 
     // Handle Form Pills and Card Selections
     function setupFormInteractions() {
@@ -774,6 +827,7 @@ $matchHistory = $historyStmt->fetchAll();
                 async function handleRoomCreatedData(data) {
                     if (data.success) {
                         currentRoom = data.room;
+                        localStorage.setItem('activeCombatRoomCode', data.roomCode);
                         confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
                         renderWaitingRoom(data.roomCode, data.room);
                         if (socket) {
@@ -915,6 +969,7 @@ $matchHistory = $historyStmt->fetchAll();
             async function handleJoinedRoomData(data) {
                 if (data.success) {
                     currentRoom = data.room;
+                    localStorage.setItem('activeCombatRoomCode', code);
                     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
                     renderWaitingRoom(code, data.room);
                     if (socket) {
