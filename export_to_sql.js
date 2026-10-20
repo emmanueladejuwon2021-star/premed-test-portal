@@ -1,7 +1,13 @@
 const fs = require('fs');
 const mongoose = require('mongoose');
 
-const MONGODB_URI = "mongodb+srv://premedtestportal:20252026@cluster0.jqcmhc6.mongodb.net/premedtestportal?retryWrites=true&w=majority&appName=Cluster0";
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  console.error('Error: MONGODB_URI environment variable is required.');
+  console.error('Example: MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net/dbname" node export_to_sql.js');
+  process.exit(1);
+}
 
 async function exportFullDatabase() {
   console.log("Connecting to MongoDB Atlas...");
