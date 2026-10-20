@@ -1460,9 +1460,23 @@ $matchHistory = $historyStmt->fetchAll();
         if (modal) modal.classList.add('hidden');
     }
 
+    function updateLiveScoreboard(scores) {
+        const scoresDiv = document.getElementById('arenaLiveScores');
+        if (scoresDiv && scores && currentRoom && currentRoom.players) {
+            scoresDiv.innerHTML = Object.entries(scores).map(([uid, pts]) => {
+                const p = currentRoom.players.find(x => x.userId === uid);
+                return `<div>${p ? p.name : 'Player'}: <strong class="text-amber-400 font-mono">${pts} pts</strong></div>`;
+            }).join('<span class="text-slate-600">vs</span>');
+        }
+    }
+
     function showAnswerResult(data) {
         const checkingBanner = document.getElementById('checkingAnswerBanner');
         if (checkingBanner) checkingBanner.classList.add('hidden');
+
+        if (data.scores) {
+            updateLiveScoreboard(data.scores);
+        }
 
         const overlay = document.getElementById('battleResultOverlay');
         const iconDiv = document.getElementById('resultOverlayIcon');

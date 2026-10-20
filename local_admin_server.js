@@ -1640,13 +1640,13 @@ async function evaluateBonusAnswer(room, selectedOption, currentQ) {
   if (room.mode === '2v1') {
     const bonusPlayers = room.players.filter(p => p.team === room.bonusTeam);
     bonusPlayers.forEach(p => {
-      room.scores[p.userId] = Math.max(0, (room.scores[p.userId] || 0) + pointsAwarded);
-      room.roundScores[p.userId] = Math.max(0, (room.roundScores[p.userId] || 0) + pointsAwarded);
+      room.scores[p.userId] = Math.max(-10, (room.scores[p.userId] || 0) + pointsAwarded);
+      room.roundScores[p.userId] = Math.max(-10, (room.roundScores[p.userId] || 0) + pointsAwarded);
     });
   } else {
     const bId = room.bonusUserId;
-    room.scores[bId] = Math.max(0, (room.scores[bId] || 0) + pointsAwarded);
-    room.roundScores[bId] = Math.max(0, (room.roundScores[bId] || 0) + pointsAwarded);
+    room.scores[bId] = Math.max(-10, (room.scores[bId] || 0) + pointsAwarded);
+    room.roundScores[bId] = Math.max(-10, (room.roundScores[bId] || 0) + pointsAwarded);
   }
 
   io.to(roomCode).emit('bonusAnswerResult', {
