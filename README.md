@@ -35,7 +35,16 @@ This website gives medical students a realistic, distraction-free environment to
 - **Question Bank Search**: Search thousands of accredited questions by keywords or concepts to study explanations and answers.
 - **Interactive Medical Challenge**: Test your quick-recall knowledge through engaging, turn-based medical quiz challenges.
 
-### 4. Immediate Results & Performance Feedback
+### 4. Study Combat ⚔️ (Real-Time Student PvP Battle Arena)
+- **Real-Time Academic Duels**: Challenge classmates in live head-to-head duels on specific course topics.
+- **Fair & Synchronized 30-Second Timer**:
+  - **Server-Controlled Timer**: The 30-second question countdown is driven entirely by the central website server, not by individual phones or laptops. This prevents the timer from freezing or getting stuck at 21 seconds.
+  - **Identical Display**: Both the player answering and the friend spectating see the exact same second-by-second countdown simultaneously.
+  - **Instant Single-Click Locking**: Clicking an option locks the answer immediately, showing a friendly *"Checking answer... ⏳"* indicator while preventing accidental double clicks.
+  - **Automatic Progression**: After an answer is evaluated, the game automatically shows a big **✅ Correct (+2 Pts)** or **❌ Wrong (0 Pts)** visual overlay for 2 seconds before smoothly moving to the next turn or bonus round.
+  - **Refresh & Connection Safety**: If a player refreshes their browser or loses internet briefly, their active battle room, `PREMED-` code, and current match score are preserved automatically without forcing them to recreate a new room.
+
+### 5. Immediate Results & Performance Feedback
 - **Instant Automated Grading**: View your score, percentage, and letter grade immediately after finishing an exam.
 - **Topic Breakdown**: Discover your strong areas and topics that need more review.
 - **Full History**: Look back at your past tests and see how your scores have improved over time.
