@@ -303,18 +303,41 @@ async function fetchQuestionPoolForTopic(topicId, neededCount) {
     combined = await tursoQuery("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions LIMIT 50;");
   }
 
+  // Deduplicate questions by ID
+  const uniqueMap = new Map();
+  combined.forEach(q => {
+    if (!uniqueMap.has(q.id)) {
+      uniqueMap.set(q.id, q);
+    }
+  });
+  combined = Array.from(uniqueMap.values());
+
+  // Fisher-Yates shuffle
   for (let i = combined.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [combined[i], combined[j]] = [combined[j], combined[i]];
   }
 
+  // Ensure no repeat question IDs if sufficient questions exist
   const result = [];
-  while (result.length < neededCount && combined.length > 0) {
-    for (const q of combined) {
-      if (result.length >= neededCount) break;
+  const usedIds = new Set();
+
+  for (const q of combined) {
+    if (result.length >= neededCount) break;
+    if (!usedIds.has(q.id)) {
+      usedIds.add(q.id);
       result.push(q);
     }
   }
+
+  // If pool has fewer unique questions than needed, reuse with shuffled options
+  while (result.length < neededCount && combined.length > 0) {
+    for (const q of combined) {
+      if (result.length >= neededCount) break;
+      result.push({ ...q, id: q.id + '_dup_' + result.length });
+    }
+  }
+
   return result;
 }
 
@@ -1452,6 +1475,13 @@ io.on('connection', (socket) => {
       room.status = 'terminated';
       clearInterval(room.timerInterval);
       io.to(roomCode).emit('roomTerminated', { reason: reason || 'Terminated by Admin.' });
+      io.to(roomCode).emit('gameFinished', {
+        winnerUserId: null,
+        winnerName: 'Terminated by Admin',
+        isDraw: false,
+        finalScores: room.scores,
+        coinsAwarded: {} // Edge Case 3: 0 coins to all when admin terminates
+      });
       await tursoExecute("UPDATE combat_rooms SET status = 'terminated' WHERE room_code = ?;", [roomCode]);
       activeCombatRooms.delete(roomCode);
     }
@@ -1504,6 +1534,17 @@ async function evaluateMainAnswer(room, selectedOption, currentQ) {
   const turnUserId = room.currentTurnUserId;
   const timeUsed = Math.min(30, Math.max(0, (Date.now() - (room.turnStartTime || Date.now())) / 1000));
   const pointsAwarded = isCorrect ? 2 : 0;
+
+  // Initialize per-round tracking
+  room.roundMetrics = room.roundMetrics || {};
+  room.roundMetrics[turnUserId] = room.roundMetrics[turnUserId] || { wins: 0, fails: 0, totalTime: 0, count: 0, bonusWins: 0 };
+  room.roundMetrics[turnUserId].count++;
+  room.roundMetrics[turnUserId].totalTime += timeUsed;
+  if (isCorrect) {
+    room.roundMetrics[turnUserId].wins++;
+  } else {
+    room.roundMetrics[turnUserId].fails++;
+  }
 
   if (isCorrect) {
     if (room.mode === '2v1') {
@@ -1578,7 +1619,16 @@ function startBonusTurn(roomCode) {
     const bonusTeam = currentTurnPlayer.team === 'A' ? 'B' : 'A';
     room.bonusTeam = bonusTeam;
     const bonusPlayers = room.players.filter(p => p.team === bonusTeam);
-    room.bonusUserId = bonusPlayers[0].userId;
+
+    // In 2v1, Team Captain (first joined member) answers bonus turns for Team A
+    const captain = bonusPlayers[0];
+    if (!captain || captain.connected === false) {
+      // If team captain or opponent is offline, skip bonus turn without penalty
+      advanceToNextTurn(roomCode);
+      return;
+    }
+
+    room.bonusUserId = captain.userId;
     room.teamASelection = {};
 
     const timerDuration = (bonusTeam === 'A') ? 30 : 15;
@@ -1607,6 +1657,13 @@ function startBonusTurn(roomCode) {
     });
   } else {
     const opponent = room.players.find(p => p.userId !== room.currentTurnUserId);
+
+    // If opponent left or is offline, cancel bonus and move to next question
+    if (!opponent || opponent.connected === false) {
+      advanceToNextTurn(roomCode);
+      return;
+    }
+
     room.bonusUserId = opponent.userId;
     room.timeRemaining = 15;
     room.turnStartTime = Date.now();
@@ -1619,6 +1676,7 @@ function startBonusTurn(roomCode) {
     });
 
     runServerTimer(room, 15, () => {
+      // Award 0 points if offline/timeout
       io.to(roomCode).emit('bonusAnswerResult', {
         isCorrect: false,
         correctOption: room.questionsPool[room.currentQuestionIndex].correct_option,
@@ -1643,6 +1701,10 @@ async function evaluateBonusAnswer(room, selectedOption, currentQ) {
   let pointsAwarded = 0;
   if (isCorrect) {
     pointsAwarded = 1;
+    const bId = room.bonusUserId;
+    room.roundMetrics = room.roundMetrics || {};
+    room.roundMetrics[bId] = room.roundMetrics[bId] || { wins: 0, fails: 0, totalTime: 0, count: 0, bonusWins: 0 };
+    room.roundMetrics[bId].bonusWins++;
   } else {
     pointsAwarded = -1;
   }
@@ -1721,7 +1783,8 @@ function advanceToNextTurn(roomCode) {
     }
   }
 
-  const questionsPerRoundTotal = room.questionsPerRound;
+  const numPlayers = room.mode === '2v1' ? 2 : room.players.length;
+  const questionsPerRoundTotal = room.questionsPerRound * numPlayers;
   if (room.currentQuestionIndex >= room.currentRound * questionsPerRoundTotal) {
     handleRoundFinished(room);
   } else {
@@ -1735,6 +1798,7 @@ function sendNextQuestion(roomCode) {
 
   const currentQ = room.questionsPool[room.currentQuestionIndex];
   if (!currentQ) {
+    io.to(roomCode).emit('gameNotice', { message: 'No more questions in pool. Ending match...' });
     handleGameFinished(room);
     return;
   }
@@ -1786,9 +1850,11 @@ function runServerTimer(room, duration, onTimeout) {
 
 function handleRoundFinished(room) {
   clearInterval(room.timerInterval);
+  if (room.roundAutoTimer) clearTimeout(room.roundAutoTimer);
+
   room.status = 'round_break';
 
-  let maxPoints = -1;
+  let maxPoints = -100;
   let roundWinnerName = 'Draw';
   room.players.forEach(p => {
     const pts = room.roundScores[p.userId] || 0;
@@ -1798,38 +1864,74 @@ function handleRoundFinished(room) {
     }
   });
 
-  const roundStatsTable = room.players.map(p => ({
-    userId: p.userId,
-    name: p.name,
-    pointsThisRound: room.roundScores[p.userId] || 0,
-    totalPoints: room.scores[p.userId] || 0
-  }));
+  const roundStatsTable = room.players.map(p => {
+    const m = (room.roundMetrics && room.roundMetrics[p.userId]) || { wins: 0, fails: 0, totalTime: 0, count: 0, bonusWins: 0 };
+    const avgT = m.count > 0 ? (m.totalTime / m.count).toFixed(1) : '0.0';
+    return {
+      userId: p.userId,
+      name: p.name,
+      pointsThisRound: room.roundScores[p.userId] || 0,
+      totalPoints: room.scores[p.userId] || 0,
+      wins: m.wins,
+      fails: m.fails,
+      avgTime: avgT,
+      bonusWins: m.bonusWins
+    };
+  });
 
   io.to(room.roomCode).emit('roundFinished', {
     roundNumber: room.currentRound,
     winnerName: roundWinnerName,
     statsTable: roundStatsTable,
-    isFinalRound: (room.currentRound >= room.totalRounds)
+    isFinalRound: (room.currentRound >= room.totalRounds),
+    autoStartSec: 10
   });
 
   room.players.forEach(p => { room.roundScores[p.userId] = 0; });
+  room.roundMetrics = {};
 
   if (room.currentRound >= room.totalRounds) {
     setTimeout(() => handleGameFinished(room), 4000);
   } else {
-    setTimeout(() => {
-      room.currentRound++;
-      room.status = 'playing';
-      sendNextQuestion(room.roomCode);
-    }, 6000);
+    // 10-second auto-start next round or host click
+    room.roundAutoTimer = setTimeout(() => {
+      startNextRound(room);
+    }, 10000);
   }
+}
+
+function startNextRound(room) {
+  if (!room || room.status !== 'round_break' || room.isStartingNextRound) return;
+
+  if (room.currentRound >= room.totalRounds) {
+    handleGameFinished(room);
+    return;
+  }
+
+  room.isStartingNextRound = true;
+
+  if (room.roundAutoTimer) {
+    clearTimeout(room.roundAutoTimer);
+    room.roundAutoTimer = null;
+  }
+
+  // 3-second countdown transition before starting next round questions
+  io.to(room.roomCode).emit('nextRoundStarting', { countdownSec: 3, nextRoundNumber: room.currentRound + 1 });
+
+  setTimeout(() => {
+    room.currentRound++;
+    room.status = 'playing';
+    room.isStartingNextRound = false;
+    io.to(room.roomCode).emit('nextRoundStarted', { roundNumber: room.currentRound });
+    sendNextQuestion(room.roomCode);
+  }, 3000);
 }
 
 async function handleGameFinished(room) {
   clearInterval(room.timerInterval);
   room.status = 'finished';
 
-  let highestScore = -1;
+  let highestScore = -100;
   let winners = [];
   let isDraw = false;
 
@@ -1850,14 +1952,53 @@ async function handleGameFinished(room) {
   const winnerUserId = isDraw ? null : winners[0].userId;
   const loserUserId = isDraw ? null : room.players.find(p => p.userId !== winnerUserId)?.userId;
 
+  // Edge Case 3: Prevent duplicate coin awards on refresh
   const coinsAwarded = {};
-  if (isDraw) {
-    room.players.forEach(p => { coinsAwarded[p.userId] = 25; });
+  if (!room.coinsAlreadyAwarded) {
+    if (isDraw) {
+      room.players.forEach(p => { coinsAwarded[p.userId] = 25; });
+    } else {
+      room.players.forEach(p => {
+        coinsAwarded[p.userId] = (p.userId === winnerUserId) ? 50 : 0;
+      });
+    }
+    room.coinsAlreadyAwarded = true;
   } else {
-    room.players.forEach(p => {
-      coinsAwarded[p.userId] = (p.userId === winnerUserId) ? 50 : 0;
-    });
+    room.players.forEach(p => { coinsAwarded[p.userId] = 0; });
   }
+
+  // Snapshots of player names and topic name
+  const playerNamesSnapshot = {};
+  room.players.forEach(p => { playerNamesSnapshot[p.userId] = p.name; });
+
+  // Edge Case 4: 3-retry attempt for database saving with snapshots
+  let savedOk = false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const ok = await tursoExecute(`
+        INSERT INTO combat_final_results (
+          id, room_code, players, winner_user_id, loser_user_id, is_draw,
+          final_scores, topic_id, topic_name_snapshot, player_names_snapshot,
+          total_questions, coins_awarded, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+      `, [
+        `res_${Math.random().toString(36).substring(2, 10)}`,
+        room.roomCode, JSON.stringify(room.players.map(p => p.userId)), winnerUserId, loserUserId,
+        isDraw ? 1 : 0, JSON.stringify(room.scores), room.topicId, room.topicName || 'Topic',
+        JSON.stringify(playerNamesSnapshot), room.totalQuestions, JSON.stringify(coinsAwarded)
+      ]);
+      if (ok) {
+        savedOk = true;
+        break;
+      }
+    } catch (e) {
+      console.error(`[FINAL RESULT SAVE ATTEMPT ${attempt} FAILED]`, e.message);
+    }
+  }
+
+  // Edge Case 7: Update stats and leaderboards AFTER final result save
+  let winnerRankUp = false;
+  let winnerRankName = '';
 
   for (const p of room.players) {
     const pts = room.scores[p.userId] || 0;
@@ -1865,28 +2006,23 @@ async function handleGameFinished(room) {
     const isWin = (p.userId === winnerUserId);
     const isLoss = (p.userId === loserUserId);
 
-    await updateUserCombatStatsAndCoins(p.userId, p.matricNo, p.name, room.courseId, room.topicId, isWin, isLoss, isDraw, pts, coins);
+    const rankRes = await updateUserCombatStatsAndCoins(p.userId, p.matricNo, p.name, room.courseId, room.topicId, isWin, isLoss, isDraw, pts, coins);
+    if (isWin && rankRes && rankRes.isRankUp) {
+      winnerRankUp = true;
+      winnerRankName = rankRes.newRank;
+    }
   }
-
-  await tursoExecute(`
-    INSERT INTO combat_final_results (
-      id, room_code, players, winner_user_id, loser_user_id, is_draw,
-      final_scores, topic_id, total_questions, coins_awarded, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
-  `, [
-    `res_${Math.random().toString(36).substring(2, 10)}`,
-    room.roomCode, JSON.stringify(room.players.map(p => p.userId)), winnerUserId, loserUserId,
-    isDraw ? 1 : 0, JSON.stringify(room.scores), room.topicId, room.totalQuestions, JSON.stringify(coinsAwarded)
-  ]);
 
   await tursoExecute("UPDATE combat_rooms SET status = 'finished' WHERE room_code = ?;", [room.roomCode]);
 
   io.to(room.roomCode).emit('gameFinished', {
     winnerUserId,
-    winnerName: isDraw ? 'Draw' : winners[0].name,
+    winnerName: isDraw ? 'Draw! 🤝' : winners[0].name,
     isDraw,
     finalScores: room.scores,
-    coinsAwarded
+    coinsAwarded,
+    isRankUp: winnerRankUp,
+    newRank: winnerRankName
   });
 
   io.emit('adminRoomUpdate', { roomCode: room.roomCode, room });
@@ -1959,32 +2095,65 @@ async function getUserCombatStats(userId, matricNo, name) {
 async function updateUserCombatStatsAndCoins(userId, matricNo, name, courseId, topicId, isWin, isLoss, isDraw, pointsEarned, coinsEarned) {
   const stats = await getUserCombatStats(userId, matricNo, name);
 
+  // Edge Case 2: What if winner is banned from combat? Give 0 coins and log
+  if (stats.is_banned_from_combat === 1 || stats.is_banned_from_combat === true) {
+    console.warn(`[COMBAT COINS SKIPPED] Banned user win but no coins given. User: ${userId}`);
+    coinsEarned = 0;
+  }
+
   const newWins = stats.wins + (isWin ? 1 : 0);
   const newLosses = stats.losses + (isLoss ? 1 : 0);
   const newDraws = stats.draws + (isDraw ? 1 : 0);
   const newMatches = stats.total_matches + 1;
   const newPoints = stats.total_points + pointsEarned;
-  const newCoins = stats.combat_coins + coinsEarned;
 
   const newRankObj = calculateRank(newWins);
   const isRankUp = (newRankObj.name !== stats.current_rank);
 
-  await tursoExecute(`
-    UPDATE user_combat_stats
-    SET total_matches = ?, wins = ?, losses = ?, draws = ?, total_points = ?,
-        combat_coins = ?, current_rank = ?, wins_for_rank = ?, favorite_topic_id = ?,
-        last_match_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-    WHERE user_id = ?;
-  `, [newMatches, newWins, newLosses, newDraws, newPoints, newCoins, newRankObj.name, newWins, topicId, userId]);
+  // Edge Case 5: Atomic increment for user_combat_stats
+  let updatedStatsOk = false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      updatedStatsOk = await tursoExecute(`
+        UPDATE user_combat_stats
+        SET total_matches = total_matches + 1,
+            wins = wins + ?,
+            losses = losses + ?,
+            draws = draws + ?,
+            total_points = total_points + ?,
+            combat_coins = combat_coins + ?,
+            current_rank = ?,
+            wins_for_rank = wins_for_rank + ?,
+            favorite_topic_id = ?,
+            last_match_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ?;
+      `, [
+        isWin ? 1 : 0, isLoss ? 1 : 0, isDraw ? 1 : 0,
+        pointsEarned, coinsEarned, newRankObj.name, isWin ? 1 : 0, topicId, userId
+      ]);
+      if (updatedStatsOk) break;
+    } catch (e) {
+      console.error(`[STATS UPDATE ATTEMPT ${attempt} FAILED]`, e.message);
+    }
+  }
 
+  // Edge Case 1: Atomic increment for student_course_coins with retry
   if (coinsEarned > 0 && courseId) {
-    await tursoExecute(`
-      INSERT INTO student_course_coins (id, student_id, course_id, coins_balance, updated_at)
-      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(student_id, course_id) DO UPDATE SET
-        coins_balance = coins_balance + excluded.coins_balance,
-        updated_at = CURRENT_TIMESTAMP;
-    `, [`coin_${Math.random().toString(36).substring(2, 10)}`, userId, courseId, coinsEarned]);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const coinOk = await tursoExecute(`
+          INSERT INTO student_course_coins (id, student_id, course_id, coins_balance, updated_at)
+          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+          ON CONFLICT(student_id, course_id) DO UPDATE SET
+            coins_balance = coins_balance + excluded.coins_balance,
+            updated_at = CURRENT_TIMESTAMP;
+        `, [`coin_${Math.random().toString(36).substring(2, 10)}`, userId, courseId, coinsEarned]);
+        if (coinOk) break;
+      } catch (e) {
+        console.error(`[COURSE COIN UPDATE ATTEMPT ${attempt} FAILED]`, e.message);
+      }
+    }
   }
 
   return { isRankUp, newRank: newRankObj.name };

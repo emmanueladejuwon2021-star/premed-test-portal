@@ -394,21 +394,32 @@ $matchHistory = $historyStmt->fetchAll();
                 <?php if (empty($matchHistory)): ?>
                 <p class="text-xs text-slate-400 py-4 text-center">No battles fought yet. Go create or join a room to get started!</p>
                 <?php else: ?>
-                <div class="space-y-3">
-                    <?php foreach ($matchHistory as $mh): ?>
-                    <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <div id="matchHistoryContainer" class="space-y-3">
+                    <?php $count = 0; foreach ($matchHistory as $mh): $count++; ?>
+                    <?php
+                        $topicSnap = !empty($mh['topic_name_snapshot']) ? $mh['topic_name_snapshot'] : 'Topic Duel';
+                        $isWin = ($mh['winner_user_id'] === $studentId);
+                        $isDraw = !empty($mh['is_draw']);
+                    ?>
+                    <div class="history-item <?= $count > 5 ? 'hidden' : '' ?> p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
                         <div>
-                            <div class="text-xs font-mono font-bold text-purple-600"><?= htmlspecialchars($mh['room_code']) ?></div>
-                            <div class="text-[11px] text-slate-400"><?= htmlspecialchars($mh['created_at']) ?></div>
+                            <div class="text-xs font-mono font-bold text-purple-600"><?= htmlspecialchars($mh['room_code']) ?> <span class="text-slate-400 font-sans font-normal ml-2">(<?= htmlspecialchars($topicSnap) ?>)</span></div>
+                            <div class="text-[11px] text-slate-400 mt-0.5"><?= htmlspecialchars($mh['created_at']) ?></div>
                         </div>
                         <div class="text-right">
-                            <span class="text-xs font-bold px-2.5 py-1 rounded-lg <?= $mh['winner_user_id'] === $studentId ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700' ?>">
-                                <?= $mh['winner_user_id'] === $studentId ? 'WIN (+50 Coins)' : 'LOSS (0 Coins)' ?>
+                            <span class="text-xs font-bold px-2.5 py-1 rounded-lg <?= $isWin ? 'bg-emerald-100 text-emerald-700' : ($isDraw ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700') ?>">
+                                <?= $isWin ? 'WIN (+50 Coins)' : ($isDraw ? 'DRAW (+25 Coins)' : 'LOSS (0 Coins)') ?>
                             </span>
                         </div>
                     </div>
                     <?php endforeach; ?>
                 </div>
+
+                <?php if (count($matchHistory) > 5): ?>
+                <button type="button" onclick="loadMoreHistory()" id="loadMoreHistoryBtn" class="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 transition-colors">
+                    Load More Matches ▾
+                </button>
+                <?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -602,21 +613,25 @@ $matchHistory = $historyStmt->fetchAll();
 
             <!-- ROUND VICTORY MODAL SCREEN -->
             <div id="roundVictoryModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-                <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-purple-500/30 text-center space-y-6 animate-in zoom-in-95">
-                    <div class="w-16 h-16 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center mx-auto shadow-inner">
-                        <i data-lucide="crown" class="w-8 h-8 text-amber-500"></i>
+                <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-purple-500/30 text-center space-y-6 animate-in zoom-in-95">
+                    <div class="w-16 h-16 rounded-3xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 flex items-center justify-center mx-auto shadow-inner ring-4 ring-amber-400/30">
+                        <i data-lucide="crown" class="w-10 h-10 text-amber-500 animate-bounce"></i>
                     </div>
 
                     <div class="space-y-1">
-                        <h3 id="roundVictoryTitle" class="text-2xl font-black text-slate-900 dark:text-white">Round 1 Finished!</h3>
-                        <p id="roundWinnerBanner" class="text-sm font-bold text-amber-500">John Won This Round!</p>
+                        <h3 id="roundVictoryTitle" class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">Round 1 Finished!</h3>
+                        <p id="roundWinnerBanner" class="text-sm font-black text-amber-500 uppercase tracking-wider">John Won This Round! 👑</p>
                     </div>
 
-                    <div id="roundStatsTableContainer" class="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-700"></div>
+                    <div id="roundStatsTableContainer" class="overflow-x-auto bg-slate-50 dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-700"></div>
 
-                    <button type="button" onclick="closeRoundVictoryModal()" class="w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black uppercase tracking-wider shadow-lg">
-                        Continue to Next Round
-                    </button>
+                    <div id="roundBreakActionBar" class="space-y-2">
+                        <button type="button" id="hostNextRoundBtn" onclick="requestNextRound()" class="hidden w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2">
+                            <span>START NEXT ROUND NOW ➔</span>
+                            <span id="nextRoundCountdownBadge" class="px-2 py-0.5 rounded bg-white/20 text-white text-[10px]">(10s)</span>
+                        </button>
+                        <p id="spectatorNextRoundText" class="text-xs text-slate-400 font-bold">Waiting for host / Auto starting next round in <span id="spectatorRoundCountdownText" class="text-amber-500 font-mono font-black">10</span>s...</p>
+                    </div>
                 </div>
             </div>
 
@@ -1145,6 +1160,30 @@ $matchHistory = $historyStmt->fetchAll();
             showRoundVictoryModal(data);
         });
 
+        socket.on('nextRoundStarting', (data) => {
+            const hostBtn = document.getElementById('hostNextRoundBtn');
+            if (hostBtn) hostBtn.disabled = true;
+
+            let c = data.countdownSec || 3;
+            const specText = document.getElementById('spectatorNextRoundText');
+            if (specText) {
+                specText.innerHTML = `<span class="text-amber-400 font-black text-sm animate-pulse">⚡ Next round starting in ${c}... ⚡</span>`;
+            }
+
+            const cTimer = setInterval(() => {
+                c--;
+                if (c > 0 && specText) {
+                    specText.innerHTML = `<span class="text-amber-400 font-black text-sm animate-pulse">⚡ Next round starting in ${c}... ⚡</span>`;
+                } else {
+                    clearInterval(cTimer);
+                }
+            }, 1000);
+        });
+
+        socket.on('nextRoundStarted', (data) => {
+            closeRoundVictoryModal();
+        });
+
         socket.on('rematchStarted', (data) => {
             document.getElementById('finalVictoryModal').classList.add('hidden');
             alert('Rematch started with fresh questions!');
@@ -1427,41 +1466,103 @@ $matchHistory = $historyStmt->fetchAll();
         btns.forEach(b => b.disabled = true);
     }
 
+    let roundBreakCountdownInterval = null;
+
     function showRoundVictoryModal(data) {
         const modal = document.getElementById('roundVictoryModal');
         if (!modal) return;
         document.getElementById('roundVictoryTitle').textContent = `Round ${data.roundNumber} Finished!`;
-        document.getElementById('roundWinnerBanner').textContent = `${data.winnerName} Won This Round!`;
+        document.getElementById('roundWinnerBanner').textContent = `${data.winnerName} Won This Round! 👑`;
 
         const container = document.getElementById('roundStatsTableContainer');
         container.innerHTML = `
             <table class="w-full text-left text-xs font-bold">
                 <thead>
-                    <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-400">
+                    <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-400 text-[10px] uppercase">
                         <th class="py-2">Player</th>
-                        <th class="py-2 text-center">Round Pts</th>
-                        <th class="py-2 text-right">Total Pts</th>
+                        <th class="py-2 text-center">Pts</th>
+                        <th class="py-2 text-center">Wins</th>
+                        <th class="py-2 text-center">Fails</th>
+                        <th class="py-2 text-center">Avg Time</th>
+                        <th class="py-2 text-center">Bonus Wins</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                     ${data.statsTable.map(s => `
                         <tr>
-                            <td class="py-2 text-slate-800 dark:text-slate-200">${s.name}</td>
-                            <td class="py-2 text-center text-purple-600 font-mono">+${s.pointsThisRound}</td>
-                            <td class="py-2 text-right text-amber-500 font-mono">${s.totalPoints} pts</td>
+                            <td class="py-2.5 text-slate-800 dark:text-slate-100 flex items-center gap-1.5 font-black">
+                                ${s.name === data.winnerName ? '👑' : ''} ${s.name}
+                            </td>
+                            <td class="py-2.5 text-center text-purple-600 font-mono font-black">+${s.pointsThisRound}</td>
+                            <td class="py-2.5 text-center text-emerald-600 font-mono">${s.wins || 0}</td>
+                            <td class="py-2.5 text-center text-rose-500 font-mono">${s.fails || 0}</td>
+                            <td class="py-2.5 text-center text-slate-500 font-mono">${s.avgTime || '0.0'}s</td>
+                            <td class="py-2.5 text-center text-amber-500 font-mono">${s.bonusWins || 0}</td>
                         </tr>
                     `).join('')}
                 </tbody>
             </table>
         `;
 
+        const isHost = currentRoom && (currentRoom.createdBy === STUDENT_ID);
+        const hostBtn = document.getElementById('hostNextRoundBtn');
+        const specText = document.getElementById('spectatorNextRoundText');
+
+        if (isHost) {
+            hostBtn.classList.remove('hidden');
+        } else {
+            hostBtn.classList.add('hidden');
+        }
+
+        let rem = data.autoStartSec || 10;
+        const countBadge = document.getElementById('nextRoundCountdownBadge');
+        const countText = document.getElementById('spectatorRoundCountdownText');
+
+        if (roundBreakCountdownInterval) clearInterval(roundBreakCountdownInterval);
+
+        roundBreakCountdownInterval = setInterval(() => {
+            rem--;
+            if (countBadge) countBadge.textContent = `(${rem}s)`;
+            if (countText) countText.textContent = rem;
+
+            if (rem <= 0) {
+                clearInterval(roundBreakCountdownInterval);
+                roundBreakCountdownInterval = null;
+            }
+        }, 1000);
+
         modal.classList.remove('hidden');
         if (window.lucide) lucide.createIcons();
     }
 
+    function requestNextRound() {
+        if (socket && currentRoom) {
+            socket.emit('nextRoundRequest', { roomCode: currentRoom.roomCode, userId: STUDENT_ID });
+        }
+        closeRoundVictoryModal();
+    }
+
     function closeRoundVictoryModal() {
+        if (roundBreakCountdownInterval) {
+            clearInterval(roundBreakCountdownInterval);
+            roundBreakCountdownInterval = null;
+        }
         const modal = document.getElementById('roundVictoryModal');
         if (modal) modal.classList.add('hidden');
+    }
+
+    function loadMoreHistory() {
+        const hiddenItems = document.querySelectorAll('.history-item.hidden');
+        hiddenItems.forEach((item, index) => {
+            if (index < 5) {
+                item.classList.remove('hidden');
+            }
+        });
+        const remaining = document.querySelectorAll('.history-item.hidden').length;
+        if (remaining === 0) {
+            const btn = document.getElementById('loadMoreHistoryBtn');
+            if (btn) btn.classList.add('hidden');
+        }
     }
 
     function updateLiveScoreboard(scores) {
@@ -1469,7 +1570,9 @@ $matchHistory = $historyStmt->fetchAll();
         if (scoresDiv && scores && currentRoom && currentRoom.players) {
             scoresDiv.innerHTML = Object.entries(scores).map(([uid, pts]) => {
                 const p = currentRoom.players.find(x => x.userId === uid);
-                return `<div>${p ? p.name : 'Player'}: <strong class="text-amber-400 font-mono">${pts} pts</strong></div>`;
+                const isNeg = (pts < 0);
+                const ptsClass = isNeg ? 'text-rose-500 font-mono font-black' : 'text-amber-400 font-mono font-black';
+                return `<div>${p ? p.name : 'Player'}: <strong class="${ptsClass}">${pts} pts</strong></div>`;
             }).join('<span class="text-slate-600">vs</span>');
         }
     }
@@ -1555,39 +1658,60 @@ $matchHistory = $historyStmt->fetchAll();
 
     function showFinalVictoryModal(data) {
         const modal = document.getElementById('finalVictoryModal');
+        if (!modal) return;
         modal.classList.remove('hidden');
 
-        document.getElementById('victorySubtitle').textContent = `Winner: ${data.winnerName}`;
+        if (data.isDraw) {
+            document.getElementById('victorySubtitle').textContent = 'Result: Draw! 🤝 (Both won 25 Coins!)';
+        } else {
+            document.getElementById('victorySubtitle').textContent = `Winner: ${data.winnerName}`;
+        }
 
         const table = document.getElementById('finalScoresTable');
-        table.innerHTML = Object.entries(data.finalScores).map(([uid, pts]) => {
-            const p = currentRoom.players.find(x => x.userId === uid);
-            const coins = data.coinsAwarded[uid] || 0;
-            return `
-                <div class="flex items-center justify-between text-xs font-bold py-2 border-b border-slate-200 dark:border-slate-700">
-                    <span>${p ? p.name : 'Player'}</span>
-                    <div class="flex items-center gap-3">
-                        <span class="text-amber-500 font-mono">${pts} pts</span>
-                        <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px]">+${coins} Coins</span>
+        if (table && data.finalScores) {
+            table.innerHTML = Object.entries(data.finalScores).map(([uid, pts]) => {
+                const p = currentRoom && currentRoom.players ? currentRoom.players.find(x => x.userId === uid) : null;
+                const coins = (data.coinsAwarded && data.coinsAwarded[uid]) || 0;
+                return `
+                    <div class="flex items-center justify-between text-xs font-bold py-2.5 border-b border-slate-200 dark:border-slate-700">
+                        <span class="text-slate-900 dark:text-white font-black">${p ? p.name : 'Player'} ${uid === data.winnerUserId ? '🏆' : ''}</span>
+                        <div class="flex items-center gap-3">
+                            <span class="text-amber-500 font-mono font-black text-sm">${pts} pts</span>
+                            <span class="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-black text-[11px]">+${coins} Coins</span>
+                        </div>
                     </div>
-                </div>
-            `;
-        }).join('');
+                `;
+            }).join('');
+        }
 
-        if (data.winnerUserId === STUDENT_ID) {
-            confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 } });
+        // Edge Case 5: Light confetti that auto-stops to avoid lag
+        if (data.winnerUserId === STUDENT_ID || data.isDraw) {
+            confetti({ particleCount: 100, spread: 80, origin: { y: 0.5 }, disableForReducedMotion: true });
         }
 
         if (data.isRankUp && data.newRank) {
             document.getElementById('newRankBadgeTitle').textContent = data.newRank.toUpperCase() + ' ⚡';
             document.getElementById('rankUpModal').classList.remove('hidden');
-            confetti({ particleCount: 250, spread: 120, origin: { y: 0.4 } });
+            confetti({ particleCount: 150, spread: 90, origin: { y: 0.4 }, disableForReducedMotion: true });
         }
 
-        document.getElementById('rematchBtn').onclick = () => {
-            socket.emit('rematchRequest', { roomCode: currentRoom.roomCode, userId: STUDENT_ID });
-            alert('Rematch request sent! Waiting for opponent...');
-        };
+        // Edge Case 8: Disable rematch button for 2 seconds after final screen appears
+        const rematchBtn = document.getElementById('rematchBtn');
+        if (rematchBtn) {
+            rematchBtn.disabled = true;
+            rematchBtn.className = 'w-full py-3.5 rounded-xl bg-purple-600/50 cursor-not-allowed text-white text-xs font-black uppercase tracking-wider shadow-lg opacity-60';
+            setTimeout(() => {
+                rematchBtn.disabled = false;
+                rematchBtn.className = 'w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black uppercase tracking-wider shadow-lg';
+            }, 2000);
+
+            rematchBtn.onclick = () => {
+                if (socket && currentRoom) {
+                    socket.emit('rematchRequest', { roomCode: currentRoom.roomCode, userId: STUDENT_ID });
+                    alert('Rematch request sent! Waiting for opponent...');
+                }
+            };
+        }
 
         if (window.lucide) lucide.createIcons();
     }

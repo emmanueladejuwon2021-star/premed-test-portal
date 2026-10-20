@@ -252,6 +252,8 @@ class DB {
               final_scores TEXT,
               rounds_summary TEXT,
               topic_id TEXT,
+              topic_name_snapshot TEXT,
+              player_names_snapshot TEXT,
               total_questions INTEGER,
               coins_awarded TEXT,
               rematched_from TEXT,
@@ -276,6 +278,12 @@ class DB {
               achievements TEXT,
               updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )");
+
+            try {
+                $pdo->exec("CREATE INDEX IF NOT EXISTS idx_combat_stats_wins ON user_combat_stats(wins DESC, total_points DESC)");
+                $pdo->exec("CREATE INDEX IF NOT EXISTS idx_combat_room_code ON combat_rooms(room_code)");
+                $pdo->exec("CREATE INDEX IF NOT EXISTS idx_combat_logs_room ON combat_match_logs(room_code)");
+            } catch (Exception $e) {}
 
             $pdo->exec("CREATE TABLE IF NOT EXISTS combat_rank_settings (
               id TEXT PRIMARY KEY,
