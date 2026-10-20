@@ -138,6 +138,55 @@ if ($action === 'create_room' || isset($data['create_room'])) {
     exit;
 }
 
+if ($action === 'get_room_status' || isset($data['get_room_status'])) {
+    $code = strtoupper(trim($data['roomCode'] ?? ($_GET['roomCode'] ?? '')));
+
+    $stmt = $pdo->prepare("SELECT * FROM combat_rooms WHERE room_code = ? LIMIT 1");
+    $stmt->execute([$code]);
+    $room = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$room) {
+        echo json_encode(['success' => false, 'message' => 'Room not found.']);
+        exit;
+    }
+
+    $players = json_decode($room['players'] ?? '[]', true);
+    $scores = json_decode($room['scores'] ?? '{}', true);
+
+    $questionsPool = [];
+    if ($room['status'] === 'playing') {
+        $pastQs = $pdo->prepare("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions WHERE topic_id = ?");
+        $pastQs->execute([$room['topic_id']]);
+        $questionsPool = $pastQs->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($questionsPool)) {
+            $fallback = $pdo->query("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions LIMIT 40");
+            $questionsPool = $fallback->fetchAll(PDO::FETCH_ASSOC);
+        }
+    }
+
+    $roomState = [
+        'roomCode' => $code,
+        'roomName' => $room['room_name'],
+        'courseId' => $room['course_id'],
+        'topicId' => $room['topic_id'],
+        'createdBy' => $room['created_by'],
+        'mode' => $room['mode'],
+        'questionsPerRound' => (int)$room['questions_per_round'],
+        'totalRounds' => (int)$room['total_rounds'],
+        'totalQuestions' => (int)$room['total_questions'],
+        'status' => $room['status'],
+        'currentRound' => (int)($room['current_round'] ?? 1),
+        'currentQuestionIndex' => (int)($room['current_question_index'] ?? 0),
+        'currentTurnUserId' => $room['current_turn_user_id'] ?? ($players[0]['userId'] ?? ''),
+        'players' => $players,
+        'scores' => $scores,
+        'questionsPool' => $questionsPool
+    ];
+
+    echo json_encode(['success' => true, 'room' => $roomState]);
+    exit;
+}
+
 if ($action === 'join_room' || isset($data['join_room'])) {
     $code = strtoupper(trim($data['roomCode'] ?? ''));
     $userId = $data['userId'] ?? ($_SESSION['student_id'] ?? ($sessionStudent['id'] ?? ($sessionAdmin['id'] ?? 'usr_' . bin2hex(random_bytes(4)))));

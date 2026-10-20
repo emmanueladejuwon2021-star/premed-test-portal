@@ -423,6 +423,27 @@ const server = http.createServer(async (req, res) => {
     }));
   }
 
+  // REST API: Get Room Status
+  if ((req.method === 'GET' || req.method === 'POST') && pathname === '/api/combat/get-room-status') {
+    const data = await parseBody(req);
+    const code = (query.roomCode || data.roomCode || '').trim().toUpperCase();
+
+    const room = activeCombatRooms.get(code);
+    if (room) {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      return res.end(JSON.stringify({ success: true, room }));
+    }
+
+    const rows = await tursoQuery("SELECT * FROM combat_rooms WHERE room_code = ? LIMIT 1;", [code]);
+    if (rows.length === 0) {
+      res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      return res.end(JSON.stringify({ success: false, message: 'Room not found.' }));
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify({ success: true, room: rows[0] }));
+  }
+
   // REST API: Join Battle Room
   if (req.method === 'POST' && pathname === '/api/combat/join-room') {
     const data = await parseBody(req);

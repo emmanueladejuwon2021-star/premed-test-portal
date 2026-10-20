@@ -962,6 +962,55 @@ $matchHistory = $historyStmt->fetchAll();
         });
     }
 
+    let lobbyPollingInterval = null;
+
+    function launchBattleArena(room) {
+        if (lobbyPollingInterval) {
+            clearInterval(lobbyPollingInterval);
+            lobbyPollingInterval = null;
+        }
+
+        currentRoom = room;
+
+        const waitingScreen = document.getElementById('waitingForOpponentScreen');
+        if (waitingScreen) waitingScreen.classList.add('hidden');
+
+        const arenaScreen = document.getElementById('combatArenaScreen');
+        if (arenaScreen) arenaScreen.classList.remove('hidden');
+
+        if (room.questionsPool && room.questionsPool.length > 0) {
+            const qIndex = room.currentQuestionIndex || 0;
+            const currentQ = room.questionsPool[qIndex];
+            if (currentQ) {
+                renderQuestion({
+                    question: prepareQuestionForClient(currentQ),
+                    questionNumber: (qIndex % (room.questionsPerRound || 4)) + 1,
+                    roundNumber: room.currentRound || 1,
+                    totalRounds: room.totalRounds || 4,
+                    questionsPerRound: room.questionsPerRound || 4,
+                    turnUserId: room.currentTurnUserId || (room.players[0] ? room.players[0].userId : STUDENT_ID),
+                    scores: room.scores || {}
+                });
+            }
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function prepareQuestionForClient(q) {
+        const options = [
+            { key: 'A', text: q.a },
+            { key: 'B', text: q.b },
+            { key: 'C', text: q.c },
+            { key: 'D', text: q.d }
+        ].filter(o => o.text && String(o.text).trim() !== '');
+
+        return {
+            id: q.id,
+            text: q.text,
+            options: options
+        };
+    }
+
     // SOCKET LISTENERS & GAME UI UPDATES
     function setupSocketListeners() {
         if (!socket) return;
@@ -978,9 +1027,7 @@ $matchHistory = $historyStmt->fetchAll();
         });
 
         socket.on('gameStarted', (data) => {
-            currentRoom = data.room;
-            document.getElementById('waitingForOpponentScreen').classList.add('hidden');
-            document.getElementById('combatArenaScreen').classList.remove('hidden');
+            launchBattleArena(data.room);
         });
 
         socket.on('nextQuestion', (data) => {
@@ -1046,8 +1093,13 @@ $matchHistory = $historyStmt->fetchAll();
         });
     }
 
-    // Render Waiting Lobby Screen
+    // Render Waiting Lobby Screen & Poll Status
     function renderWaitingRoom(code, room) {
+        if (lobbyPollingInterval) {
+            clearInterval(lobbyPollingInterval);
+            lobbyPollingInterval = null;
+        }
+
         const createCard = document.getElementById('createRoomCard');
         if (createCard) createCard.classList.add('hidden');
         const joinCard = document.getElementById('joinRoomCard');
@@ -1077,49 +1129,79 @@ $matchHistory = $historyStmt->fetchAll();
         const waBtn = document.getElementById('shareWhatsappBtn');
         waBtn.href = `https://api.whatsapp.com/send?text=${encodeURIComponent('Join my Study Combat duel on Premed Portal! Code: ' + code)}`;
 
-        const list = document.getElementById('joinedPlayersList');
-        list.innerHTML = room.players.map(p => `
-            <div class="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 font-bold flex items-center justify-center text-xs">${p.name[0]}</div>
-                    <div>
-                        <div class="text-xs font-bold">${p.name} ${p.isHost ? '<span class="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">HOST</span>' : ''}</div>
-                        <div class="text-[10px] text-slate-400 font-mono">${p.matricNo}</div>
+        function updatePlayersView(playersArr) {
+            const list = document.getElementById('joinedPlayersList');
+            if (list && playersArr) {
+                list.innerHTML = playersArr.map(p => `
+                    <div class="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 font-bold flex items-center justify-center text-xs">${(p.name || 'S')[0]}</div>
+                            <div>
+                                <div class="text-xs font-bold">${p.name} ${p.isHost ? '<span class="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">HOST</span>' : ''}</div>
+                                <div class="text-[10px] text-slate-400 font-mono">${p.matricNo}</div>
+                            </div>
+                        </div>
+                        <span class="text-[10px] font-bold text-emerald-600">Joined</span>
                     </div>
-                </div>
-                <span class="text-[10px] font-bold text-emerald-600">Joined</span>
-            </div>
-        `).join('');
+                `).join('');
+            }
+        }
+
+        updatePlayersView(room.players);
 
         const startBtn = document.getElementById('startBattleBtn');
-        if (room.createdBy === STUDENT_ID && room.players.length >= (room.mode === '2v1' ? 3 : 2)) {
-            startBtn.classList.remove('hidden');
-            startBtn.onclick = async () => {
-                startBtn.disabled = true;
-                startBtn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Launching Battle Arena...';
 
-                const payload = { roomCode: code, userId: STUDENT_ID };
-                if (socket) {
-                    socket.emit('startGame', payload);
-                }
+        function checkStartBtnState(r) {
+            if (r.createdBy === STUDENT_ID && r.players.length >= (r.mode === '2v1' ? 3 : 2)) {
+                startBtn.classList.remove('hidden');
+                startBtn.onclick = async () => {
+                    startBtn.disabled = true;
+                    startBtn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Launching Battle Arena...';
 
-                try {
-                    await fetch(SOCKET_URL + '/api/combat/start-game', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                } catch (e) {
-                    await fetch('api/combat_handler.php?action=start_game', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                }
-            };
-        } else {
-            startBtn.classList.add('hidden');
+                    const payload = { roomCode: code, userId: STUDENT_ID };
+                    if (socket) {
+                        socket.emit('startGame', payload);
+                    }
+
+                    try {
+                        const res = await fetch('api/combat_handler.php?action=start_game', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            launchBattleArena(data.room);
+                        }
+                    } catch (e) {
+                        console.error('Start game error:', e);
+                    }
+                };
+            } else {
+                startBtn.classList.add('hidden');
+            }
         }
+
+        checkStartBtnState(room);
+
+        // Start 2.5-second polling timer for seamless launch
+        lobbyPollingInterval = setInterval(async () => {
+            try {
+                const res = await fetch('api/combat_handler.php?action=get_room_status&roomCode=' + encodeURIComponent(code));
+                const data = await res.json();
+                if (data.success && data.room) {
+                    currentRoom = data.room;
+                    updatePlayersView(data.room.players);
+                    checkStartBtnState(data.room);
+
+                    if (data.room.status === 'playing') {
+                        launchBattleArena(data.room);
+                    }
+                }
+            } catch (e) {
+                console.warn('Lobby polling check error:', e);
+            }
+        }, 2500);
 
         if (window.lucide) lucide.createIcons();
     }
