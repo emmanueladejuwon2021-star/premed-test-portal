@@ -577,6 +577,14 @@ $matchHistory = $historyStmt->fetchAll();
                     <!-- Options 2x2 Grid -->
                     <div id="arenaOptionsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
 
+                    <!-- Confirm Answer Action Bar (Shown when active player selects an option) -->
+                    <div id="confirmActionBar" class="hidden pt-2">
+                        <button type="button" id="confirmAnswerBtn" onclick="confirmSelectedAnswer()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm uppercase tracking-wider shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 animate-bounce">
+                            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                            <span>CONFIRM & VALIDATE ANSWER ⚡</span>
+                        </button>
+                    </div>
+
                     <!-- Explanation Box (Shows after answer) -->
                     <div id="explanationBox" class="hidden p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 text-xs text-purple-900 dark:text-purple-200 space-y-1">
                         <div class="font-black flex items-center gap-1.5"><i data-lucide="book-open" class="w-4 h-4"></i> Explanation:</div>
@@ -650,6 +658,12 @@ $matchHistory = $historyStmt->fetchAll();
     let selectedModeVal = '1v1';
     let selectedQPerRound = 4;
     let selectedRounds = 4;
+
+    // Active Question & Selection State
+    let localTimerInterval = null;
+    let localTimeRemaining = 30;
+    let currentSelectedOptionKey = null;
+    let currentTurnIsBonus = false;
 
     document.addEventListener('DOMContentLoaded', function () {
         if (window.lucide) lucide.createIcons();
@@ -1002,24 +1016,16 @@ $matchHistory = $historyStmt->fetchAll();
         });
 
         socket.on('timerUpdate', (data) => {
-            const text = document.getElementById('arenaTimerText');
-            const progress = document.getElementById('timerCircleProgress');
-            if (text) text.textContent = data.timeRemaining;
-
-            if (progress) {
-                const pct = (data.timeRemaining / 30) * 100;
-                progress.setAttribute('stroke-dasharray', `${pct}, 100`);
-                if (data.timeRemaining <= 5) {
-                    progress.setAttribute('class', 'text-rose-500 transition-all duration-1000');
-                } else if (data.timeRemaining <= 12) {
-                    progress.setAttribute('class', 'text-amber-500 transition-all duration-1000');
-                } else {
-                    progress.setAttribute('class', 'text-emerald-500 transition-all duration-1000');
-                }
-            }
+            syncTimerDisplay(data.timeRemaining, 30);
         });
 
         socket.on('mainAnswerResult', (data) => {
+            stopLocalTimer();
+            showAnswerResult(data);
+        });
+
+        socket.on('bonusAnswerResult', (data) => {
+            stopLocalTimer();
             showAnswerResult(data);
         });
 
@@ -1028,15 +1034,23 @@ $matchHistory = $historyStmt->fetchAll();
             const spectatorBar = document.getElementById('spectatorStatusBar');
             const spectatorText = document.getElementById('spectatorStatusText');
 
+            currentTurnIsBonus = true;
+            currentSelectedOptionKey = null;
+            document.getElementById('confirmActionBar').classList.add('hidden');
+
+            const timerDuration = data.timerDuration || 15;
+            startLocalCountdown(timerDuration);
+
             if (data.bonusUserId === STUDENT_ID) {
                 turnsBadge.textContent = '⚡ BONUS TURN (+1 Pt) ⚡';
                 turnsBadge.className = 'text-xs font-black uppercase tracking-wider text-amber-500 animate-pulse';
                 spectatorBar.classList.add('hidden');
                 enableOptionsForBonus();
             } else {
-                turnsBadge.textContent = 'Spectating Bonus Turn';
+                turnsBadge.textContent = 'SPECTATING BONUS TURN';
+                turnsBadge.className = 'text-xs font-black uppercase tracking-wider text-slate-400';
                 spectatorBar.classList.remove('hidden');
-                spectatorText.textContent = 'Opponent is on Bonus Turn...';
+                spectatorText.textContent = 'Opponent is on Bonus Turn... You are spectating.';
                 disableOptions();
             }
         });
@@ -1173,11 +1187,77 @@ $matchHistory = $historyStmt->fetchAll();
         if (window.lucide) lucide.createIcons();
     }
 
+    // Timer helper functions
+    function startLocalCountdown(durationSec) {
+        stopLocalTimer();
+        localTimeRemaining = durationSec;
+        syncTimerDisplay(localTimeRemaining, durationSec);
+
+        localTimerInterval = setInterval(() => {
+            localTimeRemaining--;
+            syncTimerDisplay(localTimeRemaining, durationSec);
+
+            if (localTimeRemaining <= 0) {
+                stopLocalTimer();
+                handleTimeout();
+            }
+        }, 1000);
+    }
+
+    function stopLocalTimer() {
+        if (localTimerInterval) {
+            clearInterval(localTimerInterval);
+            localTimerInterval = null;
+        }
+    }
+
+    function syncTimerDisplay(remTime, maxDuration = 30) {
+        localTimeRemaining = remTime;
+        const text = document.getElementById('arenaTimerText');
+        const progress = document.getElementById('timerCircleProgress');
+        if (text) text.textContent = Math.max(0, remTime);
+
+        if (progress) {
+            const pct = Math.max(0, (remTime / maxDuration) * 100);
+            progress.setAttribute('stroke-dasharray', `${pct}, 100`);
+            if (remTime <= 5) {
+                progress.setAttribute('class', 'text-rose-500 transition-all duration-300');
+            } else if (remTime <= 12) {
+                progress.setAttribute('class', 'text-amber-500 transition-all duration-300');
+            } else {
+                progress.setAttribute('class', 'text-emerald-500 transition-all duration-300');
+            }
+        }
+    }
+
+    function handleTimeout() {
+        // If current player selected an option before timer hit 0, validate it now
+        if (currentSelectedOptionKey) {
+            confirmSelectedAnswer();
+        } else {
+            // Auto submit empty/timeout
+            if (socket) {
+                socket.emit(currentTurnIsBonus ? 'bonusAnswerSubmitted' : 'mainAnswerSubmitted', {
+                    roomCode: currentRoom ? currentRoom.roomCode : '',
+                    userId: STUDENT_ID,
+                    selectedOption: null
+                });
+            }
+            disableOptions();
+        }
+    }
+
     // Render Active Question
     function renderQuestion(data) {
+        currentTurnIsBonus = false;
+        currentSelectedOptionKey = null;
+
         document.getElementById('arenaRoundIndicator').textContent = `Round ${data.roundNumber} / ${data.totalRounds}`;
         document.getElementById('arenaRoomCode').textContent = currentRoom ? currentRoom.roomCode : '';
         document.getElementById('questionNumberHeader').textContent = `Question ${data.questionNumber} of ${data.questionsPerRound}`;
+
+        document.getElementById('confirmActionBar').classList.add('hidden');
+        document.getElementById('explanationBox').classList.add('hidden');
 
         const isMyTurn = (data.turnUserId === STUDENT_ID);
         const turnBadge = document.getElementById('questionTurnBadge');
@@ -1201,53 +1281,93 @@ $matchHistory = $historyStmt->fetchAll();
         document.getElementById('arenaQuestionText').innerHTML = q.text;
 
         grid.innerHTML = q.options.map(o => `
-            <button type="button" onclick="submitMainAnswer('${o.key}')" ${!isMyTurn ? 'disabled' : ''} class="opt-btn p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-purple-600 disabled:opacity-60 disabled:cursor-not-allowed text-left font-semibold text-xs transition-all flex items-center gap-3">
-                <span class="w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0">${o.key}</span>
+            <button type="button" data-key="${o.key}" onclick="selectOption('${o.key}')" ${!isMyTurn ? 'disabled' : ''} class="opt-btn p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-purple-600 disabled:opacity-60 disabled:cursor-not-allowed text-left font-semibold text-xs transition-all flex items-center gap-3">
+                <span class="opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0">${o.key}</span>
                 <span class="flex-1">${o.text}</span>
+                ${!isMyTurn ? '<i data-lucide="lock" class="w-4 h-4 text-slate-400 shrink-0"></i>' : ''}
             </button>
         `).join('');
 
         // Render Live Scores Header
         const scoresDiv = document.getElementById('arenaLiveScores');
-        scoresDiv.innerHTML = Object.entries(data.scores).map(([uid, pts]) => {
-            const p = currentRoom.players.find(x => x.userId === uid);
-            return `<div>${p ? p.name : 'Player'}: <strong class="text-amber-400 font-mono">${pts} pts</strong></div>`;
-        }).join('<span class="text-slate-600">vs</span>');
+        if (data.scores && currentRoom && currentRoom.players) {
+            scoresDiv.innerHTML = Object.entries(data.scores).map(([uid, pts]) => {
+                const p = currentRoom.players.find(x => x.userId === uid);
+                return `<div>${p ? p.name : 'Player'}: <strong class="text-amber-400 font-mono">${pts} pts</strong></div>`;
+            }).join('<span class="text-slate-600">vs</span>');
+        }
 
+        // Start 30s Countdown
+        startLocalCountdown(data.timerDuration || 30);
+
+        if (window.lucide) lucide.createIcons();
         if (window.renderMathInElement) {
             renderMathInElement(document.getElementById('arenaQuestionText'));
         }
     }
 
-    function submitMainAnswer(opt) {
-        socket.emit('mainAnswerSubmitted', {
-            roomCode: currentRoom.roomCode,
-            userId: STUDENT_ID,
-            selectedOption: opt
+    function selectOption(optKey) {
+        currentSelectedOptionKey = optKey;
+
+        // Highlight selected option button
+        const btns = document.querySelectorAll('.opt-btn');
+        btns.forEach(b => {
+            if (b.dataset.key === optKey) {
+                b.className = 'opt-btn p-4 rounded-2xl border-2 border-purple-600 bg-purple-50 dark:bg-purple-950/60 text-purple-900 dark:text-white font-black text-xs transition-all flex items-center gap-3 shadow-md ring-2 ring-purple-500/50';
+                const keyBadge = b.querySelector('.opt-key-badge');
+                if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-purple-600 text-white font-black text-xs flex items-center justify-center shrink-0';
+            } else {
+                b.className = 'opt-btn p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-purple-600 disabled:opacity-60 text-left font-semibold text-xs transition-all flex items-center gap-3';
+                const keyBadge = b.querySelector('.opt-key-badge');
+                if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0';
+            }
         });
+
+        // Show CONFIRM & VALIDATE ANSWER button
+        const confirmBar = document.getElementById('confirmActionBar');
+        if (confirmBar) confirmBar.classList.remove('hidden');
+    }
+
+    function confirmSelectedAnswer() {
+        if (!currentSelectedOptionKey) return;
+
+        stopLocalTimer();
+        const confirmBar = document.getElementById('confirmActionBar');
+        if (confirmBar) confirmBar.classList.add('hidden');
+
         disableOptions();
+
+        const payload = {
+            roomCode: currentRoom ? currentRoom.roomCode : '',
+            userId: STUDENT_ID,
+            selectedOption: currentSelectedOptionKey
+        };
+
+        if (socket && socket.connected) {
+            socket.emit(currentTurnIsBonus ? 'bonusAnswerSubmitted' : 'mainAnswerSubmitted', payload);
+        } else {
+            // PHP Native Fallback call
+            fetch('api/combat_handler.php?action=submit_answer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(r => r.json()).then(data => {
+                showAnswerResult(data);
+            }).catch(err => console.error('REST submit error:', err));
+        }
     }
 
     function enableOptionsForBonus() {
         const btns = document.querySelectorAll('.opt-btn');
         btns.forEach(b => {
             b.disabled = false;
+            b.innerHTML = `
+                <span class="opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0">${b.dataset.key}</span>
+                <span class="flex-1">${b.innerText}</span>
+            `;
             b.onclick = function() {
-                const optKey = this.querySelector('span').textContent;
-                socket.emit('bonusAnswerSubmitted', {
-                    roomCode: currentRoom.roomCode,
-                    userId: STUDENT_ID,
-                    selectedOption: optKey
-                });
-                disableOptions();
+                selectOption(b.dataset.key);
             };
-        });
-    }
-
-    function enableOptionsForMain() {
-        const btns = document.querySelectorAll('.opt-btn');
-        btns.forEach(b => {
-            b.disabled = false;
         });
     }
 
