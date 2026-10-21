@@ -48,7 +48,7 @@ class DB {
     }
 
     public static function ensureSchema(TursoPDO $pdo): void {
-        $lockFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'turso_schema_migrated_v4.lock';
+        $lockFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'turso_schema_migrated_v5.lock';
         if (self::$migrated || file_exists($lockFile)) {
             return;
         }
@@ -223,6 +223,7 @@ class DB {
               bonus_user_id TEXT,
               last_answer_result TEXT,
               last_answer_timestamp REAL DEFAULT 0,
+              allow_bonus INTEGER DEFAULT 1,
               scores TEXT,
               created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
               expires_at DATETIME
@@ -238,6 +239,7 @@ class DB {
                 'bonus_user_id' => 'TEXT',
                 'last_answer_result' => 'TEXT',
                 'last_answer_timestamp' => 'REAL DEFAULT 0',
+                'allow_bonus' => 'INTEGER DEFAULT 1',
                 'scores' => 'TEXT',
                 'players' => 'TEXT'
             ];

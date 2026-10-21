@@ -41,6 +41,7 @@ if ($action === 'create_room' || isset($data['create_room'])) {
     $mode = $data['mode'] ?? '1v1';
     $questionsPerRound = (int)($data['questionsPerRound'] ?? 4);
     $totalRounds = (int)($data['totalRounds'] ?? 4);
+    $allowBonus = isset($data['allowBonus']) ? ($data['allowBonus'] ? 1 : 0) : 1;
 
     if (!$userId || !$courseId || !$topicId) {
         echo json_encode(['success' => false, 'message' => 'Please select a course and topic.']);
@@ -108,6 +109,7 @@ if ($action === 'create_room' || isset($data['create_room'])) {
         'bonus_user_id' => 'TEXT',
         'last_answer_result' => 'TEXT',
         'last_answer_timestamp' => 'REAL DEFAULT 0',
+        'allow_bonus' => 'INTEGER DEFAULT 1',
         'scores' => 'TEXT',
         'players' => 'TEXT'
     ];
@@ -122,14 +124,14 @@ if ($action === 'create_room' || isset($data['create_room'])) {
     $stmt = $pdo->prepare("
         INSERT INTO combat_rooms (
             id, room_code, room_name, course_id, topic_id, created_by, mode,
-            questions_per_round, total_rounds, total_questions, status, players, scores,
+            questions_per_round, total_rounds, total_questions, allow_bonus, status, players, scores,
             questions_pool, current_round, current_question_index, current_turn_user_id, turn_type,
             created_at, expires_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, ?, 1, 0, ?, 'main', CURRENT_TIMESTAMP, datetime('now', '+1 day'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, ?, 1, 0, ?, 'main', CURRENT_TIMESTAMP, datetime('now', '+1 day'))
     ");
     $stmt->execute([
         $roomId, $code, $roomName, $courseId, $topicId, $userId, $mode,
-        $questionsPerRound, $totalRounds, $totalQuestions,
+        $questionsPerRound, $totalRounds, $totalQuestions, $allowBonus,
         json_encode([$hostPlayer]), json_encode([(string)$userId => 0]),
         json_encode($finalPool), (string)$userId
     ]);
@@ -138,13 +140,13 @@ if ($action === 'create_room' || isset($data['create_room'])) {
         $fallbackStmt = $pdo->prepare("
             INSERT INTO combat_rooms (
                 id, room_code, room_name, course_id, topic_id, created_by, mode,
-                questions_per_round, total_rounds, total_questions, status, players, scores,
+                questions_per_round, total_rounds, total_questions, allow_bonus, status, players, scores,
                 created_at, expires_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, CURRENT_TIMESTAMP, datetime('now', '+1 day'))
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, CURRENT_TIMESTAMP, datetime('now', '+1 day'))
         ");
         $fallbackStmt->execute([
             $roomId, $code, $roomName, $courseId, $topicId, $userId, $mode,
-            $questionsPerRound, $totalRounds, $totalQuestions,
+            $questionsPerRound, $totalRounds, $totalQuestions, $allowBonus,
             json_encode([$hostPlayer]), json_encode([(string)$userId => 0])
         ]);
 
@@ -167,6 +169,7 @@ if ($action === 'create_room' || isset($data['create_room'])) {
         'questionsPerRound' => $questionsPerRound,
         'totalRounds' => $totalRounds,
         'totalQuestions' => $totalQuestions,
+        'allowBonus' => ((int)$allowBonus === 1),
         'status' => 'waiting',
         'players' => [$hostPlayer],
         'questionsPool' => $finalPool,
@@ -222,7 +225,9 @@ if ($action === 'get_room_status' || isset($data['get_room_status'])) {
         'mode' => $room['mode'],
         'questionsPerRound' => (int)$room['questions_per_round'],
         'totalRounds' => (int)$room['total_rounds'],
+        'allowBonus' => ((int)($room['allow_bonus'] ?? 1) === 1),
         'totalQuestions' => (int)$room['total_questions'],
+        'allowBonus' => ((int)($room['allow_bonus'] ?? 1) === 1),
         'status' => $room['status'],
         'currentRound' => (int)($room['current_round'] ?? 1),
         'currentQuestionIndex' => (int)($room['current_question_index'] ?? 0),
@@ -305,7 +310,9 @@ if ($action === 'join_room' || isset($data['join_room'])) {
         'mode' => $room['mode'],
         'questionsPerRound' => (int)$room['questions_per_round'],
         'totalRounds' => (int)$room['total_rounds'],
+        'allowBonus' => ((int)($room['allow_bonus'] ?? 1) === 1),
         'totalQuestions' => (int)$room['total_questions'],
+        'allowBonus' => ((int)($room['allow_bonus'] ?? 1) === 1),
         'status' => $room['status'],
         'players' => $players,
         'scores' => $scores
@@ -378,31 +385,55 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
     }
 
     // Progression rules:
-    // 1. If main turn correct -> question complete -> advance to next question, switch to opponent
-    // 2. If main turn wrong -> same question -> bonus turn for opponent!
-    // 3. If bonus turn (either correct or wrong) -> question complete -> advance to next question, turn to opponent
+    // 1. If main turn correct -> question complete -> advance to next question, deterministic turn alternation
+    // 2. If main turn wrong & bonus allowed -> same question -> bonus turn for opponent (HIDE CORRECT OPTION)
+    // 3. If bonus turn (either correct or wrong) -> question complete -> REVEAL correct option -> advance to next question
+    $allowBonus = (int)($room['allow_bonus'] ?? 1);
+    $pCount = max(1, count($players));
+
     $nextIdx = $currentIdx;
     $nextTurnType = 'main';
-    $nextTurnUserId = $opponentId;
     $bonusUserId = null;
+    $hideCorrectOption = false;
+    $correctOptionToSend = $currentQ ? $currentQ['correct_option'] : 'A';
+    $explanationToSend = $currentQ ? $currentQ['explanation'] : '';
 
     if ($turnType === 'main') {
         if ($isCorrect) {
+            // Main player answered correctly: advance to next question
             $nextIdx = $currentIdx + 1;
             $nextTurnType = 'main';
-            $nextTurnUserId = $opponentId;
+            // 100% fair mathematical alternation based on question index
+            $nextTurnUserId = (string)($players[$nextIdx % $pCount]['userId'] ?? $opponentId);
+            $hideCorrectOption = false;
         } else {
-            // Give bonus chance on same question
-            $nextIdx = $currentIdx;
-            $nextTurnType = 'bonus';
-            $nextTurnUserId = $opponentId;
-            $bonusUserId = $opponentId;
+            // Main player answered wrongly!
+            if ($allowBonus && $pCount > 1) {
+                // Opponent gets bonus turn on the SAME question!
+                // CRUCIAL: HIDE the correct answer so opponent does not cheat!
+                $nextIdx = $currentIdx;
+                $nextTurnType = 'bonus';
+                $nextTurnUserId = $opponentId;
+                $bonusUserId = $opponentId;
+                $hideCorrectOption = true;
+                $correctOptionToSend = null;
+                $explanationToSend = null;
+            } else {
+                // Bonus disabled: question is finished!
+                // Reveal answer and advance to next question
+                $nextIdx = $currentIdx + 1;
+                $nextTurnType = 'main';
+                $nextTurnUserId = (string)($players[$nextIdx % $pCount]['userId'] ?? $opponentId);
+                $hideCorrectOption = false;
+            }
         }
     } else {
-        // Conclude bonus turn, advance to next question
+        // Bonus turn answered (either correct or wrong): BOTH players have now attempted!
+        // Question is finished: REVEAL answer and advance to next question
         $nextIdx = $currentIdx + 1;
         $nextTurnType = 'main';
-        $nextTurnUserId = $opponentId;
+        $nextTurnUserId = (string)($players[$nextIdx % $pCount]['userId'] ?? $opponentId);
+        $hideCorrectOption = false;
     }
 
     $totalQuestions = (int)($room['total_questions'] ?? 16);
@@ -412,9 +443,10 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
 
     $resPayload = [
         'isCorrect' => $isCorrect,
-        'correctOption' => $currentQ ? $currentQ['correct_option'] : 'A',
+        'correctOption' => $correctOptionToSend,
+        'hideCorrectOption' => $hideCorrectOption,
         'selectedOption' => $selectedOption,
-        'explanation' => $currentQ ? $currentQ['explanation'] : '',
+        'explanation' => $explanationToSend,
         'pointsAwarded' => $pts,
         'scores' => $scores,
         'turnUserId' => (string)($room['current_turn_user_id'] ?? $userId),
@@ -424,6 +456,7 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
         'nextQuestionIndex' => $nextIdx,
         'nextTurnType' => $nextTurnType,
         'nextTurnUserId' => $nextTurnUserId,
+        'bothMissed' => ($turnType === 'bonus' && !$isCorrect),
         'timestamp' => microtime(true)
     ];
 
@@ -519,6 +552,7 @@ if ($action === 'start_game' || isset($data['start_game'])) {
         'mode' => $room['mode'],
         'questionsPerRound' => (int)$room['questions_per_round'],
         'totalRounds' => (int)$room['total_rounds'],
+        'allowBonus' => ((int)($room['allow_bonus'] ?? 1) === 1),
         'totalQuestions' => (int)$room['total_questions'],
         'status' => 'playing',
         'players' => $players,
@@ -578,7 +612,8 @@ if ($action === 'validate_code' || isset($data['validate_code'])) {
         'hostName' => $room['host_name'] ?? 'Host',
         'mode' => $room['mode'],
         'questionsPerRound' => (int)$room['questions_per_round'],
-        'totalRounds' => (int)$room['total_rounds']
+        'totalRounds' => (int)$room['total_rounds'],
+        'allowBonus' => ((int)($room['allow_bonus'] ?? 1) === 1)
     ]);
     exit;
 }

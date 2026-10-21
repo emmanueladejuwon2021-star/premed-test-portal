@@ -552,6 +552,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && pathname === '/api/combat/create-room') {
     const data = await parseBody(req);
     const { userId, studentName, matricNo, roomName, courseId, topicId, courseCode, topicName, mode, questionsPerRound, totalRounds } = data;
+    const allowBonus = (data.allowBonus !== false && data.allowBonus !== '0' && data.allowBonus !== 0);
 
     if (!userId || !courseId || !topicId) {
       res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -587,6 +588,7 @@ const server = http.createServer(async (req, res) => {
       createdBy: userId,
       hostName: studentName,
       mode: mode || '1v1',
+      allowBonus: allowBonus ? 1 : 0,
       questionsPerRound: numQuestionsPerRound,
       totalRounds: numRounds,
       totalQuestions,
@@ -613,13 +615,13 @@ const server = http.createServer(async (req, res) => {
     await tursoExecute(`
       INSERT INTO combat_rooms (
         id, room_code, room_name, course_id, topic_id, created_by, mode,
-        questions_per_round, total_rounds, total_questions, status, players, scores,
+        questions_per_round, total_rounds, total_questions, allow_bonus, status, players, scores,
         created_at, expires_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, CURRENT_TIMESTAMP, datetime('now', '+1 day'));
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, CURRENT_TIMESTAMP, datetime('now', '+1 day'));
     `, [
       `room_${Math.random().toString(36).substring(2, 10)}`,
       roomCode, room.roomName, courseId, topicId, userId, room.mode,
-      numQuestionsPerRound, numRounds, totalQuestions, JSON.stringify([hostPlayer]), JSON.stringify(room.scores)
+      numQuestionsPerRound, numRounds, totalQuestions, room.allowBonus, JSON.stringify([hostPlayer]), JSON.stringify(room.scores)
     ]);
 
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -1045,6 +1047,7 @@ io.on('connection', (socket) => {
   socket.on('createRoom', async (data) => {
     try {
       const { userId, studentName, matricNo, roomName, courseId, topicId, courseCode, topicName, mode, questionsPerRound, totalRounds } = data;
+      const allowBonus = (data.allowBonus !== false && data.allowBonus !== '0' && data.allowBonus !== 0);
 
       if (userActiveRoomMap.has(userId)) {
         const existingCode = userActiveRoomMap.get(userId);
@@ -1084,6 +1087,7 @@ io.on('connection', (socket) => {
         createdBy: userId,
         hostName: studentName,
         mode: mode || '1v1',
+        allowBonus: allowBonus ? 1 : 0,
         questionsPerRound: numQuestionsPerRound,
         totalRounds: numRounds,
         totalQuestions,
@@ -1113,13 +1117,13 @@ io.on('connection', (socket) => {
       await tursoExecute(`
         INSERT INTO combat_rooms (
           id, room_code, room_name, course_id, topic_id, created_by, mode,
-          questions_per_round, total_rounds, total_questions, status, players, scores,
+          questions_per_round, total_rounds, total_questions, allow_bonus, status, players, scores,
           created_at, expires_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, CURRENT_TIMESTAMP, datetime('now', '+1 day'));
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, CURRENT_TIMESTAMP, datetime('now', '+1 day'));
       `, [
         `room_${Math.random().toString(36).substring(2, 10)}`,
         roomCode, room.roomName, courseId, topicId, userId, room.mode,
-        numQuestionsPerRound, numRounds, totalQuestions, JSON.stringify([hostPlayer]), JSON.stringify(room.scores)
+        numQuestionsPerRound, numRounds, totalQuestions, room.allowBonus, JSON.stringify([hostPlayer]), JSON.stringify(room.scores)
       ]);
 
       socket.emit('roomCreated', { roomCode, room });
@@ -1563,6 +1567,7 @@ async function evaluateMainAnswer(room, selectedOption, currentQ) {
     const resPayload = {
       isCorrect: true,
       correctOption: currentQ.correct_option,
+      hideCorrectOption: false,
       selectedOption,
       explanation: currentQ.explanation,
       pointsAwarded: 2,
@@ -1576,11 +1581,13 @@ async function evaluateMainAnswer(room, selectedOption, currentQ) {
 
     setTimeout(() => advanceToNextTurn(roomCode), 2500);
   } else {
+    const hasBonus = (room.allowBonus !== false && room.allow_bonus !== 0 && room.players.length > 1);
     const resPayload = {
       isCorrect: false,
-      correctOption: currentQ.correct_option,
+      correctOption: hasBonus ? null : currentQ.correct_option,
+      hideCorrectOption: hasBonus,
       selectedOption,
-      explanation: currentQ.explanation,
+      explanation: hasBonus ? null : currentQ.explanation,
       pointsAwarded: 0,
       scores: room.scores,
       turnUserId: room.currentTurnUserId,
@@ -1590,7 +1597,11 @@ async function evaluateMainAnswer(room, selectedOption, currentQ) {
     room.lastAnswerResultTimestamp = Date.now();
     io.to(roomCode).emit('mainAnswerResult', resPayload);
 
-    setTimeout(() => startBonusTurn(roomCode), 2000);
+    if (hasBonus) {
+      setTimeout(() => startBonusTurn(roomCode), 2000);
+    } else {
+      setTimeout(() => advanceToNextTurn(roomCode), 2500);
+    }
   }
 
   // Insert match log into DB
@@ -1726,11 +1737,13 @@ async function evaluateBonusAnswer(room, selectedOption, currentQ) {
     isCorrect,
     selectedOption,
     correctOption: currentQ.correct_option,
+    hideCorrectOption: false,
     explanation: currentQ.explanation,
     pointsAwarded,
     scores: room.scores,
     turnUserId: room.bonusUserId,
-    userId: room.bonusUserId
+    userId: room.bonusUserId,
+    bothMissed: !isCorrect
   };
   room.lastAnswerResult = resPayload;
   room.lastAnswerResultTimestamp = Date.now();
@@ -1766,34 +1779,22 @@ function advanceToNextTurn(roomCode) {
     return;
   }
 
+  room.currentQuestionIndex++;
+
   if (room.mode === '2v1') {
     const currentTurnPlayer = room.players.find(p => p.userId === room.currentTurnUserId);
     if (currentTurnPlayer && currentTurnPlayer.team === 'A') {
       const playerB = room.players.find(p => p.team === 'B');
       if (playerB) room.currentTurnUserId = playerB.userId;
-      room.currentQuestionIndex++;
     } else {
       const playerA = room.players.find(p => p.team === 'A');
       if (playerA) room.currentTurnUserId = playerA.userId;
-      room.currentQuestionIndex++;
     }
   } else {
-    const p1 = room.players[0] ? room.players[0].userId : null;
-    const p2 = room.players[1] ? room.players[1].userId : null;
-
-    if (p1 && p2) {
-      if (room.currentTurnUserId === p1) {
-        room.currentTurnUserId = p2;
-      } else {
-        room.currentTurnUserId = p1;
-      }
-      room.currentQuestionIndex++;
-    } else if (p1) {
-      room.currentTurnUserId = p1;
-      room.currentQuestionIndex++;
-    } else {
-      room.currentQuestionIndex++;
-    }
+    // 100% fair deterministic turn alternation based on question index
+    const pCount = room.players.length;
+    const nextPlayerIndex = room.currentQuestionIndex % pCount;
+    room.currentTurnUserId = room.players[nextPlayerIndex].userId;
   }
 
   const numPlayers = room.mode === '2v1' ? 2 : Math.max(1, room.players.length);

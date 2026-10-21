@@ -254,6 +254,28 @@ $matchHistory = $historyStmt->fetchAll();
                         </div>
                     </div>
 
+                    <!-- Field 7: Bonus Opportunities / Steal Window Toggle -->
+                    <div>
+                        <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 hover:border-purple-300 dark:hover:border-purple-800 transition-all">
+                            <div class="flex items-center justify-between gap-4">
+                                <div class="space-y-1">
+                                    <label for="formAllowBonus" class="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5 cursor-pointer">
+                                        <i data-lucide="zap" class="w-4 h-4 text-amber-500"></i>
+                                        <span>Bonus Attempt / Steal Window</span>
+                                    </label>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                                        When <strong class="text-purple-600 dark:text-purple-400">ON</strong>: If a player fails their turn, opponent gets a 15s bonus chance (+1 or -1 pt). Answer remains strictly hidden until both miss or someone scores.<br>
+                                        When <strong class="text-slate-600 dark:text-slate-400">OFF</strong>: Turn advances immediately without bonus attempts.
+                                    </p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                    <input type="checkbox" id="formAllowBonus" name="allow_bonus" value="1" checked class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-purple-600"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Submit Button -->
                     <button type="submit" class="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-sm font-black uppercase tracking-wider shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center gap-2">
                         <i data-lucide="sparkles" class="w-5 h-5"></i>
@@ -290,7 +312,10 @@ $matchHistory = $historyStmt->fetchAll();
                     <div id="roomPreviewCard" class="hidden bg-slate-50 dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 text-left space-y-3">
                         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                             <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Room Preview</span>
-                            <span id="prevModeBadge" class="px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 text-[10px] font-black">1v1</span>
+                            <div class="flex items-center gap-1.5">
+                                <span id="prevModeBadge" class="px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 text-[10px] font-black">1v1</span>
+                                <span id="prevBonusBadge" class="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-[10px] font-black">Bonus: ON</span>
+                            </div>
                         </div>
                         <div class="grid grid-cols-2 gap-2 text-xs">
                             <div><span class="text-slate-400">Room Name:</span> <strong id="prevRoomName" class="block text-slate-800 dark:text-slate-100">--</strong></div>
@@ -302,8 +327,8 @@ $matchHistory = $historyStmt->fetchAll();
                         <!-- Rules Summary -->
                         <div class="bg-purple-50 dark:bg-purple-950/40 p-3 rounded-xl border border-purple-100 dark:border-purple-900/50 text-[11px] text-purple-900 dark:text-purple-300 space-y-1">
                             <div class="font-bold flex items-center gap-1"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Battle Rules:</div>
-                            <div>• 30s per main turn | +2 pts correct answer</div>
-                            <div>• 15s bonus turn on opponent fail | +1 pt correct | -1 pt fail</div>
+                            <div>• 30s per main turn | +2 pts correct answer (fair turn alternation)</div>
+                            <div id="prevBonusRuleText">• 15s bonus turn on opponent fail | +1 pt correct | -1 pt fail</div>
                         </div>
 
                         <!-- Agree Checkbox -->
@@ -876,7 +901,8 @@ $matchHistory = $historyStmt->fetchAll();
                     topicName: tOpt ? tOpt.text : 'Topic',
                     mode: selectedModeVal,
                     questionsPerRound: selectedQPerRound,
-                    totalRounds: selectedRounds
+                    totalRounds: selectedRounds,
+                    allowBonus: document.getElementById('formAllowBonus') ? document.getElementById('formAllowBonus').checked : true
                 };
 
                 async function handleRoomCreatedData(data) {
@@ -986,6 +1012,21 @@ $matchHistory = $historyStmt->fetchAll();
                         document.getElementById('prevCourseCode').textContent = data.courseCode || 'Course';
                         document.getElementById('prevTopicName').textContent = data.topicName || 'Topic';
                         document.getElementById('prevModeBadge').textContent = data.mode;
+
+                        const bonusBadge = document.getElementById('prevBonusBadge');
+                        const bonusRuleText = document.getElementById('prevBonusRuleText');
+                        const isBonusOn = (data.allowBonus !== false);
+                        if (bonusBadge) {
+                            bonusBadge.textContent = isBonusOn ? 'Bonus: ON' : 'Bonus: OFF';
+                            bonusBadge.className = isBonusOn 
+                                ? 'px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-[10px] font-black'
+                                : 'px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-black';
+                        }
+                        if (bonusRuleText) {
+                            bonusRuleText.textContent = isBonusOn 
+                                ? '• 15s bonus turn on opponent fail | +1 pt correct | -1 pt fail'
+                                : '• Bonus turn disabled: immediate advance on miss';
+                        }
 
                         updateJoinBtnState();
                     } else {
@@ -1214,6 +1255,8 @@ $matchHistory = $historyStmt->fetchAll();
             if (checkingBanner) checkingBanner.classList.add('hidden');
             const confirmBar = document.getElementById('confirmActionBar');
             if (confirmBar) confirmBar.classList.add('hidden');
+            const overlay = document.getElementById('battleResultOverlay');
+            if (overlay) overlay.classList.add('hidden');
 
             if (data.bonusUserId === STUDENT_ID) {
                 turnsBadge.textContent = '⚡ BONUS CHANCE! +1 Point or -1 Point! ⚡';
@@ -1733,6 +1776,11 @@ $matchHistory = $historyStmt->fetchAll();
         const btns = document.querySelectorAll('.opt-btn');
         btns.forEach(b => {
             b.disabled = false;
+            b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-amber-500 text-left font-semibold text-xs transition-all flex items-center gap-3 cursor-pointer';
+            const keyBadge = b.querySelector('.opt-key-badge');
+            if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0';
+            const lockIcon = b.querySelector('i');
+            if (lockIcon) lockIcon.remove();
             b.onclick = function() {
                 selectOption(b.dataset.key);
             };
@@ -1875,8 +1923,8 @@ $matchHistory = $historyStmt->fetchAll();
 
         overlay.classList.remove('hidden');
 
-        // Highlight correct option in green for everyone
-        if (data.correctOption) {
+        // CRITICAL ANTI-CHEAT: Highlight correct option ONLY if answer is NOT hidden
+        if (data.correctOption && !data.hideCorrectOption) {
             const btns = document.querySelectorAll('.opt-btn');
             btns.forEach(b => {
                 if (b.dataset.key === data.correctOption) {
@@ -1885,6 +1933,29 @@ $matchHistory = $historyStmt->fetchAll();
                     if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0';
                 }
             });
+        }
+
+        // Highlight selected wrong option in red for active player so they know they made a wrong choice
+        if (data.selectedOption && !data.isCorrect) {
+            const btns = document.querySelectorAll('.opt-btn');
+            btns.forEach(b => {
+                if (b.dataset.key === data.selectedOption) {
+                    b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-rose-500 bg-rose-50 dark:bg-rose-950/80 text-rose-900 dark:text-rose-100 font-black text-xs transition-all flex items-center gap-3 shadow-md ring-2 ring-rose-500/30';
+                    const keyBadge = b.querySelector('.opt-key-badge');
+                    if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-rose-600 text-white font-black text-xs flex items-center justify-center shrink-0';
+                }
+            });
+        }
+
+        // Special case: Both players missed this question
+        if (data.bothMissed) {
+            overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-slate-100 dark:bg-slate-800/90 border-2 border-slate-300 dark:border-slate-700 shadow-2xl animate-in zoom-in-95 pointer-events-none mx-auto max-w-sm';
+            iconDiv.textContent = '❌';
+            textDiv.textContent = 'BOTH PLAYERS MISSED!';
+            textDiv.className = 'text-2xl font-black text-slate-800 dark:text-white uppercase tracking-wider';
+            ptsDiv.textContent = data.correctOption ? `Correct Answer was: (${data.correctOption})` : '0 Points Awarded';
+            ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-slate-700 text-white shadow-md';
+            return;
         }
 
         const isMainTurnAnswer = (String(data.userId) === String(STUDENT_ID));
@@ -1908,7 +1979,7 @@ $matchHistory = $historyStmt->fetchAll();
                 iconDiv.textContent = '❌';
                 textDiv.textContent = 'WRONG!';
                 textDiv.className = 'text-2xl font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider';
-                ptsDiv.textContent = `${data.pointsAwarded < 0 ? data.pointsAwarded + ' Points' : 'Wrong! 0 Points'}`;
+                ptsDiv.textContent = data.hideCorrectOption ? 'Bonus chance passed to opponent!' : `${data.pointsAwarded < 0 ? data.pointsAwarded + ' Points' : '0 Points'}`;
                 ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-rose-500 text-white shadow-md';
             }
         } else {
@@ -1926,12 +1997,12 @@ $matchHistory = $historyStmt->fetchAll();
                     cardContainer.classList.add('animate-shake');
                     setTimeout(() => cardContainer.classList.remove('animate-shake'), 600);
                 }
-                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-500/50 shadow-2xl animate-in zoom-in-95 pointer-events-none mx-auto max-w-sm';
-                iconDiv.textContent = '👀';
-                textDiv.textContent = 'OPPONENT WRONG! ❌';
-                textDiv.className = 'text-2xl font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider';
-                ptsDiv.textContent = 'Opponent Failed!';
-                ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-rose-500 text-white shadow-md';
+                overlay.className = 'my-4 p-6 rounded-3xl text-center space-y-2 bg-amber-50 dark:bg-amber-950/60 border-2 border-amber-500/50 shadow-2xl animate-in zoom-in-95 pointer-events-none mx-auto max-w-sm';
+                iconDiv.textContent = '⚡';
+                textDiv.textContent = 'OPPONENT MISSED!';
+                textDiv.className = 'text-2xl font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider';
+                ptsDiv.textContent = data.hideCorrectOption ? 'Prepare for your Bonus Chance!' : 'Opponent failed!';
+                ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-amber-500 text-white shadow-md';
             }
         }
     }
