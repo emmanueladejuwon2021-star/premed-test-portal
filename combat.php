@@ -1065,11 +1065,15 @@ $matchHistory = $historyStmt->fetchAll();
                     totalRounds: room.totalRounds || 4,
                     questionsPerRound: room.questionsPerRound || 4,
                     turnUserId: room.currentTurnUserId || (room.players[0] ? room.players[0].userId : STUDENT_ID),
-                    scores: room.scores || {}
+                    scores: room.scores || {},
+                    timerDuration: 30
                 });
             }
         }
         if (window.lucide) lucide.createIcons();
+
+        // Start heartbeat in-game synchronization loop (runs on all clients)
+        startArenaSyncLoop();
     }
 
     function prepareQuestionForClient(q) {
@@ -1321,10 +1325,124 @@ $matchHistory = $historyStmt->fetchAll();
         if (window.lucide) lucide.createIcons();
     }
 
-    // Resilient Local Countdown Timer Engine (Wall-Clock Anchored + Server Sync)
+    // Production-Grade Real-Time Arena Synchronizer & Dual-Sync Engine
     let localCountdownInterval = null;
     let localTimeRemaining = 30;
     let turnStartTimestamp = null;
+    let arenaSyncInterval = null;
+    let lastRenderedTurnKey = null;
+    let lastDisplayedResultTs = null;
+    let isEvaluatingTurn = false;
+
+    function isMyTurn(userId) {
+        return String(userId) === String(STUDENT_ID);
+    }
+
+    
+    // Production In-Game Synchronization Heartbeat
+    function startArenaSyncLoop() {
+        if (arenaSyncInterval) clearInterval(arenaSyncInterval);
+
+        arenaSyncInterval = setInterval(async () => {
+            if (!currentRoom || !currentRoom.roomCode) return;
+
+            try {
+                const res = await fetch('api/combat_handler.php?action=get_room_status&roomCode=' + encodeURIComponent(currentRoom.roomCode));
+                const data = await res.json();
+                if (!data.success || !data.room) return;
+
+                const r = data.room;
+                currentRoom = r;
+
+                // 1. If game ended
+                if (r.status === 'finished') {
+                    stopResilientCountdown();
+                    clearInterval(arenaSyncInterval);
+                    arenaSyncInterval = null;
+                    showFinalVictoryModal({
+                        isDraw: false,
+                        winnerName: 'Battle Completed',
+                        finalScores: r.scores
+                    });
+                    return;
+                }
+
+                // 2. Sync scores across screens
+                if (r.scores) {
+                    updateLiveScoreboard(r.scores);
+                }
+
+                // 3. Sync opponent answer results in real-time
+                if (r.lastAnswerResult && r.lastAnswerResult.timestamp) {
+                    const ts = r.lastAnswerResult.timestamp;
+                    const elapsedSinceResult = (Date.now() / 1000) - ts;
+                    if (ts !== lastDisplayedResultTs && elapsedSinceResult < 3.5) {
+                        lastDisplayedResultTs = ts;
+                        showAnswerResult(r.lastAnswerResult);
+                    }
+                }
+
+                // 4. Sync question/turn progression across both players
+                const turnKey = `${r.currentQuestionIndex}_${r.turnType || 'main'}_${r.currentTurnUserId}`;
+                if (turnKey !== lastRenderedTurnKey) {
+                    const elapsedSinceAnswer = (Date.now() / 1000) - (r.lastAnswerTimestamp || 0);
+                    // Give 1.8s visual window for answer feedback overlay before swapping to new question
+                    if (r.lastAnswerResult && elapsedSinceAnswer < 1.8) {
+                        return;
+                    }
+
+                    lastRenderedTurnKey = turnKey;
+                    isSubmittingAnswer = false;
+
+                    const overlay = document.getElementById('battleResultOverlay');
+                    if (overlay) overlay.classList.add('hidden');
+
+                    if (r.turnType === 'bonus') {
+                        // Bonus Turn Setup
+                        currentTurnIsBonus = true;
+                        currentSelectedOptionKey = null;
+                        activeTimerMaxDuration = 15;
+
+                        const turnsBadge = document.getElementById('questionTurnBadge');
+                        const spectatorBar = document.getElementById('spectatorStatusBar');
+                        const spectatorText = document.getElementById('spectatorStatusText');
+
+                        if (isMyTurn(r.currentTurnUserId)) {
+                            turnsBadge.textContent = '⚡ BONUS CHANCE! +1 Point or -1 Point! ⚡';
+                            turnsBadge.className = 'text-xs sm:text-sm font-black uppercase tracking-wider text-amber-500 animate-pulse bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/30';
+                            if (spectatorBar) spectatorBar.classList.add('hidden');
+                            enableOptionsForBonus();
+                        } else {
+                            turnsBadge.textContent = 'SPECTATING BONUS TURN';
+                            turnsBadge.className = 'text-xs font-black uppercase tracking-wider text-slate-400';
+                            if (spectatorBar) spectatorBar.classList.remove('hidden');
+                            if (spectatorText) spectatorText.textContent = 'Opponent is on Bonus Turn (+1 or -1)... You are spectating.';
+                            disableOptions();
+                        }
+                        startResilientCountdown(15);
+                    } else {
+                        // Main Turn Question Setup
+                        currentTurnIsBonus = false;
+                        if (r.questionsPool && r.questionsPool[r.currentQuestionIndex]) {
+                            const q = r.questionsPool[r.currentQuestionIndex];
+                            renderQuestion({
+                                question: prepareQuestionForClient(q),
+                                questionNumber: (r.currentQuestionIndex % (r.questionsPerRound || 4)) + 1,
+                                roundNumber: r.currentRound || 1,
+                                totalRounds: r.totalRounds || 4,
+                                questionsPerRound: r.questionsPerRound || 4,
+                                turnUserId: r.currentTurnUserId,
+                                scores: r.scores || {},
+                                timerDuration: 30
+                            });
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('Sync loop heartbeat error:', err);
+            }
+        }, 1000);
+    }
 
     function startResilientCountdown(durationSec) {
         stopResilientCountdown();
@@ -1364,11 +1482,11 @@ $matchHistory = $historyStmt->fetchAll();
             turnBadge.textContent.includes('BONUS CHANCE')
         );
 
-        const isMyTurn = currentTurnIsBonus
-            ? (currentRoom && currentRoom.bonusUserId === STUDENT_ID)
-            : (currentRoom && currentRoom.currentTurnUserId === STUDENT_ID);
+        const activeTurnUser = currentTurnIsBonus
+            ? (currentRoom && (currentRoom.bonusUserId || currentRoom.currentTurnUserId))
+            : (currentRoom && currentRoom.currentTurnUserId);
 
-        const shouldSubmit = (isMyTurn || badgeSaysMyTurn);
+        const shouldSubmit = isMyTurn(activeTurnUser) || badgeSaysMyTurn;
 
         if (shouldSubmit) {
             isSubmittingAnswer = true;
@@ -1430,6 +1548,7 @@ $matchHistory = $historyStmt->fetchAll();
 
     // Render Active Question
     function renderQuestion(data) {
+        lastRenderedTurnKey = `${(data.questionNumber - 1)}_${currentTurnIsBonus ? 'bonus' : 'main'}_${data.turnUserId}`;
         currentTurnIsBonus = false;
         currentSelectedOptionKey = null;
         isSubmittingAnswer = false;
@@ -1445,7 +1564,7 @@ $matchHistory = $historyStmt->fetchAll();
         const resultOverlay = document.getElementById('battleResultOverlay');
         if (resultOverlay) resultOverlay.classList.add('hidden');
 
-        const isMyTurn = (data.turnUserId === STUDENT_ID);
+        const isMyTurn = (String(data.turnUserId) === String(STUDENT_ID));
         const turnBadge = document.getElementById('questionTurnBadge');
         const spectatorBar = document.getElementById('spectatorStatusBar');
         const spectatorText = document.getElementById('spectatorStatusText');
@@ -1546,19 +1665,6 @@ $matchHistory = $historyStmt->fetchAll();
                 body: JSON.stringify(payload)
             }).then(r => r.json()).then(data => {
                 showAnswerResult(data);
-                // Auto-advance after 2.5s for REST submissions
-                setTimeout(() => {
-                    if (currentRoom) {
-                        fetch('api/combat_handler.php?action=get_room_status&roomCode=' + encodeURIComponent(currentRoom.roomCode))
-                            .then(r => r.json())
-                            .then(resData => {
-                                if (resData.success && resData.room) {
-                                    currentRoom = resData.room;
-                                    launchBattleArena(resData.room);
-                                }
-                            }).catch(e => console.warn('REST turn advance error:', e));
-                    }
-                }, 2500);
             }).catch(err => console.error('REST submit error:', err));
         }
     }
@@ -1721,7 +1827,7 @@ $matchHistory = $historyStmt->fetchAll();
             });
         }
 
-        const isMainTurnAnswer = (data.userId === STUDENT_ID || data.turnUserId === STUDENT_ID);
+        const isMainTurnAnswer = (String(data.userId) === String(STUDENT_ID));
 
         if (isMainTurnAnswer) {
             // Active Player Answering

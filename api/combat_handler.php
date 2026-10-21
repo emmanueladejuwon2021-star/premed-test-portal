@@ -102,13 +102,15 @@ if ($action === 'create_room' || isset($data['create_room'])) {
         INSERT INTO combat_rooms (
             id, room_code, room_name, course_id, topic_id, created_by, mode,
             questions_per_round, total_rounds, total_questions, status, players, scores,
+            questions_pool, current_round, current_question_index, current_turn_user_id, turn_type,
             created_at, expires_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, CURRENT_TIMESTAMP, datetime('now', '+1 day'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, ?, 1, 0, ?, 'main', CURRENT_TIMESTAMP, datetime('now', '+1 day'))
     ");
     $stmt->execute([
         $roomId, $code, $roomName, $courseId, $topicId, $userId, $mode,
         $questionsPerRound, $totalRounds, $totalQuestions,
-        json_encode([$hostPlayer]), json_encode([$userId => 0])
+        json_encode([$hostPlayer]), json_encode([(string)$userId => 0]),
+        json_encode($finalPool), (string)$userId
     ]);
 
     $roomState = [
@@ -153,8 +155,8 @@ if ($action === 'get_room_status' || isset($data['get_room_status'])) {
     $players = json_decode($room['players'] ?? '[]', true);
     $scores = json_decode($room['scores'] ?? '{}', true);
 
-    $questionsPool = [];
-    if ($room['status'] === 'playing') {
+    $questionsPool = json_decode($room['questions_pool'] ?? '[]', true);
+    if (empty($questionsPool)) {
         $pastQs = $pdo->prepare("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions WHERE topic_id = ?");
         $pastQs->execute([$room['topic_id']]);
         $questionsPool = $pastQs->fetchAll(PDO::FETCH_ASSOC);
@@ -162,14 +164,20 @@ if ($action === 'get_room_status' || isset($data['get_room_status'])) {
             $fallback = $pdo->query("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions LIMIT 40");
             $questionsPool = $fallback->fetchAll(PDO::FETCH_ASSOC);
         }
+        shuffle($questionsPool);
+        try {
+            $updPool = $pdo->prepare("UPDATE combat_rooms SET questions_pool = ? WHERE room_code = ?");
+            $updPool->execute([json_encode($questionsPool), $code]);
+        } catch (Exception $e) {}
     }
+    $lastAnswerResult = json_decode($room['last_answer_result'] ?? 'null', true);
 
     $roomState = [
         'roomCode' => $code,
         'roomName' => $room['room_name'],
         'courseId' => $room['course_id'],
         'topicId' => $room['topic_id'],
-        'createdBy' => $room['created_by'],
+        'createdBy' => (string)$room['created_by'],
         'mode' => $room['mode'],
         'questionsPerRound' => (int)$room['questions_per_round'],
         'totalRounds' => (int)$room['total_rounds'],
@@ -177,7 +185,11 @@ if ($action === 'get_room_status' || isset($data['get_room_status'])) {
         'status' => $room['status'],
         'currentRound' => (int)($room['current_round'] ?? 1),
         'currentQuestionIndex' => (int)($room['current_question_index'] ?? 0),
-        'currentTurnUserId' => $room['current_turn_user_id'] ?? ($players[0]['userId'] ?? ''),
+        'currentTurnUserId' => (string)($room['current_turn_user_id'] ?? ($players[0]['userId'] ?? '')),
+        'turnType' => $room['turn_type'] ?? 'main',
+        'bonusUserId' => $room['bonus_user_id'] ?? null,
+        'lastAnswerResult' => $lastAnswerResult,
+        'lastAnswerTimestamp' => (float)($room['last_answer_timestamp'] ?? 0),
         'players' => $players,
         'scores' => $scores,
         'questionsPool' => $questionsPool
@@ -295,27 +307,112 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
         $currentQ = $questions[$currentIdx % max(1, count($questions))] ?? null;
     }
 
-    $isCorrect = ($currentQ && $selectedOption === $currentQ['correct_option']);
-    $pts = $isCorrect ? 2 : 0;
-
-    if ($isCorrect) {
-        $scores[$userId] = ($scores[$userId] ?? 0) + $pts;
+    $storedPool = json_decode($room['questions_pool'] ?? '[]', true);
+    $currentIdx = (int)($room['current_question_index'] ?? 0);
+    if (!empty($storedPool)) {
+        $currentQ = $storedPool[$currentIdx % count($storedPool)] ?? $currentQ;
     }
 
+    $turnType = $room['turn_type'] ?? 'main';
+    $isCorrect = ($currentQ && $selectedOption === $currentQ['correct_option']);
+
+    if ($turnType === 'main') {
+        $pts = $isCorrect ? 2 : 0;
+    } else {
+        // Bonus Turn Scoring (+1 for correct, -1 for wrong, 0 for timeout)
+        $pts = $isCorrect ? 1 : ($selectedOption === 'TIMEOUT' ? 0 : -1);
+    }
+
+    $scores[(string)$userId] = ($scores[(string)$userId] ?? 0) + $pts;
+
     $players = json_decode($room['players'] ?? '[]', true);
-    $nextIdx = (int)($room['current_question_index'] ?? 0) + 1;
-    $nextTurnUserId = $userId;
-    if (count($players) > 1) {
+    $opponentId = (string)$userId;
+    if (is_array($players) && count($players) > 1) {
         foreach ($players as $p) {
-            if ($p['userId'] !== $userId) {
-                $nextTurnUserId = $p['userId'];
+            if ((string)$p['userId'] !== (string)$userId) {
+                $opponentId = (string)$p['userId'];
                 break;
             }
         }
     }
 
-    $upd = $pdo->prepare("UPDATE combat_rooms SET scores = ?, current_question_index = ?, current_turn_user_id = ? WHERE room_code = ?");
-    $upd->execute([json_encode($scores), $nextIdx, $nextTurnUserId, $code]);
+    // Progression rules:
+    // 1. If main turn correct -> question complete -> advance to next question, switch to opponent
+    // 2. If main turn wrong -> same question -> bonus turn for opponent!
+    // 3. If bonus turn (either correct or wrong) -> question complete -> advance to next question, turn to opponent
+    $nextIdx = $currentIdx;
+    $nextTurnType = 'main';
+    $nextTurnUserId = $opponentId;
+    $bonusUserId = null;
+
+    if ($turnType === 'main') {
+        if ($isCorrect) {
+            $nextIdx = $currentIdx + 1;
+            $nextTurnType = 'main';
+            $nextTurnUserId = $opponentId;
+        } else {
+            // Give bonus chance on same question
+            $nextIdx = $currentIdx;
+            $nextTurnType = 'bonus';
+            $nextTurnUserId = $opponentId;
+            $bonusUserId = $opponentId;
+        }
+    } else {
+        // Conclude bonus turn, advance to next question
+        $nextIdx = $currentIdx + 1;
+        $nextTurnType = 'main';
+        $nextTurnUserId = $opponentId;
+    }
+
+    $totalQuestions = (int)($room['total_questions'] ?? 16);
+    $qPerRound = (int)($room['questions_per_round'] ?? 4);
+    $nextRound = (int)floor($nextIdx / max(1, $qPerRound)) + 1;
+    $nextStatus = ($nextIdx >= $totalQuestions) ? 'finished' : 'playing';
+
+    $resPayload = [
+        'isCorrect' => $isCorrect,
+        'correctOption' => $currentQ ? $currentQ['correct_option'] : 'A',
+        'selectedOption' => $selectedOption,
+        'explanation' => $currentQ ? $currentQ['explanation'] : '',
+        'pointsAwarded' => $pts,
+        'scores' => $scores,
+        'turnUserId' => (string)($room['current_turn_user_id'] ?? $userId),
+        'userId' => (string)$userId,
+        'turnType' => $turnType,
+        'questionIndex' => $currentIdx,
+        'nextQuestionIndex' => $nextIdx,
+        'nextTurnType' => $nextTurnType,
+        'nextTurnUserId' => $nextTurnUserId,
+        'timestamp' => microtime(true)
+    ];
+
+    try {
+        $upd = $pdo->prepare("
+            UPDATE combat_rooms
+            SET scores = ?,
+                current_question_index = ?,
+                current_round = ?,
+                current_turn_user_id = ?,
+                turn_type = ?,
+                bonus_user_id = ?,
+                last_answer_result = ?,
+                last_answer_timestamp = ?,
+                status = ?
+            WHERE room_code = ?
+        ");
+        $upd->execute([
+            json_encode($scores),
+            $nextIdx,
+            $nextRound,
+            $nextTurnUserId,
+            $nextTurnType,
+            $bonusUserId,
+            json_encode($resPayload),
+            microtime(true),
+            $nextStatus,
+            $code
+        ]);
+    } catch (Exception $e) {}
 
     // Insert match log into DB
     try {
@@ -325,24 +422,16 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
                 id, room_code, round_number, question_number_in_round, turn_type,
                 question_id, asked_to_user_id, main_selected_option, main_is_correct,
                 main_time_used, points_awarded, created_at
-            ) VALUES (?, ?, ?, ?, 'main', ?, ?, ?, ?, 0.0, ?, CURRENT_TIMESTAMP)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0.0, ?, CURRENT_TIMESTAMP)
         ");
         $logStmt->execute([
-            $logId, $code, (int)($room['current_round'] ?? 1), (int)($room['current_question_index'] ?? 0) + 1,
-            $currentQ['id'] ?? '', $userId, $selectedOption ?: 'TIMEOUT', $isCorrect ? 1 : 0,
-            json_encode([$userId => $pts])
+            $logId, $code, (int)($room['current_round'] ?? 1), $currentIdx + 1,
+            $turnType, $currentQ['id'] ?? '', (string)$userId, $selectedOption ?: 'TIMEOUT', $isCorrect ? 1 : 0,
+            json_encode([(string)$userId => $pts])
         ]);
     } catch (Exception $e) {}
 
-    echo json_encode([
-        'isCorrect' => $isCorrect,
-        'correctOption' => $currentQ ? $currentQ['correct_option'] : 'A',
-        'explanation' => $currentQ ? $currentQ['explanation'] : '',
-        'pointsAwarded' => $pts,
-        'scores' => $scores,
-        'turnUserId' => $room['current_turn_user_id'] ?? $userId,
-        'userId' => $userId
-    ]);
+    echo json_encode($resPayload);
     exit;
 }
 
@@ -365,16 +454,20 @@ if ($action === 'start_game' || isset($data['start_game'])) {
     $players = json_decode($room['players'] ?? '[]', true);
     $scores = json_decode($room['scores'] ?? '{}', true);
 
-    // Fetch Questions Pool
-    $pastQs = $pdo->prepare("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions WHERE topic_id = ?");
-    $pastQs->execute([$room['topic_id']]);
-    $questionsPool = $pastQs->fetchAll(PDO::FETCH_ASSOC);
-
+    // Fetch Questions Pool from room or populate once
+    $questionsPool = json_decode($room['questions_pool'] ?? '[]', true);
     if (empty($questionsPool)) {
-        $fallback = $pdo->query("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions LIMIT 40");
-        $questionsPool = $fallback->fetchAll(PDO::FETCH_ASSOC);
+        $pastQs = $pdo->prepare("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions WHERE topic_id = ?");
+        $pastQs->execute([$room['topic_id']]);
+        $questionsPool = $pastQs->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($questionsPool)) {
+            $fallback = $pdo->query("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions LIMIT 40");
+            $questionsPool = $fallback->fetchAll(PDO::FETCH_ASSOC);
+        }
+        shuffle($questionsPool);
     }
-    shuffle($questionsPool);
+    $updPool = $pdo->prepare("UPDATE combat_rooms SET questions_pool = ?, current_round = 1, current_question_index = 0, current_turn_user_id = ?, turn_type = 'main', last_answer_result = NULL WHERE room_code = ?");
+    $updPool->execute([json_encode($questionsPool), (string)($players[0]['userId'] ?? $userId), $code]);
 
     $roomState = [
         'roomCode' => $code,
