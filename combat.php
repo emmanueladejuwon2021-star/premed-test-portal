@@ -1111,7 +1111,16 @@ $matchHistory = $historyStmt->fetchAll();
         });
 
         socket.on('timerUpdate', (data) => {
-            syncTimerDisplay(data.timeRemaining, activeTimerMaxDuration);
+            if (typeof data.timeRemaining === 'number') {
+                const rem = Math.max(0, data.timeRemaining);
+                localTimeRemaining = rem;
+                turnStartTimestamp = Date.now() - ((activeTimerMaxDuration - rem) * 1000);
+                syncTimerDisplay(rem, activeTimerMaxDuration);
+                if (rem <= 0) {
+                    stopResilientCountdown();
+                    handleLocalTimeout();
+                }
+            }
         });
 
         socket.on('mainAnswerResult', (data) => {
@@ -1312,27 +1321,29 @@ $matchHistory = $historyStmt->fetchAll();
         if (window.lucide) lucide.createIcons();
     }
 
-    // Resilient Local Countdown Timer Engine
+    // Resilient Local Countdown Timer Engine (Wall-Clock Anchored + Server Sync)
     let localCountdownInterval = null;
     let localTimeRemaining = 30;
+    let turnStartTimestamp = null;
 
     function startResilientCountdown(durationSec) {
         stopResilientCountdown();
         activeTimerMaxDuration = durationSec || 30;
         localTimeRemaining = activeTimerMaxDuration;
+        turnStartTimestamp = Date.now();
         syncTimerDisplay(localTimeRemaining, activeTimerMaxDuration);
 
         localCountdownInterval = setInterval(() => {
-            localTimeRemaining--;
+            if (!turnStartTimestamp) return;
+            const elapsed = Math.floor((Date.now() - turnStartTimestamp) / 1000);
+            localTimeRemaining = Math.max(0, activeTimerMaxDuration - elapsed);
             syncTimerDisplay(localTimeRemaining, activeTimerMaxDuration);
 
             if (localTimeRemaining <= 0) {
                 stopResilientCountdown();
-                if (!isSubmittingAnswer) {
-                    handleLocalTimeout();
-                }
+                handleLocalTimeout();
             }
-        }, 1000);
+        }, 200);
     }
 
     function stopResilientCountdown() {
@@ -1340,32 +1351,61 @@ $matchHistory = $historyStmt->fetchAll();
             clearInterval(localCountdownInterval);
             localCountdownInterval = null;
         }
+        turnStartTimestamp = null;
     }
 
     function handleLocalTimeout() {
         if (isSubmittingAnswer) return;
-        isSubmittingAnswer = true;
-        disableOptions();
+        stopResilientCountdown();
 
-        const checkingBanner = document.getElementById('checkingAnswerBanner');
-        if (checkingBanner) {
-            checkingBanner.classList.remove('hidden');
-            const txt = checkingBanner.querySelector('span');
-            if (txt) txt.textContent = 'Time Expired! Moving to next turn... ⏳';
-        }
+        const turnBadge = document.getElementById('questionTurnBadge');
+        const badgeSaysMyTurn = turnBadge && (
+            turnBadge.textContent.includes('YOUR TURN') || 
+            turnBadge.textContent.includes('BONUS CHANCE')
+        );
 
-        setTimeout(() => {
-            if (currentRoom) {
-                fetch('api/combat_handler.php?action=get_room_status&roomCode=' + encodeURIComponent(currentRoom.roomCode))
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.success && data.room) {
-                            currentRoom = data.room;
-                            launchBattleArena(data.room);
-                        }
-                    }).catch(e => console.warn('Timeout status check error:', e));
+        const isMyTurn = currentTurnIsBonus
+            ? (currentRoom && currentRoom.bonusUserId === STUDENT_ID)
+            : (currentRoom && currentRoom.currentTurnUserId === STUDENT_ID);
+
+        const shouldSubmit = (isMyTurn || badgeSaysMyTurn);
+
+        if (shouldSubmit) {
+            isSubmittingAnswer = true;
+            disableOptions();
+
+            const checkingBanner = document.getElementById('checkingAnswerBanner');
+            if (checkingBanner) {
+                checkingBanner.classList.remove('hidden');
+                const txt = checkingBanner.querySelector('span');
+                if (txt) txt.textContent = 'Time Expired! Evaluating... ⏳';
             }
-        }, 1500);
+
+            const payload = {
+                roomCode: currentRoom ? currentRoom.roomCode : '',
+                userId: STUDENT_ID,
+                selectedOption: 'TIMEOUT',
+                clientSubmitTimestamp: Date.now()
+            };
+
+            if (socket && socket.connected) {
+                socket.emit(currentTurnIsBonus ? 'bonusAnswerSubmitted' : 'mainAnswerSubmitted', payload);
+            } else {
+                fetch('api/combat_handler.php?action=submit_answer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).then(r => r.json()).then(data => {
+                    data.message = 'Time Expired!';
+                    showAnswerResult(data);
+                }).catch(err => console.error('Timeout submit error:', err));
+            }
+        } else {
+            const spectatorText = document.getElementById('spectatorStatusText');
+            if (spectatorText) {
+                spectatorText.innerHTML = '<span class="text-rose-400 font-bold animate-pulse">⏰ Time Expired! Moving to next turn...</span>';
+            }
+        }
     }
 
     // Server-Authoritative Timer Display Helper
@@ -1528,6 +1568,7 @@ $matchHistory = $historyStmt->fetchAll();
     let roundBreakCountdownInterval = null;
 
     function showRoundVictoryModal(data) {
+        stopResilientCountdown();
         const modal = document.getElementById('roundVictoryModal');
         if (!modal) return;
         document.getElementById('roundVictoryTitle').textContent = `Round ${data.roundNumber} Finished!`;
@@ -1637,6 +1678,7 @@ $matchHistory = $historyStmt->fetchAll();
     }
 
     function showAnswerResult(data) {
+        stopResilientCountdown();
         const checkingBanner = document.getElementById('checkingAnswerBanner');
         if (checkingBanner) checkingBanner.classList.add('hidden');
 
@@ -1716,6 +1758,7 @@ $matchHistory = $historyStmt->fetchAll();
     }
 
     function showFinalVictoryModal(data) {
+        stopResilientCountdown();
         const modal = document.getElementById('finalVictoryModal');
         if (!modal) return;
         modal.classList.remove('hidden');
