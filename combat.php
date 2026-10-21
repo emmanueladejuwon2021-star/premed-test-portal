@@ -910,11 +910,24 @@ $matchHistory = $historyStmt->fetchAll();
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    const dataPhp = await resPhp.json();
+                    const rawText = await resPhp.text();
+                    let dataPhp;
+                    try {
+                        dataPhp = JSON.parse(rawText);
+                    } catch (parseErr) {
+                        console.error('Non-JSON server response:', rawText);
+                        alert('Server error creating room: ' + (rawText.replace(/<[^>]+>/g, ' ').substring(0, 160) || 'Invalid server response.'));
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = '<i data-lucide="sparkles" class="w-5 h-5"></i><span>GENERATE PREMED- CODE & CREATE ROOM</span>';
+                            if (window.lucide) lucide.createIcons();
+                        }
+                        return;
+                    }
                     handleRoomCreatedData(dataPhp);
                 } catch (err) {
                     console.error('Create room error:', err);
-                    alert('Could not connect to room server. Please check network connection.');
+                    alert('Network error connecting to room server. Please check network connection.');
                     if (submitBtn) {
                         submitBtn.disabled = false;
                         submitBtn.innerHTML = '<i data-lucide="sparkles" class="w-5 h-5"></i><span>GENERATE PREMED- CODE & CREATE ROOM</span>';
@@ -1043,7 +1056,17 @@ $matchHistory = $historyStmt->fetchAll();
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                const dataPhp = await resPhp.json();
+                const rawText = await resPhp.text();
+                let dataPhp;
+                try {
+                    dataPhp = JSON.parse(rawText);
+                } catch (parseErr) {
+                    console.error('Non-JSON server response:', rawText);
+                    alert('Server error joining room: ' + (rawText.replace(/<[^>]+>/g, ' ').substring(0, 160) || 'Invalid server response.'));
+                    joinBtn.disabled = false;
+                    joinBtn.textContent = 'Agree to Topic & Join Battle';
+                    return;
+                }
                 handleJoinedRoomData(dataPhp);
             } catch (err) {
                 console.error('Join room error:', err);

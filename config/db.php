@@ -48,11 +48,12 @@ class DB {
     }
 
     public static function ensureSchema(TursoPDO $pdo): void {
-        if (self::$migrated || file_exists('/tmp/turso_schema_migrated.lock')) {
+        $lockFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'turso_schema_migrated_v4.lock';
+        if (self::$migrated || file_exists($lockFile)) {
             return;
         }
         self::$migrated = true;
-        @file_put_contents('/tmp/turso_schema_migrated.lock', time());
+        @file_put_contents($lockFile, time());
 
         // 1. Ensure students columns exist
         $studentCols = [
@@ -218,10 +219,33 @@ class DB {
               current_round INTEGER DEFAULT 1,
               current_question_index INTEGER DEFAULT 0,
               current_turn_user_id TEXT,
+              turn_type TEXT DEFAULT 'main',
+              bonus_user_id TEXT,
+              last_answer_result TEXT,
+              last_answer_timestamp REAL DEFAULT 0,
               scores TEXT,
               created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
               expires_at DATETIME
             )");
+
+            $combatCols = [
+                'questions_pool' => 'TEXT',
+                'used_question_ids' => 'TEXT',
+                'current_round' => 'INTEGER DEFAULT 1',
+                'current_question_index' => 'INTEGER DEFAULT 0',
+                'current_turn_user_id' => 'TEXT',
+                'turn_type' => "TEXT DEFAULT 'main'",
+                'bonus_user_id' => 'TEXT',
+                'last_answer_result' => 'TEXT',
+                'last_answer_timestamp' => 'REAL DEFAULT 0',
+                'scores' => 'TEXT',
+                'players' => 'TEXT'
+            ];
+            foreach ($combatCols as $col => $def) {
+                try {
+                    $pdo->exec("ALTER TABLE combat_rooms ADD COLUMN {$col} {$def}");
+                } catch (Exception $e) {}
+            }
 
             $pdo->exec("CREATE TABLE IF NOT EXISTS combat_match_logs (
               id TEXT PRIMARY KEY,

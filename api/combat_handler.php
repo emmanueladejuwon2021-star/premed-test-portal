@@ -15,7 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-$pdo = DB::connect();
+try {
+    $pdo = DB::connect();
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -97,7 +98,27 @@ if ($action === 'create_room' || isset($data['create_room'])) {
         'connected' => true
     ];
 
+    $combatCols = [
+        'questions_pool' => 'TEXT',
+        'used_question_ids' => 'TEXT',
+        'current_round' => 'INTEGER DEFAULT 1',
+        'current_question_index' => 'INTEGER DEFAULT 0',
+        'current_turn_user_id' => 'TEXT',
+        'turn_type' => "TEXT DEFAULT 'main'",
+        'bonus_user_id' => 'TEXT',
+        'last_answer_result' => 'TEXT',
+        'last_answer_timestamp' => 'REAL DEFAULT 0',
+        'scores' => 'TEXT',
+        'players' => 'TEXT'
+    ];
+    foreach ($combatCols as $col => $def) {
+        try {
+            $pdo->exec("ALTER TABLE combat_rooms ADD COLUMN {$col} {$def}");
+        } catch (Exception $e) {}
+    }
+
     $roomId = 'room_' . bin2hex(random_bytes(6));
+    try {
     $stmt = $pdo->prepare("
         INSERT INTO combat_rooms (
             id, room_code, room_name, course_id, topic_id, created_by, mode,
@@ -112,6 +133,26 @@ if ($action === 'create_room' || isset($data['create_room'])) {
         json_encode([$hostPlayer]), json_encode([(string)$userId => 0]),
         json_encode($finalPool), (string)$userId
     ]);
+    } catch (Exception $ex) {
+        // Fallback: base insert without extended columns if table has legacy schema
+        $fallbackStmt = $pdo->prepare("
+            INSERT INTO combat_rooms (
+                id, room_code, room_name, course_id, topic_id, created_by, mode,
+                questions_per_round, total_rounds, total_questions, status, players, scores,
+                created_at, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, CURRENT_TIMESTAMP, datetime('now', '+1 day'))
+        ");
+        $fallbackStmt->execute([
+            $roomId, $code, $roomName, $courseId, $topicId, $userId, $mode,
+            $questionsPerRound, $totalRounds, $totalQuestions,
+            json_encode([$hostPlayer]), json_encode([(string)$userId => 0])
+        ]);
+
+        try {
+            $upd = $pdo->prepare("UPDATE combat_rooms SET questions_pool = ?, current_turn_user_id = ?, turn_type = 'main' WHERE id = ?");
+            $upd->execute([json_encode($finalPool), (string)$userId, $roomId]);
+        } catch (Exception $ignored) {}
+    }
 
     $roomState = [
         'roomCode' => $code,
@@ -542,4 +583,12 @@ if ($action === 'validate_code' || isset($data['validate_code'])) {
     exit;
 }
 
-echo json_encode(['success' => false, 'message' => 'Invalid endpoint action.']);
+    echo json_encode(['success' => false, 'message' => 'Invalid endpoint action.']);
+} catch (Throwable $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Server error: ' . $e->getMessage()
+    ]);
+    exit;
+}
