@@ -39,8 +39,8 @@ if ($action === 'create_room' || isset($data['create_room'])) {
     $courseCode = $data['courseCode'] ?? 'COURSE';
     $topicName = $data['topicName'] ?? 'Topic';
     $mode = $data['mode'] ?? '1v1';
-    $questionsPerRound = (int)($data['questionsPerRound'] ?? 4);
-    $totalRounds = (int)($data['totalRounds'] ?? 4);
+    $questionsPerRound = max(1, (int)($data['questionsPerRound'] ?? 4));
+    $totalRounds = max(1, (int)($data['totalRounds'] ?? 4));
     $allowBonus = isset($data['allowBonus']) ? ($data['allowBonus'] ? 1 : 0) : 1;
 
     if (!$userId || !$courseId || !$topicId) {
@@ -65,7 +65,7 @@ if ($action === 'create_room' || isset($data['create_room'])) {
         $code = 'PREMED-' . rand(10000, 99999);
     }
 
-    $totalQuestions = min($questionsPerRound * 2 * $totalRounds, 40);
+    $totalQuestions = max(1, $questionsPerRound * $totalRounds);
 
     // Fetch Questions Pool
     $pastQs = $pdo->prepare("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions WHERE topic_id = ?");
@@ -73,7 +73,7 @@ if ($action === 'create_room' || isset($data['create_room'])) {
     $questionsPool = $pastQs->fetchAll(PDO::FETCH_ASSOC);
 
     if (empty($questionsPool)) {
-        $fallback = $pdo->query("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions LIMIT 40");
+        $fallback = $pdo->query("SELECT id, text, a, b, c, d, correct_option, explanation FROM questions LIMIT 100");
         $questionsPool = $fallback->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -216,6 +216,20 @@ if ($action === 'get_room_status' || isset($data['get_room_status'])) {
     }
     $lastAnswerResult = json_decode($room['last_answer_result'] ?? 'null', true);
 
+    $totalRounds = max(1, (int)($room['total_rounds'] ?? 4));
+    $qPerRound = max(1, (int)($room['questions_per_round'] ?? 4));
+    $totalQuestions = max(1, $qPerRound * $totalRounds);
+    $currentQIdx = (int)($room['current_question_index'] ?? 0);
+    $isFinished = ($room['status'] === 'finished' || $currentQIdx >= $totalQuestions);
+    $currentRound = min($totalRounds, max(1, (int)floor($currentQIdx / $qPerRound) + 1));
+
+    if ($isFinished && $room['status'] !== 'finished') {
+        try {
+            $updFin = $pdo->prepare("UPDATE combat_rooms SET status = 'finished', current_round = ?, total_questions = ? WHERE room_code = ?");
+            $updFin->execute([$totalRounds, $totalQuestions, $code]);
+        } catch (Exception $e) {}
+    }
+
     $roomState = [
         'roomCode' => $code,
         'roomName' => $room['room_name'],
@@ -223,13 +237,13 @@ if ($action === 'get_room_status' || isset($data['get_room_status'])) {
         'topicId' => $room['topic_id'],
         'createdBy' => (string)$room['created_by'],
         'mode' => $room['mode'],
-        'questionsPerRound' => (int)$room['questions_per_round'],
-        'totalRounds' => (int)($room['total_rounds'] ?? 4),
+        'questionsPerRound' => $qPerRound,
+        'totalRounds' => $totalRounds,
         'allowBonus' => ((int)($room['allow_bonus'] ?? 1) === 1),
-        'totalQuestions' => (int)$room['total_questions'],
-        'status' => $room['status'],
-        'currentRound' => min((int)($room['total_rounds'] ?? 4), max(1, (int)($room['current_round'] ?? 1))),
-        'currentQuestionIndex' => (int)($room['current_question_index'] ?? 0),
+        'totalQuestions' => $totalQuestions,
+        'status' => $isFinished ? 'finished' : $room['status'],
+        'currentRound' => min($totalRounds, $currentRound),
+        'currentQuestionIndex' => $currentQIdx,
         'currentTurnUserId' => (string)($room['current_turn_user_id'] ?? ($players[0]['userId'] ?? '')),
         'turnType' => $room['turn_type'] ?? 'main',
         'bonusUserId' => $room['bonus_user_id'] ?? null,
@@ -435,12 +449,12 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
         $hideCorrectOption = false;
     }
 
-    $totalRounds = (int)($room['total_rounds'] ?? 4);
-    $qPerRound = (int)($room['questions_per_round'] ?? 4);
-    $questionsPerRoundTotal = max(1, $qPerRound * $pCount);
-    $totalQuestions = (int)($room['total_questions'] ?? ($questionsPerRoundTotal * $totalRounds));
-    $nextRound = min($totalRounds, (int)floor($nextIdx / $questionsPerRoundTotal) + 1);
-    $nextStatus = ($nextIdx >= $totalQuestions) ? 'finished' : 'playing';
+    $totalRounds = max(1, (int)($room['total_rounds'] ?? 4));
+    $qPerRound = max(1, (int)($room['questions_per_round'] ?? 4));
+    $totalQuestions = max(1, $qPerRound * $totalRounds);
+    $isFinished = ($nextIdx >= $totalQuestions);
+    $nextRound = $isFinished ? $totalRounds : min($totalRounds, (int)floor($nextIdx / $qPerRound) + 1);
+    $nextStatus = $isFinished ? 'finished' : 'playing';
 
     $resPayload = [
         'isCorrect' => $isCorrect,
@@ -459,6 +473,8 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
         'nextTurnUserId' => $nextTurnUserId,
         'roundNumber' => $nextRound,
         'totalRounds' => $totalRounds,
+        'totalQuestions' => $totalQuestions,
+        'questionsPerRound' => $qPerRound,
         'status' => $nextStatus,
         'bothMissed' => ($turnType === 'bonus' && !$isCorrect),
         'timestamp' => microtime(true)
@@ -475,7 +491,8 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
                 bonus_user_id = ?,
                 last_answer_result = ?,
                 last_answer_timestamp = ?,
-                status = ?
+                status = ?,
+                total_questions = ?
             WHERE room_code = ?
         ");
         $upd->execute([
@@ -488,6 +505,7 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
             json_encode($resPayload),
             microtime(true),
             $nextStatus,
+            $totalQuestions,
             $code
         ]);
     } catch (Exception $e) {}
@@ -503,7 +521,7 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0.0, ?, CURRENT_TIMESTAMP)
         ");
         $logStmt->execute([
-            $logId, $code, min($totalRounds, max(1, (int)($room['current_round'] ?? 1))), $currentIdx + 1,
+            $logId, $code, min($totalRounds, max(1, (int)floor($currentIdx / $qPerRound) + 1)), (($currentIdx % $qPerRound) + 1),
             $turnType, $currentQ['id'] ?? '', (string)$userId, $selectedOption ?: 'TIMEOUT', $isCorrect ? 1 : 0,
             json_encode([(string)$userId => $pts])
         ]);
@@ -547,6 +565,10 @@ if ($action === 'start_game' || isset($data['start_game'])) {
     $updPool = $pdo->prepare("UPDATE combat_rooms SET questions_pool = ?, current_round = 1, current_question_index = 0, current_turn_user_id = ?, turn_type = 'main', last_answer_result = NULL WHERE room_code = ?");
     $updPool->execute([json_encode($questionsPool), (string)($players[0]['userId'] ?? $userId), $code]);
 
+    $totalRounds = max(1, (int)($room['total_rounds'] ?? 4));
+    $qPerRound = max(1, (int)($room['questions_per_round'] ?? 4));
+    $totalQuestions = max(1, $qPerRound * $totalRounds);
+
     $roomState = [
         'roomCode' => $code,
         'roomName' => $room['room_name'],
@@ -554,10 +576,10 @@ if ($action === 'start_game' || isset($data['start_game'])) {
         'topicId' => $room['topic_id'],
         'createdBy' => $room['created_by'],
         'mode' => $room['mode'],
-        'questionsPerRound' => (int)$room['questions_per_round'],
-        'totalRounds' => (int)$room['total_rounds'],
+        'questionsPerRound' => $qPerRound,
+        'totalRounds' => $totalRounds,
         'allowBonus' => ((int)($room['allow_bonus'] ?? 1) === 1),
-        'totalQuestions' => (int)$room['total_questions'],
+        'totalQuestions' => $totalQuestions,
         'status' => 'playing',
         'players' => $players,
         'questionsPool' => $questionsPool,

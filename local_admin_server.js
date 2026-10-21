@@ -562,7 +562,7 @@ const server = http.createServer(async (req, res) => {
     const roomCode = await generateUniqueRoomCode();
     const numQuestionsPerRound = parseInt(questionsPerRound, 10) || 4;
     const numRounds = parseInt(totalRounds, 10) || 4;
-    const totalQuestions = Math.min(numQuestionsPerRound * 2 * numRounds, 40);
+    const totalQuestions = numQuestionsPerRound * numRounds;
 
     const questionsPool = await fetchQuestionPoolForTopic(topicId, totalQuestions);
 
@@ -1797,9 +1797,17 @@ function advanceToNextTurn(roomCode) {
     room.currentTurnUserId = room.players[nextPlayerIndex].userId;
   }
 
-  const numPlayers = room.mode === '2v1' ? 2 : Math.max(1, room.players.length);
-  const questionsPerRoundTotal = room.questionsPerRound * numPlayers;
+  if (room.currentQuestionIndex >= room.totalQuestions) {
+    handleGameFinished(room);
+    return;
+  }
+
+  const questionsPerRoundTotal = room.questionsPerRound;
   if (room.currentQuestionIndex >= room.currentRound * questionsPerRoundTotal) {
+    if (room.currentRound >= room.totalRounds) {
+      handleGameFinished(room);
+      return;
+    }
     handleRoundFinished(room);
   } else {
     sendNextQuestion(roomCode);

@@ -267,7 +267,7 @@ $matchHistory = $historyStmt->fetchAll();
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1.5">
                             <i data-lucide="help-circle" class="w-4 h-4 text-purple-600"></i>
-                            <span>How many questions per player per round?</span>
+                            <span>How many questions per round?</span>
                         </label>
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="qPerRoundPills">
                             <button type="button" data-val="3" class="q-pill py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:border-purple-500">3 Questions</button>
@@ -276,7 +276,7 @@ $matchHistory = $historyStmt->fetchAll();
                             <button type="button" data-val="custom" class="q-pill py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:border-purple-500">Custom</button>
                         </div>
                         <input type="number" id="formCustomQs" min="1" max="10" placeholder="Type custom number (1-10)" class="hidden w-full mt-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold">
-                        <p class="text-[11px] text-slate-400 mt-1">If you choose 4 questions per round and 4 rounds, total duel equals 32 questions.</p>
+                        <p class="text-[11px] text-slate-400 mt-1">If you choose 4 questions per round and 4 rounds, total duel equals 16 questions (4 questions in each round).</p>
                     </div>
 
                     <!-- Field 5: Number of Rounds -->
@@ -1224,16 +1224,26 @@ $matchHistory = $historyStmt->fetchAll();
         const arenaScreen = document.getElementById('combatArenaScreen');
         if (arenaScreen) arenaScreen.classList.remove('hidden');
 
+        const qPerRound = room.questionsPerRound || 4;
+        const totalR = room.totalRounds || 4;
+        const totalQ = qPerRound * totalR;
+        const qIndex = room.currentQuestionIndex || 0;
+
+        if (qIndex >= totalQ || room.status === 'finished') {
+            showFinalVictoryModal({ isDraw: false, winnerName: 'Battle Completed', finalScores: room.scores });
+            return;
+        }
+
         if (room.questionsPool && room.questionsPool.length > 0) {
-            const qIndex = room.currentQuestionIndex || 0;
             const currentQ = room.questionsPool[qIndex];
             if (currentQ) {
+                const currentRoundNum = Math.min(totalR, Math.max(1, Math.floor(qIndex / qPerRound) + 1));
                 renderQuestion({
                     question: prepareQuestionForClient(currentQ),
-                    questionNumber: (qIndex % (room.questionsPerRound || 4)) + 1,
-                    roundNumber: Math.min(room.totalRounds || 4, Math.max(1, room.currentRound || 1)),
-                    totalRounds: room.totalRounds || 4,
-                    questionsPerRound: room.questionsPerRound || 4,
+                    questionNumber: (qIndex % qPerRound) + 1,
+                    roundNumber: currentRoundNum,
+                    totalRounds: totalR,
+                    questionsPerRound: qPerRound,
                     turnUserId: room.currentTurnUserId || (room.players[0] ? room.players[0].userId : STUDENT_ID),
                     scores: room.scores || {},
                     timerDuration: 30
@@ -1526,11 +1536,18 @@ $matchHistory = $historyStmt->fetchAll();
                 const r = data.room;
                 currentRoom = r;
 
+                const totalR = Math.max(1, r.totalRounds || 4);
+                const qPerRound = Math.max(1, r.questionsPerRound || 4);
+                const totalQ = Math.max(1, totalR * qPerRound);
+                const isOver = (r.status === 'finished' || (r.currentQuestionIndex >= totalQ));
+
                 // 1. If game ended
-                if (r.status === 'finished') {
+                if (isOver) {
                     stopResilientCountdown();
-                    clearInterval(arenaSyncInterval);
-                    arenaSyncInterval = null;
+                    if (arenaSyncInterval) {
+                        clearInterval(arenaSyncInterval);
+                        arenaSyncInterval = null;
+                    }
                     showFinalVictoryModal({
                         isDraw: false,
                         winnerName: 'Battle Completed',
@@ -1597,12 +1614,13 @@ $matchHistory = $historyStmt->fetchAll();
                         currentTurnIsBonus = false;
                         if (r.questionsPool && r.questionsPool[r.currentQuestionIndex]) {
                             const q = r.questionsPool[r.currentQuestionIndex];
+                            const curRound = Math.min(totalR, Math.max(1, Math.floor(r.currentQuestionIndex / qPerRound) + 1));
                             renderQuestion({
                                 question: prepareQuestionForClient(q),
-                                questionNumber: (r.currentQuestionIndex % (r.questionsPerRound || 4)) + 1,
-                                roundNumber: Math.min(r.totalRounds || 4, Math.max(1, r.currentRound || 1)),
-                                totalRounds: r.totalRounds || 4,
-                                questionsPerRound: r.questionsPerRound || 4,
+                                questionNumber: (r.currentQuestionIndex % qPerRound) + 1,
+                                roundNumber: curRound,
+                                totalRounds: totalR,
+                                questionsPerRound: qPerRound,
                                 turnUserId: r.currentTurnUserId,
                                 scores: r.scores || {},
                                 timerDuration: 30
@@ -1688,6 +1706,20 @@ $matchHistory = $historyStmt->fetchAll();
                 }).then(r => r.json()).then(data => {
                     data.message = 'Time Expired!';
                     showAnswerResult(data);
+                    if (data.status === 'finished') {
+                        setTimeout(() => {
+                            stopResilientCountdown();
+                            if (arenaSyncInterval) {
+                                clearInterval(arenaSyncInterval);
+                                arenaSyncInterval = null;
+                            }
+                            showFinalVictoryModal({
+                                isDraw: false,
+                                winnerName: 'Battle Completed',
+                                finalScores: data.scores
+                            });
+                        }, 1800);
+                    }
                 }).catch(err => console.error('Timeout submit error:', err));
             }
         } else {
@@ -1726,11 +1758,13 @@ $matchHistory = $historyStmt->fetchAll();
         isSubmittingAnswer = false;
         activeTimerMaxDuration = data.timerDuration || 30;
 
-        const totalR = Math.max(1, data.totalRounds || 4);
-        const roundNum = Math.min(totalR, Math.max(1, data.roundNumber || 1));
+        const totalR = Math.max(1, data.totalRounds || (currentRoom && currentRoom.totalRounds) || 4);
+        const roundNum = Math.min(totalR, Math.max(1, data.roundNumber || (currentRoom && currentRoom.currentRound) || 1));
         document.getElementById('arenaRoundIndicator').textContent = `Round ${roundNum} / ${totalR}`;
         document.getElementById('arenaRoomCode').textContent = currentRoom ? currentRoom.roomCode : '';
-        document.getElementById('questionNumberHeader').textContent = `Question ${data.questionNumber} of ${data.questionsPerRound}`;
+        const qNum = data.questionNumber || 1;
+        const qPerRound = data.questionsPerRound || (currentRoom && currentRoom.questionsPerRound) || 4;
+        document.getElementById('questionNumberHeader').textContent = `Question ${qNum} of ${qPerRound}`;
 
         const checkingBanner = document.getElementById('checkingAnswerBanner');
         if (checkingBanner) checkingBanner.classList.add('hidden');
@@ -1862,6 +1896,20 @@ $matchHistory = $historyStmt->fetchAll();
                 body: JSON.stringify(payload)
             }).then(r => r.json()).then(data => {
                 showAnswerResult(data);
+                if (data.status === 'finished') {
+                    setTimeout(() => {
+                        stopResilientCountdown();
+                        if (arenaSyncInterval) {
+                            clearInterval(arenaSyncInterval);
+                            arenaSyncInterval = null;
+                        }
+                        showFinalVictoryModal({
+                            isDraw: false,
+                            winnerName: 'Battle Completed',
+                            finalScores: data.scores
+                        });
+                    }, 1800);
+                }
             }).catch(err => console.error('REST submit error:', err));
         }
     }
