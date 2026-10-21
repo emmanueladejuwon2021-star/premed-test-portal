@@ -77,20 +77,23 @@ $topicsPool = $pdo->query("
 ")->fetchAll();
 ?>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+<div class="max-w-7xl mx-auto px-3 sm:px-6 py-4 space-y-4">
 
-    <!-- TOP HEADER -->
-    <div class="bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 rounded-3xl p-6 text-white shadow-xl flex items-center justify-between border border-purple-800/40">
-        <div class="space-y-1">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-black uppercase">
-                <i data-lucide="shield" class="w-3.5 h-3.5 text-purple-400"></i> Admin Command Center
+    <!-- Compact Top Bar -->
+    <div class="bg-slate-900 rounded-2xl p-3.5 sm:p-4 text-white shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-purple-800/40">
+        <div class="space-y-0.5">
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-black uppercase">
+                <i data-lucide="shield" class="w-3 h-3 text-purple-400"></i> Combat Command Center
             </div>
-            <h1 class="text-2xl font-black flex items-center gap-2">STUDY COMBAT ADMIN ⚔️</h1>
-            <p class="text-xs text-slate-300">Live battle monitor, non-tech savvy anti-cheat security, rank customization, and question pool radar.</p>
+            <h1 class="text-lg sm:text-xl font-black flex items-center gap-2">STUDY COMBAT ADMIN ⚔️</h1>
+            <p class="text-[11px] text-slate-300">Live battle surveillance, anti-cheat enforcement, rank thresholds, and question pool radar.</p>
         </div>
-        <a href="admin_dashboard.php" class="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700">
-            Back to Main Admin
-        </a>
+        <div class="flex items-center gap-2">
+            <a href="admin_dashboard.php" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 flex items-center gap-1.5">
+                <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+                <span>Main Admin Console</span>
+            </a>
+        </div>
     </div>
 
     <?php if ($alertMsg): ?>

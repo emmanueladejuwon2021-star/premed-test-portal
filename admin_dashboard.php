@@ -924,44 +924,77 @@ try {
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+<div class="max-w-7xl mx-auto px-3 sm:px-6 py-4 space-y-4">
 
-    <!-- 1. Executive Faculty Header -->
-    <div class="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 rounded-3xl p-6 sm:p-8 text-white shadow-2xl border border-slate-800 relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div class="space-y-1.5 relative z-10">
-            <div class="flex items-center gap-2">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold font-mono">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>Production Cloud Engine &bull; Turso Online</span>
-                </span>
-                <span class="text-xs text-slate-400">ID: <?= htmlspecialchars($adminUser['matric_no'] ?? '250811024') ?></span>
-            </div>
-            <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2">
-                <span>Faculty &amp; Administration Control Console</span>
-            </h1>
-            <p class="text-slate-300 text-xs sm:text-sm max-w-2xl leading-relaxed">
-                Comprehensive CBT test deployment, question authoring with LaTeX support, candidate banking records for cash prizes, and live exam integrity surveillance.
-            </p>
+    <!-- 1. Compact Executive Status & Quick Export Toolbar -->
+    <div class="bg-slate-900 rounded-2xl p-3 sm:p-3.5 text-white shadow-md border border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div class="flex items-center gap-2.5 flex-wrap">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold font-mono">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Turso Cloud Active</span>
+            </span>
+            <span class="text-xs text-slate-500 font-medium">|</span>
+            <span class="text-xs font-bold text-slate-200">
+                <?= $tab === 'questions' ? 'Question Bank Management' : ($tab === 'results' ? 'Examination Transcripts' : ($tab === 'students' ? 'Candidate Directory & Prizes' : ($tab === 'proctoring' ? 'Live Proctor Surveillance' : 'Test Deployments & Curriculum'))) ?>
+            </span>
         </div>
 
-        <div class="relative z-10 flex flex-wrap items-center gap-2.5">
-            <a href="index.php" target="_blank" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all border border-white/15 flex items-center gap-2 shadow-xs">
-                <i data-lucide="external-link" class="w-4 h-4"></i>
-                <span>Open Student Hub</span>
+        <div class="flex items-center gap-1.5 flex-wrap w-full sm:w-auto justify-end text-xs font-bold">
+            <a href="?export=prizes_csv" class="px-3 py-1.5 rounded-xl bg-emerald-600/90 hover:bg-emerald-600 text-white transition-all flex items-center gap-1.5 shadow-2xs">
+                <i data-lucide="banknote" class="w-3.5 h-3.5"></i>
+                <span>Prize CSV</span>
             </a>
-            <a href="logout.php" class="px-4 py-2.5 rounded-xl bg-rose-600/90 hover:bg-rose-600 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-xs">
-                <i data-lucide="log-out" class="w-4 h-4"></i>
-                <span>Sign Out</span>
+            <a href="?export=gradebook_csv" class="px-3 py-1.5 rounded-xl bg-violet-600/90 hover:bg-violet-600 text-white transition-all flex items-center gap-1.5 shadow-2xs">
+                <i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i>
+                <span>Gradebook CSV</span>
             </a>
+            <a href="?export=candidates_csv" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-all flex items-center gap-1.5 border border-slate-700">
+                <i data-lucide="users" class="w-3.5 h-3.5"></i>
+                <span>Candidates CSV</span>
+            </a>
+            <button type="button" onclick="document.getElementById('facultyHelpGuide').classList.toggle('hidden')" class="px-3 py-1.5 rounded-xl bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-800 transition-all flex items-center gap-1">
+                <i data-lucide="help-circle" class="w-3.5 h-3.5 text-indigo-400"></i>
+                <span>Guide</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Expandable Non-Tech Explanation Card (Toggleable) -->
+    <div id="facultyHelpGuide" class="hidden bg-slate-950/90 p-4 rounded-2xl border border-indigo-500/30 space-y-3 animate-in fade-in text-xs text-white">
+        <div class="flex items-center justify-between border-b border-white/10 pb-2">
+            <span class="font-black text-indigo-300 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                <i data-lucide="book-open" class="w-4 h-4"></i>
+                <span>Simple Plain-English Guide for Faculty &amp; Coordinators</span>
+            </span>
+            <button type="button" onclick="document.getElementById('facultyHelpGuide').classList.add('hidden')" class="text-slate-400 hover:text-white">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-slate-300">
+            <div class="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
+                <span class="font-bold text-emerald-400 block">1. Turning Exams On / Off</span>
+                <p class="text-[11px] leading-relaxed">Under <strong>Exams &amp; Sittings</strong>, click <strong>Live / Closed</strong> on any subject to instantly control student exam access.</p>
+            </div>
+            <div class="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
+                <span class="font-bold text-indigo-400 block">2. Adding Questions</span>
+                <p class="text-[11px] leading-relaxed">Under <strong>Question Bank</strong>, click <strong>+ Add Question</strong> or <strong>Bulk Import</strong>. Paste multiple choice options with answer keys.</p>
+            </div>
+            <div class="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
+                <span class="font-bold text-amber-400 block">3. Paying Cash Winners</span>
+                <p class="text-[11px] leading-relaxed">Click <strong>Prize CSV</strong> above to download bank account numbers and account names formatted for direct bank transfers.</p>
+            </div>
+            <div class="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
+                <span class="font-bold text-rose-400 block">4. Resetting Candidate Passwords</span>
+                <p class="text-[11px] leading-relaxed">Under <strong>Candidates</strong>, search any matric number and click <strong>Reset Pass</strong> to set their password to <code class="bg-black/40 px-1 py-0.5 rounded text-white font-mono">premed2026</code>.</p>
+            </div>
         </div>
     </div>
 
     <!-- Alert Banners -->
     <?php if ($feedbackMsg): ?>
-    <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-between gap-3 shadow-xs animate-in fade-in">
-        <div class="flex items-center gap-2.5">
-            <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+    <div class="p-3 sm:p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center justify-between gap-3 shadow-2xs">
+        <div class="flex items-center gap-2">
+            <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0"></i>
             <span><?= htmlspecialchars($feedbackMsg) ?></span>
         </div>
         <button type="button" onclick="this.parentElement.remove()" class="text-emerald-600 hover:text-emerald-800"><i data-lucide="x" class="w-4 h-4"></i></button>
@@ -969,198 +1002,93 @@ require_once __DIR__ . '/includes/header.php';
     <?php endif; ?>
 
     <?php if ($feedbackError): ?>
-    <div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center justify-between gap-3 shadow-xs animate-in fade-in">
-        <div class="flex items-center gap-2.5">
-            <i data-lucide="alert-octagon" class="w-4 h-4 text-rose-600 shrink-0"></i>
+    <div class="p-3 sm:p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs font-bold flex items-center justify-between gap-3 shadow-2xs">
+        <div class="flex items-center gap-2">
+            <i data-lucide="alert-octagon" class="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0"></i>
             <span><?= htmlspecialchars($feedbackError) ?></span>
         </div>
         <button type="button" onclick="this.parentElement.remove()" class="text-rose-600 hover:text-rose-800"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
     <?php endif; ?>
 
-    <!-- 2. High-Yield KPI Analytics -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- 1. Registered Candidates -->
-        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">Total Candidates</span>
-                <span class="p-2 rounded-xl bg-indigo-50 text-indigo-600"><i data-lucide="users" class="w-4 h-4"></i></span>
-            </div>
-            <div class="space-y-1">
-                <span class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white"><?= number_format($totalStudents) ?></span>
-                <div class="text-[11px] text-slate-500 flex items-center gap-1.5 font-medium">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span><strong><?= $studentsWithBank ?></strong> with bank details (<?= $bankPct ?>%)</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- 2. Question Bank Total -->
-        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">Question Bank</span>
-                <span class="p-2 rounded-xl bg-emerald-50 text-emerald-600"><i data-lucide="book-open" class="w-4 h-4"></i></span>
-            </div>
-            <div class="space-y-1">
-                <span class="text-2xl sm:text-3xl font-black text-emerald-700"><?= number_format($totalQuestions) ?></span>
-                <div class="text-[11px] text-slate-500 font-medium">
-                    Spread across <strong><?= $totalCourses ?></strong> configured subjects
-                </div>
-            </div>
-        </div>
-
-        <!-- 3. Submissions & Pass Rate -->
-        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">Exam Submissions</span>
-                <span class="p-2 rounded-xl bg-violet-50 text-violet-600"><i data-lucide="award" class="w-4 h-4"></i></span>
-            </div>
-            <div class="space-y-1">
-                <span class="text-2xl sm:text-3xl font-black text-violet-700"><?= number_format($totalResults) ?></span>
-                <div class="text-[11px] text-slate-500 font-medium">
-                    Average score: <strong><?= round($avgScore, 1) ?>%</strong>
-                </div>
-            </div>
-        </div>
-
-        <!-- 4. Active Live Assessments -->
-        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">Live Status</span>
-                <span class="p-2 rounded-xl bg-amber-50 text-amber-600"><i data-lucide="activity" class="w-4 h-4"></i></span>
-            </div>
-            <div class="space-y-1">
-                <span class="text-2xl sm:text-3xl font-black <?= $activeUnlockedCourses > 0 ? 'text-emerald-600' : 'text-slate-400' ?>">
-                    <?= $activeUnlockedCourses ?> <span class="text-xs font-bold text-slate-500">Live</span>
-                </span>
-                <div class="text-[11px] text-slate-500 font-medium">
-                    <?= $totalCourses - $activeUnlockedCourses ?> assessments currently locked
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 3. Non-Technical Faculty 1-Click Action Bar & Quick Guide -->
-    <div class="bg-gradient-to-r from-teal-900 via-indigo-900 to-slate-900 rounded-3xl p-5 text-white shadow-md border border-teal-800/40 space-y-4">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+    <!-- 2. High-Density Compact KPI Strip -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+        <!-- Candidates -->
+        <div class="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-3.5 border border-slate-200 dark:border-slate-800 shadow-2xs flex items-center justify-between">
             <div>
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 font-bold text-[10px] uppercase tracking-wider">
-                    <i data-lucide="sparkles" class="w-3 h-3 text-emerald-400"></i>
-                    <span>Quick Faculty Hub &bull; Non-Technical Friendly</span>
-                </span>
-                <h2 class="text-sm sm:text-base font-black tracking-tight text-white mt-1">What would you like to do?</h2>
-                <p class="text-xs text-slate-300">Fast 1-click buttons for daily exam and prize operations without dealing with technical settings.</p>
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Candidates</span>
+                <div class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-0.5"><?= number_format($totalStudents) ?></div>
+                <div class="text-[10px] text-emerald-600 font-bold"><?= $studentsWithBank ?> banking (<?= $bankPct ?>%)</div>
             </div>
-            <button type="button" onclick="document.getElementById('facultyHelpGuide').classList.toggle('hidden')" class="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-teal-200 transition-all flex items-center gap-1.5">
-                <i data-lucide="help-circle" class="w-4 h-4 text-teal-300"></i>
-                <span>Open Beginner's Guide</span>
-            </button>
+            <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                <i data-lucide="users" class="w-4 h-4"></i>
+            </div>
         </div>
 
-        <!-- 4 Primary Quick Action Buttons -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <!-- 1. Download Prize Money Sheet -->
-            <a href="?export=prizes_csv" class="p-3.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 transition-all flex items-center gap-3 group">
-                <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
-                    <i data-lucide="banknote" class="w-5 h-5"></i>
-                </div>
-                <div>
-                    <span class="text-xs font-black text-white block">Download Prize Excel</span>
-                    <span class="text-[10px] text-emerald-200">Bank accounts for cash payouts</span>
-                </div>
-            </a>
-
-            <!-- 2. Download Exam Scores -->
-            <a href="?export=gradebook_csv" class="p-3.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 transition-all flex items-center gap-3 group">
-                <div class="w-10 h-10 rounded-xl bg-violet-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
-                    <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
-                </div>
-                <div>
-                    <span class="text-xs font-black text-white block">Download Gradebook</span>
-                    <span class="text-[10px] text-violet-200">All student marks &amp; percentages</span>
-                </div>
-            </a>
-
-            <!-- 3. Add a New Question -->
-            <a href="?tab=questions#authorSection" class="p-3.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 transition-all flex items-center gap-3 group">
-                <div class="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
-                    <i data-lucide="plus-circle" class="w-5 h-5"></i>
-                </div>
-                <div>
-                    <span class="text-xs font-black text-white block">Add a Question</span>
-                    <span class="text-[10px] text-indigo-200">Author questions with 4 choices</span>
-                </div>
-            </a>
-
-            <!-- 4. Turn Exams On / Off -->
-            <a href="?tab=deployments" class="p-3.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/10 transition-all flex items-center gap-3 group">
-                <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
-                    <i data-lucide="toggle-right" class="w-5 h-5"></i>
-                </div>
-                <div>
-                    <span class="text-xs font-black text-white block">Turn Exams On / Off</span>
-                    <span class="text-[10px] text-amber-200">Control student exam access</span>
-                </div>
-            </a>
+        <!-- Question Bank -->
+        <div class="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-3.5 border border-slate-200 dark:border-slate-800 shadow-2xs flex items-center justify-between">
+            <div>
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Question Bank</span>
+                <div class="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-0.5"><?= number_format($totalQuestions) ?></div>
+                <div class="text-[10px] text-slate-500 font-bold"><?= $totalPastQuestions ?> Past &bull; <?= $totalTestQuestions ?> Test</div>
+            </div>
+            <div class="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <i data-lucide="book-open" class="w-4 h-4"></i>
+            </div>
         </div>
 
-        <!-- Expandable Non-Tech Explanation Card -->
-        <div id="facultyHelpGuide" class="hidden bg-slate-950/60 p-4 sm:p-5 rounded-2xl border border-teal-500/30 space-y-3 animate-in fade-in text-xs">
-            <div class="flex items-center justify-between border-b border-white/10 pb-2">
-                <span class="font-black text-teal-300 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                    <i data-lucide="book-open" class="w-4 h-4"></i>
-                    <span>Simple Plain-English Guide for Faculty &amp; Coordinators</span>
-                </span>
-                <button type="button" onclick="document.getElementById('facultyHelpGuide').classList.add('hidden')" class="text-slate-400 hover:text-white">
-                    <i data-lucide="x" class="w-4 h-4"></i>
-                </button>
+        <!-- Submissions & Pass Rate -->
+        <div class="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-3.5 border border-slate-200 dark:border-slate-800 shadow-2xs flex items-center justify-between">
+            <div>
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Submissions</span>
+                <div class="text-xl sm:text-2xl font-black text-violet-700 dark:text-violet-400 mt-0.5"><?= number_format($totalResults) ?></div>
+                <div class="text-[10px] text-slate-500 font-bold">Avg Score: <?= round($avgScore, 1) ?>%</div>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-slate-300">
-                <div class="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
-                    <span class="font-bold text-emerald-400 block">1. Starting / Stopping Tests</span>
-                    <p class="text-[11px] leading-relaxed">Go to <strong>Exams &amp; Sittings</strong>. When an exam shows <span class="text-emerald-300 font-bold">🟢 Live</span>, students can write it. If you want to pause it, simply click <strong>Pause Exam</strong>.</p>
+            <div class="w-9 h-9 rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
+                <i data-lucide="award" class="w-4 h-4"></i>
+            </div>
+        </div>
+
+        <!-- Live Status -->
+        <div class="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-3.5 border border-slate-200 dark:border-slate-800 shadow-2xs flex items-center justify-between">
+            <div>
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Assessments</span>
+                <div class="text-xl sm:text-2xl font-black <?= $activeUnlockedCourses > 0 ? 'text-emerald-600' : 'text-slate-400' ?> mt-0.5">
+                    <?= $activeUnlockedCourses ?> <span class="text-xs font-bold text-slate-500">/ <?= $totalCourses ?> Live</span>
                 </div>
-                <div class="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
-                    <span class="font-bold text-indigo-400 block">2. Adding Questions</span>
-                    <p class="text-[11px] leading-relaxed">Go to <strong>Question Bank</strong>, select your subject, type the question, enter choices A, B, C, D, and pick the right answer. No coding required!</p>
-                </div>
-                <div class="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
-                    <span class="font-bold text-amber-400 block">3. Paying Cash Winners</span>
-                    <p class="text-[11px] leading-relaxed">Click <strong>Download Prize Excel</strong> above. It gives you a clean spreadsheet containing each candidate's Bank Name, Account Number, and Verified Name for disbursement.</p>
-                </div>
-                <div class="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
-                    <span class="font-bold text-rose-400 block">4. Resetting a Password</span>
-                    <p class="text-[11px] leading-relaxed">If a student forgot their password, go to <strong>Candidates</strong>, search their name, and click <strong>Reset Pass</strong>. Their password will instantly reset to <code class="bg-black/40 px-1 py-0.5 rounded text-white font-mono">premed2026</code>.</p>
-                </div>
+                <div class="text-[10px] text-slate-500 font-bold"><?= $totalCourses - $activeUnlockedCourses ?> Locked</div>
+            </div>
+            <div class="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <i data-lucide="activity" class="w-4 h-4"></i>
             </div>
         </div>
     </div>
 
-    <!-- 4. Tabbed Navigation Bar -->
-    <div class="bg-white dark:bg-slate-900 rounded-2xl p-1.5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap gap-1 text-xs font-bold">
-        <a href="?tab=deployments" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'deployments' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:bg-slate-800/60 dark:hover:bg-slate-800' ?>">
-            <i data-lucide="layers" class="w-4 h-4"></i>
+    <!-- 3. Compact Tabbed Navigation Bar -->
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-1.5 border border-slate-200 dark:border-slate-800 shadow-2xs flex flex-wrap gap-1 text-xs font-bold">
+        <a href="?tab=deployments" class="px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 <?= $tab === 'deployments' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800' ?>">
+            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
             <span>1. Exams &amp; Sittings</span>
             <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'deployments' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' ?>"><?= count($courses) ?></span>
         </a>
-        <a href="?tab=questions" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'questions' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:bg-slate-800/60 dark:hover:bg-slate-800' ?>">
-            <i data-lucide="file-question" class="w-4 h-4"></i>
+        <a href="?tab=questions" class="px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 <?= $tab === 'questions' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800' ?>">
+            <i data-lucide="file-question" class="w-3.5 h-3.5"></i>
             <span>2. Question Bank</span>
             <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'questions' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' ?>"><?= $totalQuestions ?></span>
         </a>
-        <a href="?tab=results" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'results' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:bg-slate-800/60 dark:hover:bg-slate-800' ?>">
-            <i data-lucide="graduation-cap" class="w-4 h-4"></i>
+        <a href="?tab=results" class="px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 <?= $tab === 'results' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800' ?>">
+            <i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i>
             <span>3. Scores &amp; Gradebook</span>
             <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'results' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' ?>"><?= $totalResults ?></span>
         </a>
-        <a href="?tab=students" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'students' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:bg-slate-800/60 dark:hover:bg-slate-800' ?>">
-            <i data-lucide="id-card" class="w-4 h-4"></i>
-            <span>4. Candidates &amp; Cash Prizes</span>
+        <a href="?tab=students" class="px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 <?= $tab === 'students' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800' ?>">
+            <i data-lucide="id-card" class="w-3.5 h-3.5"></i>
+            <span>4. Candidates &amp; Prizes</span>
             <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'students' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' ?>"><?= $totalStudents ?></span>
         </a>
-        <a href="?tab=proctoring" class="px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 <?= $tab === 'proctoring' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:bg-slate-800/60 dark:hover:bg-slate-800' ?>">
-            <i data-lucide="shield-alert" class="w-4 h-4"></i>
-            <span>5. Live Exam Monitor</span>
+        <a href="?tab=proctoring" class="px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 <?= $tab === 'proctoring' ? 'bg-indigo-600 text-white shadow-xs font-black' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800' ?>">
+            <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+            <span>5. Live Proctor Feed</span>
             <span class="px-1.5 py-0.2 rounded-full text-[10px] <?= $tab === 'proctoring' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' ?>"><?= count($proctorSessions) ?></span>
         </a>
     </div>
@@ -1560,8 +1488,26 @@ Explanation: With [f] = T⁻¹, [T] = MLT⁻², [μ] = ML⁻¹ and [l] = L..." c
             </form>
         </div>
 
-        <!-- Add Single Question Form -->
-        <div id="authorSection" class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+        <!-- Action Buttons Bar for Adding & Importing Questions -->
+        <div class="flex items-center justify-between gap-2 flex-wrap pb-1">
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="toggleAuthorSection()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    <span>+ Add Single Question</span>
+                </button>
+                <button type="button" onclick="toggleBulkImport()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5 border border-slate-700 transition-all">
+                    <i data-lucide="file-up" class="w-4 h-4 text-emerald-400"></i>
+                    <span>📥 Bulk Import Questions</span>
+                </button>
+            </div>
+            <a href="?export=questions_csv" class="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1">
+                <i data-lucide="download" class="w-3.5 h-3.5 text-indigo-600"></i>
+                <span>Export CSV</span>
+            </a>
+        </div>
+
+        <!-- Add Single Question Form (Collapsible) -->
+        <div id="authorSection" class="hidden bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 border border-indigo-200 dark:border-slate-800 shadow-sm space-y-4">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-4">
                 <div>
                     <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -2351,6 +2297,31 @@ function openCourseTopicsModal(c) {
 
 function closeCourseTopicsModal() {
     document.getElementById('courseTopicsModal').classList.add('hidden');
+}
+
+
+function toggleAuthorSection() {
+    const sec = document.getElementById('authorSection');
+    const bulk = document.getElementById('bulkImportCard');
+    if (bulk) bulk.classList.add('hidden');
+    if (sec) {
+        sec.classList.toggle('hidden');
+        if (!sec.classList.contains('hidden')) {
+            sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+}
+
+function toggleBulkImport() {
+    const bulk = document.getElementById('bulkImportCard');
+    const sec = document.getElementById('authorSection');
+    if (sec) sec.classList.add('hidden');
+    if (bulk) {
+        bulk.classList.toggle('hidden');
+        if (!bulk.classList.contains('hidden')) {
+            bulk.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
 }
 
 function openEditQuestionModal(q) {

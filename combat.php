@@ -78,7 +78,7 @@ $matchHistory = $historyStmt->fetchAll();
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-8">
 
     <!-- TOP ARENA HEADER / NAVIGATION TABS -->
-    <div class="bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-2xl relative overflow-hidden border border-purple-800/40">
+    <div id="topCombatHeader" class="bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-2xl relative overflow-hidden border border-purple-800/40">
         <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
         <div class="absolute -left-10 -top-10 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -490,22 +490,22 @@ $matchHistory = $historyStmt->fetchAll();
 
             <!-- LOBBY / WAITING SCREEN -->
             <div id="lobbyScreen" class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 dark:border-slate-800 text-center space-y-6">
-                <div class="max-w-md mx-auto space-y-4">
-                    <div class="w-20 h-20 rounded-3xl bg-purple-100 dark:bg-purple-950/80 text-purple-600 flex items-center justify-center mx-auto shadow-inner">
-                        <i data-lucide="swords" class="w-10 h-10 animate-bounce"></i>
+                <div class="max-w-xl mx-auto space-y-4">
+                    <div class="w-16 h-16 rounded-2xl bg-purple-100 dark:bg-purple-950/80 text-purple-600 flex items-center justify-center mx-auto shadow-inner">
+                        <i data-lucide="swords" class="w-8 h-8 text-purple-600"></i>
                     </div>
-                    <h2 class="text-2xl font-black text-slate-900 dark:text-white">COMBAT ARENA LOBBY</h2>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Create a new battle room or enter a PREMED- code to challenge a classmate live.</p>
+                    <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">STUDY COMBAT DUEL LOBBY</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Challenge classmates in real-time academic duels. 30 seconds per turn, with bonus opportunities on wrong answers.</p>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
-                        <a href="combat.php?action=create" class="p-5 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-black text-sm uppercase tracking-wider shadow-lg shadow-purple-600/30 hover:scale-[1.02] transition-transform flex flex-col items-center gap-2">
-                            <i data-lucide="plus-circle" class="w-6 h-6"></i>
-                            <span>Create Room</span>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
+                        <a href="combat.php?action=create" class="p-4 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider shadow-md shadow-purple-600/25 transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                            <span>Create Battle Room</span>
                         </a>
 
-                        <a href="combat.php?action=join" class="p-5 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white font-black text-sm uppercase tracking-wider shadow-lg shadow-emerald-600/30 hover:scale-[1.02] transition-transform flex flex-col items-center gap-2">
-                            <i data-lucide="key-round" class="w-6 h-6"></i>
-                            <span>Join Room</span>
+                        <a href="combat.php?action=join" class="p-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-black text-xs uppercase tracking-wider border border-slate-700 transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="key-round" class="w-4 h-4 text-amber-400"></i>
+                            <span>Enter Room Code</span>
                         </a>
                     </div>
                 </div>
@@ -548,65 +548,81 @@ $matchHistory = $historyStmt->fetchAll();
             </div>
 
             <!-- COMBAT ARENA SCREEN (DYNAMICALY SHOWN WHEN GAME STARTS) -->
-            <div id="combatArenaScreen" class="hidden space-y-6">
+            <!-- FOCUSED ARENA WINDOW (TEST INTERFACE STYLE) -->
+            <div id="combatArenaScreen" class="hidden max-w-4xl mx-auto w-full space-y-4 py-2 sm:py-4">
 
-                <!-- STICKY TOP SCOREBAR -->
-                <div class="sticky top-20 z-40 bg-slate-900/95 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 shadow-xl border border-purple-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 text-white">
-                    <!-- Line 1 on Mobile: Round on Left, Room Code on Right -->
-                    <div class="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
-                        <span id="arenaRoundIndicator" class="px-3 py-1 rounded-xl bg-purple-600 text-white text-xs font-black shrink-0">Round 1 / 4</span>
-                        <span id="arenaRoomCode" class="text-xs font-mono font-bold text-purple-300 dark:text-purple-400 bg-purple-950/60 sm:bg-transparent px-2.5 py-1 sm:p-0 rounded-lg border border-purple-800/50 sm:border-none shrink-0">PREMED-XXXXX</span>
+                <!-- TOP FOCUSED COMMAND BAR (EXACT PROMETRIC TEST INTERFACE STYLE) -->
+                <div class="bg-slate-900/98 backdrop-blur-md rounded-2xl p-3 sm:p-4 shadow-xl border border-purple-800/60 flex items-center justify-between gap-3 text-white">
+                    <!-- Left: Duel Info -->
+                    <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-600 text-white text-xs font-black uppercase tracking-wider shadow-sm">
+                            <i data-lucide="swords" class="w-3.5 h-3.5"></i>
+                            <span id="arenaRoundIndicator">Round 1 / 4</span>
+                        </span>
+                        <span id="arenaRoomCode" class="font-mono text-xs font-bold px-2 py-0.5 rounded-lg bg-purple-950/70 border border-purple-800/80 text-purple-300">PREMED-XXXXX</span>
                     </div>
 
-                    <!-- Line 2 on Mobile: Live Scores centered full width -->
-                    <div id="arenaLiveScores" class="flex items-center justify-center sm:justify-end gap-3 sm:gap-4 text-xs font-black w-full sm:w-auto pt-1 sm:pt-0 border-t border-slate-800/80 sm:border-none"></div>
+                    <!-- Center: Large Unmistakable Turn Status & Countdown Timer -->
+                    <div class="flex items-center gap-2.5">
+                        <div class="relative w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center shrink-0">
+                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                <path class="text-slate-800" stroke-width="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path id="timerCircleProgress" class="text-emerald-400 transition-all duration-1000" stroke-dasharray="100, 100" stroke-width="3" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
+                            <span id="arenaTimerText" class="absolute font-black font-mono text-sm sm:text-base text-white">30</span>
+                        </div>
+                    </div>
+
+                    <!-- Right: Live Scoreboard HUD & Surrender Button -->
+                    <div class="flex items-center gap-3">
+                        <div id="arenaLiveScores" class="flex items-center gap-2 text-xs font-black"></div>
+                        <button type="button" onclick="confirmLeaveCombat()" class="px-2.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 text-xs font-bold transition-all flex items-center gap-1" title="Surrender / Leave Duel">
+                            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                            <span class="hidden sm:inline">Leave</span>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- QUESTION CARD & TIMER AREA -->
-                <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-6">
+                <!-- QUESTION CARD (CLEAN, FOCUSED, KA-TEX EQUIPPED) -->
+                <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-7 shadow-xl border border-slate-200 dark:border-slate-800 space-y-5">
 
-                    <!-- Header with Synced Circular Timer -->
-                    <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+                    <!-- Header with Turn Badge -->
+                    <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                         <div>
-                            <span id="questionTurnBadge" class="text-xs font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">Your Turn</span>
-                            <div id="questionNumberHeader" class="text-sm font-black text-slate-900 dark:text-white">Question 1 of 4</div>
+                            <span id="questionTurnBadge" class="text-xs font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">Your Turn (+2 Pts)</span>
+                            <div id="questionNumberHeader" class="text-xs sm:text-sm font-black text-slate-900 dark:text-white">Question 1 of 4</div>
                         </div>
 
-                        <!-- Circular Timer -->
-                        <div class="relative w-14 h-14 flex items-center justify-center">
-                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                                <path class="text-slate-200 dark:text-slate-800" stroke-width="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                <path id="timerCircleProgress" class="text-emerald-500 transition-all duration-1000" stroke-dasharray="100, 100" stroke-width="3" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            </svg>
-                            <span id="arenaTimerText" class="absolute font-black font-mono text-base text-slate-900 dark:text-white">30</span>
+                        <div class="text-[11px] font-bold text-slate-400 font-mono">
+                            ⚡ PreMed Match Engine
                         </div>
                     </div>
 
                     <!-- Spectator Status Bar -->
-                    <div id="spectatorStatusBar" class="hidden p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
+                    <div id="spectatorStatusBar" class="hidden p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center gap-2">
                         <i data-lucide="eye" class="w-4 h-4 text-amber-500 animate-pulse"></i>
                         <span id="spectatorStatusText">Opponent is thinking... You are spectating.</span>
                     </div>
 
                     <!-- Question Text -->
-                    <div id="arenaQuestionText" class="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-relaxed">
+                    <div id="arenaQuestionText" class="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-relaxed min-h-[50px]">
                         Loading question...
                     </div>
 
                     <!-- Options 2x2 Grid -->
-                    <div id="arenaOptionsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+                    <div id="arenaOptionsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-1"></div>
 
                     <!-- Checking Answer Loading Banner -->
-                    <div id="checkingAnswerBanner" class="hidden my-3 p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/80 border border-purple-300 dark:border-purple-800 text-purple-900 dark:text-purple-200 text-xs font-black flex items-center justify-center gap-2.5 animate-pulse">
-                        <i data-lucide="loader-2" class="w-5 h-5 animate-spin text-purple-600"></i>
-                        <span>Checking answer... ⏳</span>
+                    <div id="checkingAnswerBanner" class="hidden my-2 p-3.5 rounded-2xl bg-purple-50 dark:bg-purple-950/80 border border-purple-300 dark:border-purple-800 text-purple-900 dark:text-purple-200 text-xs font-black flex items-center justify-center gap-2 animate-pulse">
+                        <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-purple-600"></i>
+                        <span>Evaluating submission... ⏳</span>
                     </div>
 
                     <!-- High-Impact Game Result Feedback Overlay (Centered) -->
-                    <div id="battleResultOverlay" class="hidden my-4 p-6 rounded-3xl text-center space-y-3 transition-all animate-in zoom-in-90 pointer-events-none mx-auto max-w-sm">
-                        <div id="resultOverlayIcon" class="text-6xl sm:text-7xl font-black animate-bounce"></div>
-                        <div id="resultOverlayText" class="text-xl sm:text-2xl font-black uppercase tracking-wider"></div>
-                        <div id="resultOverlayPoints" class="inline-block px-4 py-1.5 rounded-full text-xs font-black shadow-lg"></div>
+                    <div id="battleResultOverlay" class="hidden my-3 p-5 rounded-3xl text-center space-y-2 transition-all animate-in zoom-in-90 pointer-events-none mx-auto max-w-sm">
+                        <div id="resultOverlayIcon" class="text-5xl sm:text-6xl font-black animate-bounce"></div>
+                        <div id="resultOverlayText" class="text-lg sm:text-xl font-black uppercase tracking-wider"></div>
+                        <div id="resultOverlayPoints" class="inline-block px-4 py-1 rounded-full text-xs font-black shadow-lg"></div>
                     </div>
                 </div>
             </div>
@@ -1048,8 +1064,29 @@ $matchHistory = $historyStmt->fetchAll();
 
         currentRoom = room;
 
+        // Activate distraction-free focused arena window (Test Interface style)
+        document.body.classList.add('combat-active-focus');
+
+        const topHeader = document.getElementById('topCombatHeader');
+        if (topHeader) topHeader.classList.add('hidden');
+
+        const lobby = document.getElementById('lobbyScreen');
+        if (lobby) lobby.classList.add('hidden');
+
         const waitingScreen = document.getElementById('waitingForOpponentScreen');
         if (waitingScreen) waitingScreen.classList.add('hidden');
+
+        const createCard = document.getElementById('createRoomCard');
+        if (createCard) createCard.classList.add('hidden');
+
+        const joinCard = document.getElementById('joinRoomCard');
+        if (joinCard) joinCard.classList.add('hidden');
+
+        const profileCard = document.getElementById('profileCard');
+        if (profileCard) profileCard.classList.add('hidden');
+
+        const leaderboardCard = document.getElementById('leaderboardCard');
+        if (leaderboardCard) leaderboardCard.classList.add('hidden');
 
         const arenaScreen = document.getElementById('combatArenaScreen');
         if (arenaScreen) arenaScreen.classList.remove('hidden');
