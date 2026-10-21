@@ -1831,9 +1831,9 @@ function sendNextQuestion(roomCode) {
 
   io.to(roomCode).emit('nextQuestion', {
     question: clientQ,
-    questionNumber: (room.currentQuestionIndex % room.questionsPerRound) + 1,
-    roundNumber: room.currentRound,
-    totalRounds: room.totalRounds,
+    questionNumber: (room.currentQuestionIndex % (room.questionsPerRound || 4)) + 1,
+    roundNumber: Math.min(room.totalRounds || 4, Math.max(1, room.currentRound || 1)),
+    totalRounds: room.totalRounds || 4,
     questionsPerRound: room.questionsPerRound,
     turnUserId: room.currentTurnUserId,
     scores: room.scores,

@@ -224,12 +224,11 @@ if ($action === 'get_room_status' || isset($data['get_room_status'])) {
         'createdBy' => (string)$room['created_by'],
         'mode' => $room['mode'],
         'questionsPerRound' => (int)$room['questions_per_round'],
-        'totalRounds' => (int)$room['total_rounds'],
+        'totalRounds' => (int)($room['total_rounds'] ?? 4),
         'allowBonus' => ((int)($room['allow_bonus'] ?? 1) === 1),
         'totalQuestions' => (int)$room['total_questions'],
-        'allowBonus' => ((int)($room['allow_bonus'] ?? 1) === 1),
         'status' => $room['status'],
-        'currentRound' => (int)($room['current_round'] ?? 1),
+        'currentRound' => min((int)($room['total_rounds'] ?? 4), max(1, (int)($room['current_round'] ?? 1))),
         'currentQuestionIndex' => (int)($room['current_question_index'] ?? 0),
         'currentTurnUserId' => (string)($room['current_turn_user_id'] ?? ($players[0]['userId'] ?? '')),
         'turnType' => $room['turn_type'] ?? 'main',
@@ -436,9 +435,11 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
         $hideCorrectOption = false;
     }
 
-    $totalQuestions = (int)($room['total_questions'] ?? 16);
+    $totalRounds = (int)($room['total_rounds'] ?? 4);
     $qPerRound = (int)($room['questions_per_round'] ?? 4);
-    $nextRound = (int)floor($nextIdx / max(1, $qPerRound)) + 1;
+    $questionsPerRoundTotal = max(1, $qPerRound * $pCount);
+    $totalQuestions = (int)($room['total_questions'] ?? ($questionsPerRoundTotal * $totalRounds));
+    $nextRound = min($totalRounds, (int)floor($nextIdx / $questionsPerRoundTotal) + 1);
     $nextStatus = ($nextIdx >= $totalQuestions) ? 'finished' : 'playing';
 
     $resPayload = [
@@ -456,6 +457,9 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
         'nextQuestionIndex' => $nextIdx,
         'nextTurnType' => $nextTurnType,
         'nextTurnUserId' => $nextTurnUserId,
+        'roundNumber' => $nextRound,
+        'totalRounds' => $totalRounds,
+        'status' => $nextStatus,
         'bothMissed' => ($turnType === 'bonus' && !$isCorrect),
         'timestamp' => microtime(true)
     ];
@@ -499,7 +503,7 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0.0, ?, CURRENT_TIMESTAMP)
         ");
         $logStmt->execute([
-            $logId, $code, (int)($room['current_round'] ?? 1), $currentIdx + 1,
+            $logId, $code, min($totalRounds, max(1, (int)($room['current_round'] ?? 1))), $currentIdx + 1,
             $turnType, $currentQ['id'] ?? '', (string)$userId, $selectedOption ?: 'TIMEOUT', $isCorrect ? 1 : 0,
             json_encode([(string)$userId => $pts])
         ]);

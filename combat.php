@@ -75,6 +75,75 @@ $matchHistory = $historyStmt->fetchAll();
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
+<style>
+    /* High-Contrast & Text Visibility Guarantee for Study Combat Arena */
+    #combatArenaScreen {
+        color: #0f172a;
+    }
+    .dark #combatArenaScreen {
+        color: #f8fafc;
+    }
+    #arenaQuestionText {
+        color: #0f172a !important;
+    }
+    .dark #arenaQuestionText {
+        color: #f8fafc !important;
+    }
+    #arenaQuestionText *, #arenaQuestionText p, #arenaQuestionText span, #arenaQuestionText div, #arenaQuestionText strong, #arenaQuestionText em {
+        color: inherit !important;
+    }
+    .opt-btn {
+        color: #0f172a !important;
+    }
+    .dark .opt-btn {
+        color: #f8fafc !important;
+    }
+    .opt-btn span:not(.opt-key-badge) {
+        color: inherit !important;
+    }
+    .opt-btn.border-purple-600 {
+        color: #581c87 !important;
+    }
+    .dark .opt-btn.border-purple-600 {
+        color: #faf5ff !important;
+    }
+    .opt-btn.border-emerald-500 {
+        color: #064e3b !important;
+    }
+    .dark .opt-btn.border-emerald-500 {
+        color: #ecfdf5 !important;
+    }
+    .opt-btn.border-rose-500 {
+        color: #881337 !important;
+    }
+    .dark .opt-btn.border-rose-500 {
+        color: #fff1f2 !important;
+    }
+    .opt-key-badge {
+        color: #1e293b !important;
+    }
+    .dark .opt-key-badge {
+        color: #e2e8f0 !important;
+    }
+    .opt-btn.border-purple-600 .opt-key-badge,
+    .opt-btn.border-emerald-500 .opt-key-badge,
+    .opt-btn.border-rose-500 .opt-key-badge {
+        color: #ffffff !important;
+    }
+    .katex, .katex * {
+        color: inherit !important;
+    }
+    #questionNumberHeader {
+        color: #0f172a !important;
+    }
+    .dark #questionNumberHeader {
+        color: #ffffff !important;
+    }
+    #arenaLiveScores {
+        color: #f8fafc !important;
+    }
+</style>
+
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-8">
 
     <!-- TOP ARENA HEADER / NAVIGATION TABS -->
@@ -1162,7 +1231,7 @@ $matchHistory = $historyStmt->fetchAll();
                 renderQuestion({
                     question: prepareQuestionForClient(currentQ),
                     questionNumber: (qIndex % (room.questionsPerRound || 4)) + 1,
-                    roundNumber: room.currentRound || 1,
+                    roundNumber: Math.min(room.totalRounds || 4, Math.max(1, room.currentRound || 1)),
                     totalRounds: room.totalRounds || 4,
                     questionsPerRound: room.questionsPerRound || 4,
                     turnUserId: room.currentTurnUserId || (room.players[0] ? room.players[0].userId : STUDENT_ID),
@@ -1359,11 +1428,11 @@ $matchHistory = $historyStmt->fetchAll();
                         <div class="flex items-center gap-2">
                             <div class="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 font-bold flex items-center justify-center text-xs">${(p.name || 'S')[0]}</div>
                             <div>
-                                <div class="text-xs font-bold">${p.name} ${p.isHost ? '<span class="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">HOST</span>' : ''}</div>
-                                <div class="text-[10px] text-slate-400 font-mono">${p.matricNo}</div>
+                                <div class="text-xs font-black text-slate-900 dark:text-white">${p.name} ${p.isHost ? '<span class="text-[10px] bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded font-black">HOST</span>' : ''}</div>
+                                <div class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">${p.matricNo}</div>
                             </div>
                         </div>
-                        <span class="text-[10px] font-bold text-emerald-600">Joined</span>
+                        <span class="text-[10px] font-black text-emerald-600 dark:text-emerald-400">Joined</span>
                     </div>
                 `).join('');
             }
@@ -1531,7 +1600,7 @@ $matchHistory = $historyStmt->fetchAll();
                             renderQuestion({
                                 question: prepareQuestionForClient(q),
                                 questionNumber: (r.currentQuestionIndex % (r.questionsPerRound || 4)) + 1,
-                                roundNumber: r.currentRound || 1,
+                                roundNumber: Math.min(r.totalRounds || 4, Math.max(1, r.currentRound || 1)),
                                 totalRounds: r.totalRounds || 4,
                                 questionsPerRound: r.questionsPerRound || 4,
                                 turnUserId: r.currentTurnUserId,
@@ -1657,7 +1726,9 @@ $matchHistory = $historyStmt->fetchAll();
         isSubmittingAnswer = false;
         activeTimerMaxDuration = data.timerDuration || 30;
 
-        document.getElementById('arenaRoundIndicator').textContent = `Round ${data.roundNumber} / ${data.totalRounds}`;
+        const totalR = Math.max(1, data.totalRounds || 4);
+        const roundNum = Math.min(totalR, Math.max(1, data.roundNumber || 1));
+        document.getElementById('arenaRoundIndicator').textContent = `Round ${roundNum} / ${totalR}`;
         document.getElementById('arenaRoomCode').textContent = currentRoom ? currentRoom.roomCode : '';
         document.getElementById('questionNumberHeader').textContent = `Question ${data.questionNumber} of ${data.questionsPerRound}`;
 
@@ -1678,7 +1749,7 @@ $matchHistory = $historyStmt->fetchAll();
             spectatorBar.classList.add('hidden');
         } else {
             turnBadge.textContent = 'SPECTATING';
-            turnBadge.className = 'text-xs font-black uppercase tracking-wider text-slate-400';
+            turnBadge.className = 'text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400';
             spectatorBar.classList.remove('hidden');
             spectatorText.textContent = 'Opponent is thinking... You are spectating.';
         }
@@ -1689,9 +1760,9 @@ $matchHistory = $historyStmt->fetchAll();
         document.getElementById('arenaQuestionText').innerHTML = q.text;
 
         grid.innerHTML = q.options.map(o => `
-            <button type="button" data-key="${o.key}" onclick="selectOption('${o.key}')" ${!isMyTurn ? 'disabled' : ''} class="opt-btn w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-purple-600 disabled:opacity-60 disabled:cursor-not-allowed text-left font-semibold text-xs transition-all flex items-center gap-3">
+            <button type="button" data-key="${o.key}" onclick="selectOption('${o.key}')" ${!isMyTurn ? 'disabled' : ''} class="opt-btn w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/60 hover:border-purple-600 disabled:opacity-60 disabled:cursor-not-allowed text-left font-bold text-xs transition-all flex items-center gap-3 text-slate-900 dark:text-slate-100">
                 <span class="opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0">${o.key}</span>
-                <span class="flex-1 break-words">${o.text}</span>
+                <span class="flex-1 break-words text-slate-900 dark:text-slate-100 font-bold">${o.text}</span>
                 ${!isMyTurn ? '<i data-lucide="lock" class="w-4 h-4 text-slate-400 shrink-0"></i>' : ''}
             </button>
         `).join('');
@@ -1701,15 +1772,38 @@ $matchHistory = $historyStmt->fetchAll();
         if (data.scores && currentRoom && currentRoom.players) {
             scoresDiv.innerHTML = Object.entries(data.scores).map(([uid, pts]) => {
                 const p = currentRoom.players.find(x => x.userId === uid);
-                return `<div>${p ? p.name : 'Player'}: <strong class="text-amber-400 font-mono">${pts} pts</strong></div>`;
-            }).join('<span class="text-slate-600">vs</span>');
+                const isNeg = (pts < 0);
+                const ptsClass = isNeg ? 'text-rose-400 font-mono font-black' : 'text-amber-400 font-mono font-black';
+                return `<div class="flex items-center gap-1"><span class="text-slate-200 font-bold">${p ? p.name : 'Player'}:</span> <strong class="${ptsClass}">${pts} pts</strong></div>`;
+            }).join('<span class="text-purple-300 font-extrabold px-1.5">vs</span>');
         }
 
         startResilientCountdown(activeTimerMaxDuration);
 
         if (window.lucide) lucide.createIcons();
         if (window.renderMathInElement) {
-            renderMathInElement(document.getElementById('arenaQuestionText'));
+            try {
+                renderMathInElement(document.getElementById('arenaQuestionText'), {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\(', right: '\\)', display: false},
+                        {left: '\\[', right: '\\]', display: true}
+                    ],
+                    throwOnError: false
+                });
+                renderMathInElement(grid, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\(', right: '\\)', display: false},
+                        {left: '\\[', right: '\\]', display: true}
+                    ],
+                    throwOnError: false
+                });
+            } catch (kErr) {
+                console.warn('KaTeX render error:', kErr);
+            }
         }
     }
 
@@ -1732,7 +1826,7 @@ $matchHistory = $historyStmt->fetchAll();
                 const keyBadge = b.querySelector('.opt-key-badge');
                 if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-purple-600 text-white font-black text-xs flex items-center justify-center shrink-0';
             } else {
-                b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-left font-semibold text-xs transition-all flex items-center gap-3 opacity-50 cursor-not-allowed';
+                b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 text-left font-semibold text-xs transition-all flex items-center gap-3 opacity-50 cursor-not-allowed';
                 const keyBadge = b.querySelector('.opt-key-badge');
                 if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0';
             }
@@ -1776,7 +1870,7 @@ $matchHistory = $historyStmt->fetchAll();
         const btns = document.querySelectorAll('.opt-btn');
         btns.forEach(b => {
             b.disabled = false;
-            b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-amber-500 text-left font-semibold text-xs transition-all flex items-center gap-3 cursor-pointer';
+            b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 hover:border-amber-500 text-slate-900 dark:text-slate-100 text-left font-bold text-xs transition-all flex items-center gap-3 cursor-pointer';
             const keyBadge = b.querySelector('.opt-key-badge');
             if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0';
             const lockIcon = b.querySelector('i');
@@ -1898,9 +1992,9 @@ $matchHistory = $historyStmt->fetchAll();
             scoresDiv.innerHTML = Object.entries(scores).map(([uid, pts]) => {
                 const p = currentRoom.players.find(x => x.userId === uid);
                 const isNeg = (pts < 0);
-                const ptsClass = isNeg ? 'text-rose-500 font-mono font-black' : 'text-amber-400 font-mono font-black';
-                return `<div>${p ? p.name : 'Player'}: <strong class="${ptsClass}">${pts} pts</strong></div>`;
-            }).join('<span class="text-slate-600">vs</span>');
+                const ptsClass = isNeg ? 'text-rose-400 font-mono font-black' : 'text-amber-400 font-mono font-black';
+                return `<div class="flex items-center gap-1"><span class="text-slate-200 font-bold">${p ? p.name : 'Player'}:</span> <strong class="${ptsClass}">${pts} pts</strong></div>`;
+            }).join('<span class="text-purple-300 font-extrabold px-1.5">vs</span>');
         }
     }
 
@@ -1954,7 +2048,7 @@ $matchHistory = $historyStmt->fetchAll();
             textDiv.textContent = 'BOTH PLAYERS MISSED!';
             textDiv.className = 'text-2xl font-black text-slate-800 dark:text-white uppercase tracking-wider';
             ptsDiv.textContent = data.correctOption ? `Correct Answer was: (${data.correctOption})` : '0 Points Awarded';
-            ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-slate-700 text-white shadow-md';
+            ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-slate-800 text-white shadow-md';
             return;
         }
 
@@ -2002,7 +2096,7 @@ $matchHistory = $historyStmt->fetchAll();
                 textDiv.textContent = 'OPPONENT MISSED!';
                 textDiv.className = 'text-2xl font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider';
                 ptsDiv.textContent = data.hideCorrectOption ? 'Prepare for your Bonus Chance!' : 'Opponent failed!';
-                ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-amber-500 text-white shadow-md';
+                ptsDiv.className = 'inline-block px-4 py-1.5 rounded-full text-xs font-black bg-amber-400 text-slate-950 shadow-md';
             }
         }
     }
