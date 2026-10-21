@@ -2179,11 +2179,18 @@ async function updateUserCombatStatsAndCoins(userId, matricNo, name, courseId, t
   return { isRankUp, newRank: newRankObj.name };
 }
 
-server.listen(PORT, () => {
-  console.log(`======================================================================`);
-  console.log(`  STUDY COMBAT & APEX ADMIN ENGINE (100% TURSO CLOUD + SOCKET.IO)`);
-  console.log(`======================================================================`);
-  console.log(`  Running on Port: ${PORT}`);
-  console.log(`  Socket.io Endpoint: ws://localhost:${PORT}`);
-  console.log(`======================================================================`);
-});
+module.exports = {
+  parseRows,
+  formatArgs
+};
+
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`======================================================================`);
+    console.log(`  STUDY COMBAT & APEX ADMIN ENGINE (100% TURSO CLOUD + SOCKET.IO)`);
+    console.log(`======================================================================`);
+    console.log(`  Running on Port: ${PORT}`);
+    console.log(`  Socket.io Endpoint: ws://localhost:${PORT}`);
+    console.log(`======================================================================`);
+  });
+}
