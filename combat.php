@@ -1546,6 +1546,19 @@ $matchHistory = $historyStmt->fetchAll();
                 body: JSON.stringify(payload)
             }).then(r => r.json()).then(data => {
                 showAnswerResult(data);
+                // Auto-advance after 2.5s for REST submissions
+                setTimeout(() => {
+                    if (currentRoom) {
+                        fetch('api/combat_handler.php?action=get_room_status&roomCode=' + encodeURIComponent(currentRoom.roomCode))
+                            .then(r => r.json())
+                            .then(resData => {
+                                if (resData.success && resData.room) {
+                                    currentRoom = resData.room;
+                                    launchBattleArena(resData.room);
+                                }
+                            }).catch(e => console.warn('REST turn advance error:', e));
+                    }
+                }, 2500);
             }).catch(err => console.error('REST submit error:', err));
         }
     }

@@ -1761,30 +1761,42 @@ function advanceToNextTurn(roomCode) {
   room.turnType = 'main';
   room.teamASelection = {};
 
+  if (!Array.isArray(room.players) || room.players.length === 0) {
+    console.error(`[ADVANCE TURN ERROR] Room ${roomCode} has no players.`);
+    return;
+  }
+
   if (room.mode === '2v1') {
     const currentTurnPlayer = room.players.find(p => p.userId === room.currentTurnUserId);
-    if (currentTurnPlayer.team === 'A') {
+    if (currentTurnPlayer && currentTurnPlayer.team === 'A') {
       const playerB = room.players.find(p => p.team === 'B');
-      room.currentTurnUserId = playerB.userId;
+      if (playerB) room.currentTurnUserId = playerB.userId;
       room.currentQuestionIndex++;
     } else {
       const playerA = room.players.find(p => p.team === 'A');
-      room.currentTurnUserId = playerA.userId;
+      if (playerA) room.currentTurnUserId = playerA.userId;
       room.currentQuestionIndex++;
     }
   } else {
-    const p1 = room.players[0].userId;
-    const p2 = room.players[1].userId;
-    if (room.currentTurnUserId === p1) {
-      room.currentTurnUserId = p2;
+    const p1 = room.players[0] ? room.players[0].userId : null;
+    const p2 = room.players[1] ? room.players[1].userId : null;
+
+    if (p1 && p2) {
+      if (room.currentTurnUserId === p1) {
+        room.currentTurnUserId = p2;
+      } else {
+        room.currentTurnUserId = p1;
+      }
+      room.currentQuestionIndex++;
+    } else if (p1) {
+      room.currentTurnUserId = p1;
       room.currentQuestionIndex++;
     } else {
-      room.currentTurnUserId = p1;
       room.currentQuestionIndex++;
     }
   }
 
-  const numPlayers = room.mode === '2v1' ? 2 : room.players.length;
+  const numPlayers = room.mode === '2v1' ? 2 : Math.max(1, room.players.length);
   const questionsPerRoundTotal = room.questionsPerRound * numPlayers;
   if (room.currentQuestionIndex >= room.currentRound * questionsPerRoundTotal) {
     handleRoundFinished(room);
