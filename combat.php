@@ -786,6 +786,9 @@ $matchHistory = $historyStmt->fetchAll();
                         <button type="button" id="rematchBtn" class="w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black uppercase tracking-wider shadow-lg">
                             Rematch with New Questions
                         </button>
+                        <a href="combat.php?action=lobby" class="block w-full py-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-black uppercase transition-all">
+                            Return to Arena Lobby
+                        </a>
                         <a href="combat.php?tab=leaderboard" class="block w-full py-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-black uppercase">
                             Go to Leaderboard
                         </a>
@@ -1262,16 +1265,20 @@ $matchHistory = $historyStmt->fetchAll();
     }
 
     function prepareQuestionForClient(q) {
+        if (!q) return { id: '', text: '', options: [] };
+        if (Array.isArray(q.options) && q.options.length > 0) {
+            return q;
+        }
         const options = [
-            { key: 'A', text: q.a },
-            { key: 'B', text: q.b },
-            { key: 'C', text: q.c },
-            { key: 'D', text: q.d }
+            { key: 'A', text: q.a || q.option_a || '' },
+            { key: 'B', text: q.b || q.option_b || '' },
+            { key: 'C', text: q.c || q.option_c || '' },
+            { key: 'D', text: q.d || q.option_d || '' }
         ].filter(o => o.text && String(o.text).trim() !== '');
 
         return {
-            id: q.id,
-            text: q.text,
+            id: q.id || '',
+            text: q.text || q.question_text || '',
             options: options
         };
     }
@@ -1302,8 +1309,10 @@ $matchHistory = $historyStmt->fetchAll();
         socket.on('timerUpdate', (data) => {
             if (typeof data.timeRemaining === 'number') {
                 const rem = Math.max(0, data.timeRemaining);
+                if (Math.abs(rem - localTimeRemaining) > 1.5) {
+                    activeTurnStartTs = getSyncedServerTimeSec() - (activeTimerMaxDuration - rem);
+                }
                 localTimeRemaining = rem;
-                activeTurnStartTs = getSyncedServerTimeSec() - (activeTimerMaxDuration - rem);
                 syncTimerDisplay(rem, activeTimerMaxDuration);
                 if (rem <= 0) {
                     stopResilientCountdown();
@@ -1389,8 +1398,12 @@ $matchHistory = $historyStmt->fetchAll();
         });
 
         socket.on('rematchStarted', (data) => {
-            document.getElementById('finalVictoryModal').classList.add('hidden');
-            alert('Rematch started with fresh questions!');
+            const finalModal = document.getElementById('finalVictoryModal');
+            if (finalModal) finalModal.classList.add('hidden');
+            if (data && data.room) {
+                currentRoom = data.room;
+                launchBattleArena(data.room);
+            }
         });
 
         socket.on('teamADisagreed', (data) => {
@@ -1431,13 +1444,17 @@ $matchHistory = $historyStmt->fetchAll();
         document.getElementById('activeRoomCodeDisplay').textContent = code;
 
         const copyBtn = document.getElementById('copyCodeBtn');
-        copyBtn.onclick = () => {
-            navigator.clipboard.writeText(code);
-            alert('Code ' + code + ' copied to clipboard!');
-        };
+        if (copyBtn) {
+            copyBtn.onclick = () => {
+                navigator.clipboard.writeText(code);
+                alert('Code ' + code + ' copied to clipboard!');
+            };
+        }
 
         const waBtn = document.getElementById('shareWhatsappBtn');
-        waBtn.href = `https://api.whatsapp.com/send?text=${encodeURIComponent('Join my Study Combat duel on Premed Portal! Code: ' + code)}`;
+        if (waBtn) {
+            waBtn.href = `https://api.whatsapp.com/send?text=${encodeURIComponent('Join my Study Combat duel on Premed Portal! Code: ' + code)}`;
+        }
 
         function updatePlayersView(playersArr) {
             const list = document.getElementById('joinedPlayersList');
@@ -1946,6 +1963,42 @@ $matchHistory = $historyStmt->fetchAll();
                 }
             }).catch(err => console.error('REST submit error:', err));
         }
+    }
+
+    function enableOptionsForMain() {
+        const btns = document.querySelectorAll('.opt-btn');
+        btns.forEach(b => {
+            b.disabled = false;
+            b.className = 'opt-btn w-full p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/60 hover:border-purple-600 text-slate-900 dark:text-slate-100 text-left font-bold text-xs transition-all flex items-center gap-3 cursor-pointer';
+            const keyBadge = b.querySelector('.opt-key-badge');
+            if (keyBadge) keyBadge.className = 'opt-key-badge w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center shrink-0';
+            const lockIcon = b.querySelector('i');
+            if (lockIcon) lockIcon.remove();
+            b.onclick = function() {
+                selectOption(b.dataset.key);
+            };
+        });
+    }
+
+    function confirmLeaveCombat() {
+        if (confirm('Are you sure you want to surrender and leave the duel? You will forfeit the match.')) {
+            stopResilientCountdown();
+            if (arenaSyncInterval) {
+                clearInterval(arenaSyncInterval);
+                arenaSyncInterval = null;
+            }
+            document.body.classList.remove('combat-active-focus');
+            localStorage.removeItem('activeCombatRoomCode');
+            if (socket && currentRoom) {
+                socket.emit('leaveRoom', { roomCode: currentRoom.roomCode, userId: STUDENT_ID });
+            }
+            window.location.href = 'combat.php?action=lobby';
+        }
+    }
+
+    function closeRankUpModal() {
+        const modal = document.getElementById('rankUpModal');
+        if (modal) modal.classList.add('hidden');
     }
 
     function enableOptionsForBonus() {

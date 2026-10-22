@@ -1472,6 +1472,34 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Player Surrender / Leave Room Handler
+  socket.on('leaveRoom', async (data) => {
+    const { roomCode, userId } = data || {};
+    const room = activeCombatRooms.get(roomCode);
+    if (!room) return;
+
+    if (room.status === 'playing') {
+      clearInterval(room.timerInterval);
+      room.status = 'terminated';
+      io.to(roomCode).emit('playerForfeited', {
+        forfeitedUserId: userId,
+        message: 'A player surrendered and left the duel.'
+      });
+      await handleForfeitGame(room, userId);
+      activeCombatRooms.delete(roomCode);
+      if (userId) userActiveRoomMap.delete(userId);
+    } else if (room.status === 'waiting') {
+      room.players = room.players.filter(p => p.userId !== userId);
+      if (room.players.length === 0 || room.createdBy === userId) {
+        activeCombatRooms.delete(roomCode);
+        io.to(roomCode).emit('roomTerminated', { reason: 'Host left the waiting room.' });
+      } else {
+        io.to(roomCode).emit('playerLeft', { userId, room });
+      }
+      if (userId) userActiveRoomMap.delete(userId);
+    }
+  });
+
   // 10. Admin Terminate Room
   socket.on('adminTerminate', async (data) => {
     const { roomCode, reason } = data;
@@ -1581,7 +1609,8 @@ async function evaluateMainAnswer(room, selectedOption, currentQ) {
 
     setTimeout(() => advanceToNextTurn(roomCode), 2500);
   } else {
-    const hasBonus = (room.allowBonus !== false && room.allow_bonus !== 0 && room.players.length > 1);
+    const isBonusEnabled = (room.allowBonus === 1 || room.allowBonus === true || room.allowBonus === '1' || room.allow_bonus === 1 || room.allow_bonus === '1');
+    const hasBonus = Boolean(isBonusEnabled && room.players && room.players.length > 1);
     const resPayload = {
       isCorrect: false,
       correctOption: hasBonus ? null : currentQ.correct_option,
@@ -1681,23 +1710,31 @@ function startBonusTurn(roomCode) {
     room.turnStartTime = Date.now();
     room.timerDuration = 15;
 
+    const bonusStartSec = Date.now() / 1000;
     io.to(roomCode).emit('triggerBonusTurn', {
       bonusUserId: opponent.userId,
       timerDuration: 15,
+      turnStartTimestamp: bonusStartSec,
       message: 'Bonus Chance for Opponent! (15s)'
     });
 
     runServerTimer(room, 15, () => {
-      // Award 0 points if offline/timeout
-      io.to(roomCode).emit('bonusAnswerResult', {
+      // Award 0 points if offline/timeout; both missed so reveal answer now
+      const bonusTimeoutPayload = {
         isCorrect: false,
         correctOption: room.questionsPool[room.currentQuestionIndex].correct_option,
+        hideCorrectOption: false,
+        explanation: room.questionsPool[room.currentQuestionIndex].explanation,
         pointsAwarded: 0,
         scores: room.scores,
         turnUserId: room.bonusUserId,
         userId: room.bonusUserId,
+        bothMissed: true,
         message: 'Bonus Time Expired!'
-      });
+      };
+      room.lastAnswerResult = bonusTimeoutPayload;
+      room.lastAnswerResultTimestamp = Date.now();
+      io.to(roomCode).emit('bonusAnswerResult', bonusTimeoutPayload);
       setTimeout(() => advanceToNextTurn(roomCode), 2000);
     });
   }
@@ -1837,6 +1874,7 @@ function sendNextQuestion(roomCode) {
     WHERE room_code = ?;
   `, [room.currentQuestionIndex, room.currentRound, room.currentTurnUserId, JSON.stringify(room.scores), roomCode]).catch(() => {});
 
+  const nowSec = Date.now() / 1000;
   io.to(roomCode).emit('nextQuestion', {
     question: clientQ,
     questionNumber: (room.currentQuestionIndex % (room.questionsPerRound || 4)) + 1,
@@ -1845,20 +1883,35 @@ function sendNextQuestion(roomCode) {
     questionsPerRound: room.questionsPerRound,
     turnUserId: room.currentTurnUserId,
     scores: room.scores,
+    turnStartTimestamp: nowSec,
     timerDuration: 30
   });
 
   runServerTimer(room, 30, () => {
-    io.to(roomCode).emit('mainAnswerResult', {
+    const isBonusEnabled = (room.allowBonus === 1 || room.allowBonus === true || room.allowBonus === '1' || room.allow_bonus === 1 || room.allow_bonus === '1');
+    const hasBonus = Boolean(isBonusEnabled && room.players && room.players.length > 1);
+
+    const timeoutPayload = {
       isCorrect: false,
-      correctOption: currentQ.correct_option,
+      correctOption: hasBonus ? null : currentQ.correct_option,
+      hideCorrectOption: hasBonus,
+      selectedOption: 'TIMEOUT',
+      explanation: hasBonus ? null : currentQ.explanation,
       pointsAwarded: 0,
       scores: room.scores,
       turnUserId: room.currentTurnUserId,
       userId: room.currentTurnUserId,
       message: 'Time Expired!'
-    });
-    setTimeout(() => startBonusTurn(roomCode), 2000);
+    };
+    room.lastAnswerResult = timeoutPayload;
+    room.lastAnswerResultTimestamp = Date.now();
+    io.to(roomCode).emit('mainAnswerResult', timeoutPayload);
+
+    if (hasBonus) {
+      setTimeout(() => startBonusTurn(roomCode), 2000);
+    } else {
+      setTimeout(() => advanceToNextTurn(roomCode), 2500);
+    }
   });
 }
 
@@ -2061,10 +2114,10 @@ async function handleForfeitGame(room, forfeitedUserId) {
   clearInterval(room.timerInterval);
   room.status = 'finished';
 
-  const forfeitedPlayer = room.players.find(p => p.userId === forfeitedUserId);
+  const forfeitedPlayer = room.players.find(p => p.userId === forfeitedUserId) || { userId: forfeitedUserId, name: 'Player' };
   const remainingPlayers = room.players.filter(p => p.userId !== forfeitedUserId);
 
-  const winner = remainingPlayers[0];
+  const winner = remainingPlayers[0] || { userId: 'winner', matricNo: '', name: 'Opponent' };
   const coinsAwarded = {
     [forfeitedPlayer.userId]: 0,
     [winner.userId]: 25

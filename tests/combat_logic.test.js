@@ -144,6 +144,26 @@ test('combat.php contains high-contrast CSS overrides, server time sync, and 300
   assert.ok(content.includes('}, 300);'), 'Must poll arena status at high-frequency 300ms for instant parity');
 });
 
+test('combat.php defines required UI interaction and lifecycle functions', () => {
+  const combatPath = path.join(__dirname, '..', 'combat.php');
+  const content = fs.readFileSync(combatPath, 'utf8');
+
+  assert.ok(content.includes('function enableOptionsForMain()'), 'Must define enableOptionsForMain to re-enable answer buttons on main turn');
+  assert.ok(content.includes('function confirmLeaveCombat()'), 'Must define confirmLeaveCombat to handle player surrender without runtime error');
+  assert.ok(content.includes('function closeRankUpModal()'), 'Must define closeRankUpModal for level-up celebration modal button');
+  assert.ok(content.includes('launchBattleArena(data.room)'), 'Must launch arena when rematchStarted socket event is fired');
+  assert.ok(content.includes('Return to Arena Lobby'), 'Must provide Return to Arena Lobby navigation button in final modal');
+});
+
+test('local_admin_server.js strictly enforces anti-cheat and respects allowBonus setting on timeouts', () => {
+  const serverPath = path.join(__dirname, '..', 'local_admin_server.js');
+  const content = fs.readFileSync(serverPath, 'utf8');
+
+  assert.ok(content.includes("socket.on('leaveRoom'"), 'Must register leaveRoom socket listener');
+  assert.ok(content.includes('hideCorrectOption: hasBonus'), 'Must hide correct answer on main timeout when bonus turn is active');
+  assert.ok(content.includes('turnStartTimestamp'), 'Must emit turnStartTimestamp to synchronize client timers');
+});
+
 test('api/combat_handler.php contains atomic processCombatAnswer, server timestamps, and auto-timeout watchdog', () => {
   const handlerPath = path.join(__dirname, '..', 'api', 'combat_handler.php');
   const content = fs.readFileSync(handlerPath, 'utf8');
@@ -154,5 +174,5 @@ test('api/combat_handler.php contains atomic processCombatAnswer, server timesta
   assert.ok(content.includes("$nextStatus = $isFinished ? 'finished' : 'playing';"), 'Must set status to finished when reaching total questions');
   assert.ok(content.includes('turn_start_timestamp'), 'Must persist turn_start_timestamp in combat_rooms');
   assert.ok(content.includes('isReviewingAnswer'), 'Must track 2-second review overlay phase');
-  assert.ok(content.includes('processCombatAnswer($pdo, $room, $code, $activeUserId, \'TIMEOUT\')'), 'Must auto-process timeout on server when time expires');
+  assert.ok(content.includes("processCombatAnswer($pdo, $room, $code, $activeUserId, 'TIMEOUT')"), 'Must auto-process timeout on server when time expires');
 });
