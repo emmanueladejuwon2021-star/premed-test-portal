@@ -1224,6 +1224,10 @@ $matchHistory = $historyStmt->fetchAll();
         const arenaScreen = document.getElementById('combatArenaScreen');
         if (arenaScreen) arenaScreen.classList.remove('hidden');
 
+        if (room.serverTime) {
+            updateServerTimeOffset(room.serverTime);
+        }
+
         const qPerRound = room.questionsPerRound || 4;
         const totalR = room.totalRounds || 4;
         const totalQ = qPerRound * totalR;
@@ -1246,7 +1250,8 @@ $matchHistory = $historyStmt->fetchAll();
                     questionsPerRound: qPerRound,
                     turnUserId: room.currentTurnUserId || (room.players[0] ? room.players[0].userId : STUDENT_ID),
                     scores: room.scores || {},
-                    timerDuration: 30
+                    turnStartTimestamp: room.turnStartTimestamp,
+                    timerDuration: room.turnDuration || 30
                 });
             }
         }
@@ -1298,7 +1303,7 @@ $matchHistory = $historyStmt->fetchAll();
             if (typeof data.timeRemaining === 'number') {
                 const rem = Math.max(0, data.timeRemaining);
                 localTimeRemaining = rem;
-                turnStartTimestamp = Date.now() - ((activeTimerMaxDuration - rem) * 1000);
+                activeTurnStartTs = getSyncedServerTimeSec() - (activeTimerMaxDuration - rem);
                 syncTimerDisplay(rem, activeTimerMaxDuration);
                 if (rem <= 0) {
                     stopResilientCountdown();
@@ -1328,7 +1333,11 @@ $matchHistory = $historyStmt->fetchAll();
             currentSelectedOptionKey = null;
             isSubmittingAnswer = false;
             activeTimerMaxDuration = data.timerDuration || 15;
-            startResilientCountdown(activeTimerMaxDuration);
+            if (typeof data.turnStartTimestamp === 'number' && data.turnStartTimestamp > 0) {
+            startResilientCountdown(data.turnStartTimestamp, activeTimerMaxDuration);
+        } else {
+            startResilientCountdown(getSyncedServerTimeSec(), activeTimerMaxDuration);
+        }
 
             const checkingBanner = document.getElementById('checkingAnswerBanner');
             if (checkingBanner) checkingBanner.classList.add('hidden');
@@ -1485,7 +1494,7 @@ $matchHistory = $historyStmt->fetchAll();
 
         checkStartBtnState(room);
 
-        // Ultra-fast 1-second polling timer for instant launch
+        // Ultra-fast 500ms polling timer for instant launch across both devices
         lobbyPollingInterval = setInterval(async () => {
             try {
                 const res = await fetch('api/combat_handler.php?action=get_room_status&roomCode=' + encodeURIComponent(code));
@@ -1502,26 +1511,47 @@ $matchHistory = $historyStmt->fetchAll();
             } catch (e) {
                 console.warn('Lobby polling check error:', e);
             }
-        }, 1000);
+        }, 500);
 
         if (window.lucide) lucide.createIcons();
     }
 
     // Production-Grade Real-Time Arena Synchronizer & Dual-Sync Engine
+    let serverTimeOffsetMs = 0;
+
+    function updateServerTimeOffset(serverTimeSec) {
+        if (typeof serverTimeSec === 'number' && serverTimeSec > 0) {
+            serverTimeOffsetMs = (serverTimeSec * 1000) - Date.now();
+        }
+    }
+
+    function getSyncedServerTimeSec() {
+        return (Date.now() + serverTimeOffsetMs) / 1000;
+    }
+
     let localCountdownInterval = null;
     let localTimeRemaining = 30;
-    let turnStartTimestamp = null;
+    let activeTurnStartTs = 0;
+    let activeTimerMaxDuration = 30;
     let arenaSyncInterval = null;
     let lastRenderedTurnKey = null;
     let lastDisplayedResultTs = null;
-    let isEvaluatingTurn = false;
+    let isSubmittingAnswer = false;
 
     function isMyTurn(userId) {
         return String(userId) === String(STUDENT_ID);
     }
 
-    
-    // Production In-Game Synchronization Heartbeat
+    function calculateSyncedTimeRemaining(turnStartTs, maxDur) {
+        if (!turnStartTs || turnStartTs <= 0) return maxDur;
+        const nowSec = getSyncedServerTimeSec();
+        if (nowSec < turnStartTs) {
+            return maxDur; // Still in transition/review window
+        }
+        return Math.max(0, Math.ceil((turnStartTs + maxDur) - nowSec));
+    }
+
+    // Production In-Game Synchronization Heartbeat with 300ms high-frequency polling
     function startArenaSyncLoop() {
         if (arenaSyncInterval) clearInterval(arenaSyncInterval);
 
@@ -1535,6 +1565,10 @@ $matchHistory = $historyStmt->fetchAll();
 
                 const r = data.room;
                 currentRoom = r;
+
+                if (r.serverTime) {
+                    updateServerTimeOffset(r.serverTime);
+                }
 
                 const totalR = Math.max(1, r.totalRounds || 4);
                 const qPerRound = Math.max(1, r.questionsPerRound || 4);
@@ -1556,35 +1590,29 @@ $matchHistory = $historyStmt->fetchAll();
                     return;
                 }
 
-                // 2. Sync scores across screens
+                // 2. Sync scores across screens in real-time
                 if (r.scores) {
                     updateLiveScoreboard(r.scores);
                 }
 
-                // 3. Sync opponent answer results in real-time
-                if (r.lastAnswerResult && r.lastAnswerResult.timestamp) {
-                    const ts = r.lastAnswerResult.timestamp;
-                    const elapsedSinceResult = (Date.now() / 1000) - ts;
-                    if (ts !== lastDisplayedResultTs && elapsedSinceResult < 3.5) {
-                        lastDisplayedResultTs = ts;
-                        showAnswerResult(r.lastAnswerResult);
-                    }
+                // 3. Handle 2-second Answer Review Overlay
+                if (r.isReviewingAnswer && r.lastAnswerResult) {
+                    showAnswerResult(r.lastAnswerResult);
+                    stopResilientCountdown();
+                    return; // Remain in review window until server transition time
                 }
 
-                // 4. Sync question/turn progression across both players
+                // 4. Review is over: hide overlay
+                const overlay = document.getElementById('battleResultOverlay');
+                if (overlay && !overlay.classList.contains('hidden')) {
+                    overlay.classList.add('hidden');
+                }
+
+                // 5. Sync question/turn progression across both players
                 const turnKey = `${r.currentQuestionIndex}_${r.turnType || 'main'}_${r.currentTurnUserId}`;
                 if (turnKey !== lastRenderedTurnKey) {
-                    const elapsedSinceAnswer = (Date.now() / 1000) - (r.lastAnswerTimestamp || 0);
-                    // Give 1.8s visual window for answer feedback overlay before swapping to new question
-                    if (r.lastAnswerResult && elapsedSinceAnswer < 1.8) {
-                        return;
-                    }
-
                     lastRenderedTurnKey = turnKey;
                     isSubmittingAnswer = false;
-
-                    const overlay = document.getElementById('battleResultOverlay');
-                    if (overlay) overlay.classList.add('hidden');
 
                     if (r.turnType === 'bonus') {
                         // Bonus Turn Setup
@@ -1608,7 +1636,7 @@ $matchHistory = $historyStmt->fetchAll();
                             if (spectatorText) spectatorText.textContent = 'Opponent is on Bonus Turn (+1 or -1)... You are spectating.';
                             disableOptions();
                         }
-                        startResilientCountdown(15);
+                        startResilientCountdown(r.turnStartTimestamp, 15);
                     } else {
                         // Main Turn Question Setup
                         currentTurnIsBonus = false;
@@ -1623,6 +1651,7 @@ $matchHistory = $historyStmt->fetchAll();
                                 questionsPerRound: qPerRound,
                                 turnUserId: r.currentTurnUserId,
                                 scores: r.scores || {},
+                                turnStartTimestamp: r.turnStartTimestamp,
                                 timerDuration: 30
                             });
                         }
@@ -1631,27 +1660,27 @@ $matchHistory = $historyStmt->fetchAll();
             } catch (err) {
                 console.warn('Sync loop heartbeat error:', err);
             }
-        }, 1000);
+        }, 300);
     }
 
-    function startResilientCountdown(durationSec) {
+    function startResilientCountdown(turnStartTs, durationSec) {
         stopResilientCountdown();
         activeTimerMaxDuration = durationSec || 30;
-        localTimeRemaining = activeTimerMaxDuration;
-        turnStartTimestamp = Date.now();
-        syncTimerDisplay(localTimeRemaining, activeTimerMaxDuration);
+        activeTurnStartTs = (typeof turnStartTs === 'number' && turnStartTs > 0) ? turnStartTs : getSyncedServerTimeSec();
 
-        localCountdownInterval = setInterval(() => {
-            if (!turnStartTimestamp) return;
-            const elapsed = Math.floor((Date.now() - turnStartTimestamp) / 1000);
-            localTimeRemaining = Math.max(0, activeTimerMaxDuration - elapsed);
-            syncTimerDisplay(localTimeRemaining, activeTimerMaxDuration);
+        function tick() {
+            const rem = calculateSyncedTimeRemaining(activeTurnStartTs, activeTimerMaxDuration);
+            localTimeRemaining = rem;
+            syncTimerDisplay(rem, activeTimerMaxDuration);
 
-            if (localTimeRemaining <= 0) {
+            if (rem <= 0) {
                 stopResilientCountdown();
                 handleLocalTimeout();
             }
-        }, 200);
+        }
+
+        tick();
+        localCountdownInterval = setInterval(tick, 150);
     }
 
     function stopResilientCountdown() {
@@ -1659,24 +1688,17 @@ $matchHistory = $historyStmt->fetchAll();
             clearInterval(localCountdownInterval);
             localCountdownInterval = null;
         }
-        turnStartTimestamp = null;
     }
 
     function handleLocalTimeout() {
         if (isSubmittingAnswer) return;
         stopResilientCountdown();
 
-        const turnBadge = document.getElementById('questionTurnBadge');
-        const badgeSaysMyTurn = turnBadge && (
-            turnBadge.textContent.includes('YOUR TURN') || 
-            turnBadge.textContent.includes('BONUS CHANCE')
-        );
-
         const activeTurnUser = currentTurnIsBonus
             ? (currentRoom && (currentRoom.bonusUserId || currentRoom.currentTurnUserId))
             : (currentRoom && currentRoom.currentTurnUserId);
 
-        const shouldSubmit = isMyTurn(activeTurnUser) || badgeSaysMyTurn;
+        const shouldSubmit = isMyTurn(activeTurnUser);
 
         if (shouldSubmit) {
             isSubmittingAnswer = true;
@@ -1704,8 +1726,12 @@ $matchHistory = $historyStmt->fetchAll();
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 }).then(r => r.json()).then(data => {
+                    if (data.serverTime) {
+                        updateServerTimeOffset(data.serverTime);
+                    }
                     data.message = 'Time Expired!';
                     showAnswerResult(data);
+                    stopResilientCountdown();
                     if (data.status === 'finished') {
                         setTimeout(() => {
                             stopResilientCountdown();
@@ -1725,7 +1751,7 @@ $matchHistory = $historyStmt->fetchAll();
         } else {
             const spectatorText = document.getElementById('spectatorStatusText');
             if (spectatorText) {
-                spectatorText.innerHTML = '<span class="text-rose-400 font-bold animate-pulse">⏰ Time Expired! Moving to next turn...</span>';
+                spectatorText.innerHTML = '<span class="text-rose-400 font-bold animate-pulse">⏰ Time Expired! Evaluating...</span>';
             }
         }
     }
@@ -1812,7 +1838,11 @@ $matchHistory = $historyStmt->fetchAll();
             }).join('<span class="text-purple-300 font-extrabold px-1.5">vs</span>');
         }
 
-        startResilientCountdown(activeTimerMaxDuration);
+        if (typeof data.turnStartTimestamp === 'number' && data.turnStartTimestamp > 0) {
+            startResilientCountdown(data.turnStartTimestamp, activeTimerMaxDuration);
+        } else {
+            startResilientCountdown(getSyncedServerTimeSec(), activeTimerMaxDuration);
+        }
 
         if (window.lucide) lucide.createIcons();
         if (window.renderMathInElement) {
@@ -1895,7 +1925,11 @@ $matchHistory = $historyStmt->fetchAll();
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             }).then(r => r.json()).then(data => {
+                if (data.serverTime) {
+                    updateServerTimeOffset(data.serverTime);
+                }
                 showAnswerResult(data);
+                stopResilientCountdown();
                 if (data.status === 'finished') {
                     setTimeout(() => {
                         stopResilientCountdown();

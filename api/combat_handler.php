@@ -18,6 +18,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 try {
     $pdo = DB::connect();
 
+    // Auto-migrate extended combat columns if not already present
+    $schemaCols = [
+        'questions_pool' => 'TEXT',
+        'used_question_ids' => 'TEXT',
+        'current_round' => 'INTEGER DEFAULT 1',
+        'current_question_index' => 'INTEGER DEFAULT 0',
+        'current_turn_user_id' => 'TEXT',
+        'turn_type' => "TEXT DEFAULT 'main'",
+        'bonus_user_id' => 'TEXT',
+        'last_answer_result' => 'TEXT',
+        'last_answer_timestamp' => 'REAL DEFAULT 0',
+        'turn_start_timestamp' => 'REAL DEFAULT 0',
+        'turn_duration' => 'INTEGER DEFAULT 30',
+        'allow_bonus' => 'INTEGER DEFAULT 1',
+        'scores' => 'TEXT',
+        'players' => 'TEXT'
+    ];
+    foreach ($schemaCols as $col => $def) {
+        try {
+            $pdo->exec("ALTER TABLE combat_rooms ADD COLUMN {$col} {$def}");
+        } catch (Exception $e) {}
+    }
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -184,6 +207,204 @@ if ($action === 'create_room' || isset($data['create_room'])) {
     exit;
 }
 
+/**
+ * Atomic Server-Authoritative Combat Answer Processing Engine
+ * Handles scoring, fair turn switching, bonus passing, round tracking, and timeout resolution
+ */
+function processCombatAnswer($pdo, $room, $code, $userId, $selectedOption, $questionId = null) {
+    $scores = json_decode($room['scores'] ?? '{}', true);
+
+    // Get exact question correct_option
+    $currentQ = null;
+    if ($questionId) {
+        $qStmt = $pdo->prepare("SELECT id, correct_option, explanation FROM questions WHERE id = ? LIMIT 1");
+        $qStmt->execute([$questionId]);
+        $currentQ = $qStmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    if (!$currentQ) {
+        $pastQs = $pdo->prepare("SELECT id, correct_option, explanation FROM questions WHERE topic_id = ? LIMIT 100");
+        $pastQs->execute([$room['topic_id']]);
+        $questions = $pastQs->fetchAll(PDO::FETCH_ASSOC);
+        $currentIdx = (int)($room['current_question_index'] ?? 0);
+        $currentQ = $questions[$currentIdx % max(1, count($questions))] ?? null;
+    }
+
+    $storedPool = json_decode($room['questions_pool'] ?? '[]', true);
+    $currentIdx = (int)($room['current_question_index'] ?? 0);
+    if (!empty($storedPool)) {
+        $currentQ = $storedPool[$currentIdx % count($storedPool)] ?? $currentQ;
+    }
+
+    $turnType = $room['turn_type'] ?? 'main';
+    $isCorrect = ($currentQ && $selectedOption === $currentQ['correct_option']);
+
+    if ($turnType === 'main') {
+        $pts = $isCorrect ? 2 : 0;
+    } else {
+        // Bonus Turn Scoring (+1 for correct, -1 for wrong, 0 for timeout)
+        $pts = $isCorrect ? 1 : ($selectedOption === 'TIMEOUT' ? 0 : -1);
+    }
+
+    $scores[(string)$userId] = ($scores[(string)$userId] ?? 0) + $pts;
+
+    $players = json_decode($room['players'] ?? '[]', true);
+    $opponentId = (string)$userId;
+    if (is_array($players) && count($players) > 1) {
+        foreach ($players as $p) {
+            if ((string)$p['userId'] !== (string)$userId) {
+                $opponentId = (string)$p['userId'];
+                break;
+            }
+        }
+    }
+
+    // Progression rules:
+    // 1. If main turn correct -> question complete -> advance to next question, deterministic turn alternation
+    // 2. If main turn wrong & bonus allowed -> same question -> bonus turn for opponent (HIDE CORRECT OPTION)
+    // 3. If bonus turn (either correct or wrong) -> question complete -> REVEAL correct option -> advance to next question
+    $allowBonus = (int)($room['allow_bonus'] ?? 1);
+    $pCount = max(1, count($players));
+
+    $nextIdx = $currentIdx;
+    $nextTurnType = 'main';
+    $bonusUserId = null;
+    $hideCorrectOption = false;
+    $correctOptionToSend = $currentQ ? $currentQ['correct_option'] : 'A';
+    $explanationToSend = $currentQ ? $currentQ['explanation'] : '';
+
+    if ($turnType === 'main') {
+        if ($isCorrect) {
+            // Main player answered correctly: advance to next question
+            $nextIdx = $currentIdx + 1;
+            $nextTurnType = 'main';
+            $nextTurnUserId = (string)($players[$nextIdx % $pCount]['userId'] ?? $opponentId);
+            $hideCorrectOption = false;
+        } else {
+            // Main player answered wrongly!
+            if ($allowBonus && $pCount > 1) {
+                // Opponent gets bonus turn on the SAME question!
+                // CRUCIAL: HIDE the correct answer so opponent does not cheat!
+                $nextIdx = $currentIdx;
+                $nextTurnType = 'bonus';
+                $nextTurnUserId = $opponentId;
+                $bonusUserId = $opponentId;
+                $hideCorrectOption = true;
+                $correctOptionToSend = null;
+                $explanationToSend = null;
+            } else {
+                // Bonus disabled: question is finished!
+                // Reveal answer and advance to next question
+                $nextIdx = $currentIdx + 1;
+                $nextTurnType = 'main';
+                $nextTurnUserId = (string)($players[$nextIdx % $pCount]['userId'] ?? $opponentId);
+                $hideCorrectOption = false;
+            }
+        }
+    } else {
+        // Bonus turn answered (either correct or wrong): BOTH players have now attempted!
+        // Question is finished: REVEAL answer and advance to next question
+        $nextIdx = $currentIdx + 1;
+        $nextTurnType = 'main';
+        $nextTurnUserId = (string)($players[$nextIdx % $pCount]['userId'] ?? $opponentId);
+        $hideCorrectOption = false;
+    }
+
+    $totalRounds = max(1, (int)($room['total_rounds'] ?? 4));
+    $qPerRound = max(1, (int)($room['questions_per_round'] ?? 4));
+    $totalQuestions = max(1, $qPerRound * $totalRounds);
+    $isFinished = ($nextIdx >= $totalQuestions);
+    $nextRound = $isFinished ? $totalRounds : min($totalRounds, (int)floor($nextIdx / $qPerRound) + 1);
+    $nextStatus = $isFinished ? 'finished' : 'playing';
+
+    $now = microtime(true);
+    $reviewDuration = 2.0;
+    $nextTurnStart = $now + $reviewDuration;
+    $nextTurnDuration = ($nextTurnType === 'bonus') ? 15 : 30;
+
+    $resPayload = [
+        'isCorrect' => $isCorrect,
+        'correctOption' => $correctOptionToSend,
+        'hideCorrectOption' => $hideCorrectOption,
+        'selectedOption' => $selectedOption,
+        'explanation' => $explanationToSend,
+        'pointsAwarded' => $pts,
+        'scores' => $scores,
+        'turnUserId' => (string)($room['current_turn_user_id'] ?? $userId),
+        'userId' => (string)$userId,
+        'turnType' => $turnType,
+        'questionIndex' => $currentIdx,
+        'nextQuestionIndex' => $nextIdx,
+        'nextTurnType' => $nextTurnType,
+        'nextTurnUserId' => $nextTurnUserId,
+        'roundNumber' => $nextRound,
+        'totalRounds' => $totalRounds,
+        'totalQuestions' => $totalQuestions,
+        'questionsPerRound' => $qPerRound,
+        'status' => $nextStatus,
+        'bothMissed' => ($turnType === 'bonus' && !$isCorrect),
+        'timestamp' => $now,
+        'serverTime' => $now,
+        'reviewDuration' => $reviewDuration,
+        'nextTurnStart' => $nextTurnStart,
+        'nextTurnDuration' => $nextTurnDuration,
+        'timeRemaining' => $nextTurnDuration
+    ];
+
+    try {
+        $upd = $pdo->prepare("
+            UPDATE combat_rooms
+            SET scores = ?,
+                current_question_index = ?,
+                current_round = ?,
+                current_turn_user_id = ?,
+                turn_type = ?,
+                bonus_user_id = ?,
+                last_answer_result = ?,
+                last_answer_timestamp = ?,
+                turn_start_timestamp = ?,
+                turn_duration = ?,
+                status = ?,
+                total_questions = ?
+            WHERE room_code = ?
+        ");
+        $upd->execute([
+            json_encode($scores),
+            $nextIdx,
+            $nextRound,
+            $nextTurnUserId,
+            $nextTurnType,
+            $bonusUserId,
+            json_encode($resPayload),
+            $now,
+            $nextTurnStart,
+            $nextTurnDuration,
+            $nextStatus,
+            $totalQuestions,
+            $code
+        ]);
+    } catch (Exception $e) {}
+
+    // Insert match log into DB
+    try {
+        $logId = 'log_' . bin2hex(random_bytes(4));
+        $logStmt = $pdo->prepare("
+            INSERT INTO combat_match_logs (
+                id, room_code, round_number, question_number_in_round, turn_type,
+                question_id, asked_to_user_id, main_selected_option, main_is_correct,
+                main_time_used, points_awarded, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0.0, ?, CURRENT_TIMESTAMP)
+        ");
+        $logStmt->execute([
+            $logId, $code, min($totalRounds, max(1, (int)floor($currentIdx / $qPerRound) + 1)), (($currentIdx % $qPerRound) + 1),
+            $turnType, $currentQ['id'] ?? '', (string)$userId, $selectedOption ?: 'TIMEOUT', $isCorrect ? 1 : 0,
+            json_encode([(string)$userId => $pts])
+        ]);
+    } catch (Exception $e) {}
+
+    return $resPayload;
+}
+
 if ($action === 'get_room_status' || isset($data['get_room_status'])) {
     $code = strtoupper(trim($data['roomCode'] ?? ($_GET['roomCode'] ?? '')));
 
@@ -216,6 +437,36 @@ if ($action === 'get_room_status' || isset($data['get_room_status'])) {
     }
     $lastAnswerResult = json_decode($room['last_answer_result'] ?? 'null', true);
 
+    $now = microtime(true);
+    $turnStart = (float)($room['turn_start_timestamp'] ?? 0);
+    $turnDuration = (int)($room['turn_duration'] ?? 30);
+    $lastAnsTs = (float)($room['last_answer_timestamp'] ?? 0);
+    $elapsedSinceAnswer = ($lastAnsTs > 0) ? ($now - $lastAnsTs) : 999;
+    $isReviewingAnswer = ($lastAnsTs > 0 && $elapsedSinceAnswer < 2.0 && !empty($room['last_answer_result']));
+
+    // Server-side watchdog anti-freeze:
+    // If turn duration exceeded by more than 1.5s grace period and not in review overlay, auto-timeout
+    if ($room['status'] === 'playing' && !$isReviewingAnswer && $turnStart > 0 && ($now >= ($turnStart + $turnDuration + 1.5))) {
+        $activeUserId = (string)($room['current_turn_user_id'] ?? ($players[0]['userId'] ?? ''));
+        if ($room['turn_type'] === 'bonus' && !empty($room['bonus_user_id'])) {
+            $activeUserId = (string)$room['bonus_user_id'];
+        }
+        $lastAnswerResult = processCombatAnswer($pdo, $room, $code, $activeUserId, 'TIMEOUT');
+
+        // Reload fresh room record after timeout
+        $stmt = $pdo->prepare("SELECT * FROM combat_rooms WHERE room_code = ? LIMIT 1");
+        $stmt->execute([$code]);
+        $room = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $now = microtime(true);
+        $turnStart = (float)($room['turn_start_timestamp'] ?? 0);
+        $turnDuration = (int)($room['turn_duration'] ?? 30);
+        $lastAnsTs = (float)($room['last_answer_timestamp'] ?? 0);
+        $elapsedSinceAnswer = ($lastAnsTs > 0) ? ($now - $lastAnsTs) : 999;
+        $isReviewingAnswer = ($lastAnsTs > 0 && $elapsedSinceAnswer < 2.0 && !empty($room['last_answer_result']));
+        $scores = json_decode($room['scores'] ?? '{}', true);
+    }
+
     $totalRounds = max(1, (int)($room['total_rounds'] ?? 4));
     $qPerRound = max(1, (int)($room['questions_per_round'] ?? 4));
     $totalQuestions = max(1, $qPerRound * $totalRounds);
@@ -228,6 +479,15 @@ if ($action === 'get_room_status' || isset($data['get_room_status'])) {
             $updFin = $pdo->prepare("UPDATE combat_rooms SET status = 'finished', current_round = ?, total_questions = ? WHERE room_code = ?");
             $updFin->execute([$totalRounds, $totalQuestions, $code]);
         } catch (Exception $e) {}
+    }
+
+    $timeRemaining = 0;
+    if ($isReviewingAnswer) {
+        $timeRemaining = $turnDuration;
+    } else if ($turnStart > 0) {
+        $timeRemaining = max(0, (int)ceil(($turnStart + $turnDuration) - $now));
+    } else {
+        $timeRemaining = $turnDuration;
     }
 
     $roomState = [
@@ -248,7 +508,12 @@ if ($action === 'get_room_status' || isset($data['get_room_status'])) {
         'turnType' => $room['turn_type'] ?? 'main',
         'bonusUserId' => $room['bonus_user_id'] ?? null,
         'lastAnswerResult' => $lastAnswerResult,
-        'lastAnswerTimestamp' => (float)($room['last_answer_timestamp'] ?? 0),
+        'lastAnswerTimestamp' => $lastAnsTs,
+        'turnStartTimestamp' => $turnStart,
+        'turnDuration' => $turnDuration,
+        'isReviewingAnswer' => $isReviewingAnswer,
+        'timeRemaining' => $timeRemaining,
+        'serverTime' => $now,
         'players' => $players,
         'scores' => $scores,
         'questionsPool' => $questionsPool
@@ -350,183 +615,7 @@ if ($action === 'submit_answer' || isset($data['submit_answer'])) {
         exit;
     }
 
-    $scores = json_decode($room['scores'] ?? '{}', true);
-
-    // Get exact question correct_option
-    $currentQ = null;
-    if ($questionId) {
-        $qStmt = $pdo->prepare("SELECT id, correct_option, explanation FROM questions WHERE id = ? LIMIT 1");
-        $qStmt->execute([$questionId]);
-        $currentQ = $qStmt->fetch(PDO::FETCH_ASSOC);
-    }
-
-    if (!$currentQ) {
-        $pastQs = $pdo->prepare("SELECT id, correct_option, explanation FROM questions WHERE topic_id = ? LIMIT 100");
-        $pastQs->execute([$room['topic_id']]);
-        $questions = $pastQs->fetchAll(PDO::FETCH_ASSOC);
-        $currentIdx = (int)($room['current_question_index'] ?? 0);
-        $currentQ = $questions[$currentIdx % max(1, count($questions))] ?? null;
-    }
-
-    $storedPool = json_decode($room['questions_pool'] ?? '[]', true);
-    $currentIdx = (int)($room['current_question_index'] ?? 0);
-    if (!empty($storedPool)) {
-        $currentQ = $storedPool[$currentIdx % count($storedPool)] ?? $currentQ;
-    }
-
-    $turnType = $room['turn_type'] ?? 'main';
-    $isCorrect = ($currentQ && $selectedOption === $currentQ['correct_option']);
-
-    if ($turnType === 'main') {
-        $pts = $isCorrect ? 2 : 0;
-    } else {
-        // Bonus Turn Scoring (+1 for correct, -1 for wrong, 0 for timeout)
-        $pts = $isCorrect ? 1 : ($selectedOption === 'TIMEOUT' ? 0 : -1);
-    }
-
-    $scores[(string)$userId] = ($scores[(string)$userId] ?? 0) + $pts;
-
-    $players = json_decode($room['players'] ?? '[]', true);
-    $opponentId = (string)$userId;
-    if (is_array($players) && count($players) > 1) {
-        foreach ($players as $p) {
-            if ((string)$p['userId'] !== (string)$userId) {
-                $opponentId = (string)$p['userId'];
-                break;
-            }
-        }
-    }
-
-    // Progression rules:
-    // 1. If main turn correct -> question complete -> advance to next question, deterministic turn alternation
-    // 2. If main turn wrong & bonus allowed -> same question -> bonus turn for opponent (HIDE CORRECT OPTION)
-    // 3. If bonus turn (either correct or wrong) -> question complete -> REVEAL correct option -> advance to next question
-    $allowBonus = (int)($room['allow_bonus'] ?? 1);
-    $pCount = max(1, count($players));
-
-    $nextIdx = $currentIdx;
-    $nextTurnType = 'main';
-    $bonusUserId = null;
-    $hideCorrectOption = false;
-    $correctOptionToSend = $currentQ ? $currentQ['correct_option'] : 'A';
-    $explanationToSend = $currentQ ? $currentQ['explanation'] : '';
-
-    if ($turnType === 'main') {
-        if ($isCorrect) {
-            // Main player answered correctly: advance to next question
-            $nextIdx = $currentIdx + 1;
-            $nextTurnType = 'main';
-            // 100% fair mathematical alternation based on question index
-            $nextTurnUserId = (string)($players[$nextIdx % $pCount]['userId'] ?? $opponentId);
-            $hideCorrectOption = false;
-        } else {
-            // Main player answered wrongly!
-            if ($allowBonus && $pCount > 1) {
-                // Opponent gets bonus turn on the SAME question!
-                // CRUCIAL: HIDE the correct answer so opponent does not cheat!
-                $nextIdx = $currentIdx;
-                $nextTurnType = 'bonus';
-                $nextTurnUserId = $opponentId;
-                $bonusUserId = $opponentId;
-                $hideCorrectOption = true;
-                $correctOptionToSend = null;
-                $explanationToSend = null;
-            } else {
-                // Bonus disabled: question is finished!
-                // Reveal answer and advance to next question
-                $nextIdx = $currentIdx + 1;
-                $nextTurnType = 'main';
-                $nextTurnUserId = (string)($players[$nextIdx % $pCount]['userId'] ?? $opponentId);
-                $hideCorrectOption = false;
-            }
-        }
-    } else {
-        // Bonus turn answered (either correct or wrong): BOTH players have now attempted!
-        // Question is finished: REVEAL answer and advance to next question
-        $nextIdx = $currentIdx + 1;
-        $nextTurnType = 'main';
-        $nextTurnUserId = (string)($players[$nextIdx % $pCount]['userId'] ?? $opponentId);
-        $hideCorrectOption = false;
-    }
-
-    $totalRounds = max(1, (int)($room['total_rounds'] ?? 4));
-    $qPerRound = max(1, (int)($room['questions_per_round'] ?? 4));
-    $totalQuestions = max(1, $qPerRound * $totalRounds);
-    $isFinished = ($nextIdx >= $totalQuestions);
-    $nextRound = $isFinished ? $totalRounds : min($totalRounds, (int)floor($nextIdx / $qPerRound) + 1);
-    $nextStatus = $isFinished ? 'finished' : 'playing';
-
-    $resPayload = [
-        'isCorrect' => $isCorrect,
-        'correctOption' => $correctOptionToSend,
-        'hideCorrectOption' => $hideCorrectOption,
-        'selectedOption' => $selectedOption,
-        'explanation' => $explanationToSend,
-        'pointsAwarded' => $pts,
-        'scores' => $scores,
-        'turnUserId' => (string)($room['current_turn_user_id'] ?? $userId),
-        'userId' => (string)$userId,
-        'turnType' => $turnType,
-        'questionIndex' => $currentIdx,
-        'nextQuestionIndex' => $nextIdx,
-        'nextTurnType' => $nextTurnType,
-        'nextTurnUserId' => $nextTurnUserId,
-        'roundNumber' => $nextRound,
-        'totalRounds' => $totalRounds,
-        'totalQuestions' => $totalQuestions,
-        'questionsPerRound' => $qPerRound,
-        'status' => $nextStatus,
-        'bothMissed' => ($turnType === 'bonus' && !$isCorrect),
-        'timestamp' => microtime(true)
-    ];
-
-    try {
-        $upd = $pdo->prepare("
-            UPDATE combat_rooms
-            SET scores = ?,
-                current_question_index = ?,
-                current_round = ?,
-                current_turn_user_id = ?,
-                turn_type = ?,
-                bonus_user_id = ?,
-                last_answer_result = ?,
-                last_answer_timestamp = ?,
-                status = ?,
-                total_questions = ?
-            WHERE room_code = ?
-        ");
-        $upd->execute([
-            json_encode($scores),
-            $nextIdx,
-            $nextRound,
-            $nextTurnUserId,
-            $nextTurnType,
-            $bonusUserId,
-            json_encode($resPayload),
-            microtime(true),
-            $nextStatus,
-            $totalQuestions,
-            $code
-        ]);
-    } catch (Exception $e) {}
-
-    // Insert match log into DB
-    try {
-        $logId = 'log_' . bin2hex(random_bytes(4));
-        $logStmt = $pdo->prepare("
-            INSERT INTO combat_match_logs (
-                id, room_code, round_number, question_number_in_round, turn_type,
-                question_id, asked_to_user_id, main_selected_option, main_is_correct,
-                main_time_used, points_awarded, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0.0, ?, CURRENT_TIMESTAMP)
-        ");
-        $logStmt->execute([
-            $logId, $code, min($totalRounds, max(1, (int)floor($currentIdx / $qPerRound) + 1)), (($currentIdx % $qPerRound) + 1),
-            $turnType, $currentQ['id'] ?? '', (string)$userId, $selectedOption ?: 'TIMEOUT', $isCorrect ? 1 : 0,
-            json_encode([(string)$userId => $pts])
-        ]);
-    } catch (Exception $e) {}
-
+    $resPayload = processCombatAnswer($pdo, $room, $code, $userId, $selectedOption, $questionId);
     echo json_encode($resPayload);
     exit;
 }
@@ -544,9 +633,6 @@ if ($action === 'start_game' || isset($data['start_game'])) {
         exit;
     }
 
-    $upd = $pdo->prepare("UPDATE combat_rooms SET status = 'playing' WHERE room_code = ?");
-    $upd->execute([$code]);
-
     $players = json_decode($room['players'] ?? '[]', true);
     $scores = json_decode($room['scores'] ?? '{}', true);
 
@@ -562,8 +648,24 @@ if ($action === 'start_game' || isset($data['start_game'])) {
         }
         shuffle($questionsPool);
     }
-    $updPool = $pdo->prepare("UPDATE combat_rooms SET questions_pool = ?, current_round = 1, current_question_index = 0, current_turn_user_id = ?, turn_type = 'main', last_answer_result = NULL WHERE room_code = ?");
-    $updPool->execute([json_encode($questionsPool), (string)($players[0]['userId'] ?? $userId), $code]);
+
+    $now = microtime(true);
+    $updPool = $pdo->prepare("
+        UPDATE combat_rooms 
+        SET status = 'playing',
+            questions_pool = ?,
+            current_round = 1,
+            current_question_index = 0,
+            current_turn_user_id = ?,
+            turn_type = 'main',
+            bonus_user_id = NULL,
+            last_answer_result = NULL,
+            last_answer_timestamp = 0,
+            turn_start_timestamp = ?,
+            turn_duration = 30
+        WHERE room_code = ?
+    ");
+    $updPool->execute([json_encode($questionsPool), (string)($players[0]['userId'] ?? $userId), $now, $code]);
 
     $totalRounds = max(1, (int)($room['total_rounds'] ?? 4));
     $qPerRound = max(1, (int)($room['questions_per_round'] ?? 4));
@@ -586,6 +688,12 @@ if ($action === 'start_game' || isset($data['start_game'])) {
         'currentRound' => 1,
         'currentQuestionIndex' => 0,
         'currentTurnUserId' => $players[0]['userId'] ?? $userId,
+        'turnType' => 'main',
+        'turnStartTimestamp' => $now,
+        'turnDuration' => 30,
+        'timeRemaining' => 30,
+        'isReviewingAnswer' => false,
+        'serverTime' => $now,
         'scores' => $scores
     ];
 

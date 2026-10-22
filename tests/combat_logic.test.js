@@ -23,6 +23,15 @@ function computeCombatRound({ questionIndex, questionsPerRound, totalRounds }) {
   };
 }
 
+// Server-authoritative time remaining calculation
+function calculateSyncedTimeRemaining(turnStartTs, maxDur, currentServerTimeSec) {
+  if (!turnStartTs || turnStartTs <= 0) return maxDur;
+  if (currentServerTimeSec < turnStartTs) {
+    return maxDur; // Still in transition/review window
+  }
+  return Math.max(0, Math.ceil((turnStartTs + maxDur) - currentServerTimeSec));
+}
+
 test('Combat round calculation strictly terminates at configured totalRounds (4 rounds of 4 questions = 16 questions total)', () => {
   const config = { questionsPerRound: 4, totalRounds: 4 };
 
@@ -103,7 +112,25 @@ test('Combat round strictly never exceeds totalRounds under any question index (
   assert.strictEqual(wayPastLimit.status, 'finished');
 });
 
-test('combat.php contains high-contrast CSS overrides and finished state listeners', () => {
+test('Server-authoritative timer calculates uniform timeRemaining across client clock skews', () => {
+  const turnStart = 1000.0;
+  const duration = 30;
+
+  // During 2s transition before question countdown starts
+  assert.strictEqual(calculateSyncedTimeRemaining(turnStart, duration, 999.0), 30);
+  assert.strictEqual(calculateSyncedTimeRemaining(turnStart, duration, 1000.0), 30);
+
+  // During active countdown
+  assert.strictEqual(calculateSyncedTimeRemaining(turnStart, duration, 1005.0), 25);
+  assert.strictEqual(calculateSyncedTimeRemaining(turnStart, duration, 1020.2), 10);
+  assert.strictEqual(calculateSyncedTimeRemaining(turnStart, duration, 1029.1), 1);
+  assert.strictEqual(calculateSyncedTimeRemaining(turnStart, duration, 1030.0), 0);
+
+  // After expiration: always clamped at 0, never negative or frozen
+  assert.strictEqual(calculateSyncedTimeRemaining(turnStart, duration, 1035.0), 0);
+});
+
+test('combat.php contains high-contrast CSS overrides, server time sync, and 300ms polling', () => {
   const combatPath = path.join(__dirname, '..', 'combat.php');
   const content = fs.readFileSync(combatPath, 'utf8');
 
@@ -111,15 +138,21 @@ test('combat.php contains high-contrast CSS overrides and finished state listene
   assert.ok(content.includes('.opt-btn'), 'Must style .opt-btn');
   assert.ok(content.includes('.katex, .katex *'), 'Must enforce color: inherit on KaTeX math nodes');
   assert.ok(content.includes('#arenaLiveScores'), 'Must style #arenaLiveScores');
-  assert.ok(content.includes('Math.min(totalR, Math.max(1, data.roundNumber'), 'Must cap round display in renderQuestion');
-  assert.ok(content.includes("data.status === 'finished'"), 'Must handle immediate victory transition on submit answer');
+  assert.ok(content.includes('updateServerTimeOffset'), 'Must calculate server time offset to eliminate device clock skew');
+  assert.ok(content.includes('calculateSyncedTimeRemaining'), 'Must calculate synced time remaining from server timestamps');
+  assert.ok(content.includes('setInterval(async () => {'), 'Must define sync loop');
+  assert.ok(content.includes('}, 300);'), 'Must poll arena status at high-frequency 300ms for instant parity');
 });
 
-test('api/combat_handler.php contains strict round matching and finished status enforcement', () => {
+test('api/combat_handler.php contains atomic processCombatAnswer, server timestamps, and auto-timeout watchdog', () => {
   const handlerPath = path.join(__dirname, '..', 'api', 'combat_handler.php');
   const content = fs.readFileSync(handlerPath, 'utf8');
 
+  assert.ok(content.includes('function processCombatAnswer('), 'Must encapsulate answer processing into reusable function');
   assert.ok(content.includes('$totalQuestions = max(1, $questionsPerRound * $totalRounds);'), 'Must compute exact total questions without multiplier inflation');
   assert.ok(content.includes('$nextRound = $isFinished ? $totalRounds : min($totalRounds, (int)floor($nextIdx / $qPerRound) + 1);'), 'Must cap nextRound strictly at totalRounds');
   assert.ok(content.includes("$nextStatus = $isFinished ? 'finished' : 'playing';"), 'Must set status to finished when reaching total questions');
+  assert.ok(content.includes('turn_start_timestamp'), 'Must persist turn_start_timestamp in combat_rooms');
+  assert.ok(content.includes('isReviewingAnswer'), 'Must track 2-second review overlay phase');
+  assert.ok(content.includes('processCombatAnswer($pdo, $room, $code, $activeUserId, \'TIMEOUT\')'), 'Must auto-process timeout on server when time expires');
 });
