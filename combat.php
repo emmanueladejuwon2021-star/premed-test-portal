@@ -30,9 +30,33 @@ require_once __DIR__ . '/includes/header.php';
 $action = $_GET['action'] ?? 'lobby';
 $tab = $_GET['tab'] ?? 'home';
 
-// Fetch Courses & Topics for Form
-$courses = $pdo->query("SELECT * FROM courses ORDER BY code ASC")->fetchAll();
-$allTopics = $pdo->query("SELECT * FROM topics ORDER BY course_id ASC, id ASC")->fetchAll();
+// Fetch Courses & Topics for Form with Single Source of Truth live question counts
+$courses = function_exists('getCourseListWithCounts') ? getCourseListWithCounts($pdo) : $pdo->query("SELECT * FROM courses ORDER BY code ASC")->fetchAll();
+$allTopics = function_exists('getTopicListWithCounts') ? getTopicListWithCounts($pdo) : $pdo->query("SELECT t.*, c.code as course_code, c.title as course_title FROM topics t LEFT JOIN courses c ON t.course_id = c.id ORDER BY t.course_id ASC, t.name ASC")->fetchAll();
+
+if (is_array($allTopics) && !empty($allTopics)) {
+    $courseMap = [];
+    if (is_array($courses)) {
+        foreach ($courses as $c) {
+            $courseMap[strval($c['id'])] = $c['code'];
+            $courseMap[strtoupper(trim($c['code']))] = $c['code'];
+        }
+    }
+    foreach ($allTopics as &$top) {
+        if (empty($top['course_code'])) {
+            $cid = strval($top['course_id'] ?? '');
+            if (isset($courseMap[$cid])) {
+                $top['course_code'] = $courseMap[$cid];
+            } elseif (isset($courseMap[strtoupper(trim($cid))])) {
+                $top['course_code'] = $courseMap[strtoupper(trim($cid))];
+            }
+        }
+        if (!isset($top['question_count'])) {
+            $top['question_count'] = (int)($top['questions_count'] ?? 0);
+        }
+    }
+    unset($top);
+}
 
 // Fetch User Combat Stats
 $uStats = $pdo->prepare("SELECT * FROM user_combat_stats WHERE user_id = ? LIMIT 1");
@@ -141,6 +165,20 @@ $matchHistory = $historyStmt->fetchAll();
     }
     #arenaLiveScores {
         color: #f8fafc !important;
+    }
+    #formCourseId, #formTopicId {
+        color: #0f172a;
+    }
+    .dark #formCourseId, .dark #formTopicId {
+        color: #f8fafc;
+    }
+    #formCourseId option, #formTopicId option, #formTopicId optgroup {
+        background-color: #ffffff;
+        color: #0f172a;
+    }
+    .dark #formCourseId option, .dark #formTopicId option, .dark #formTopicId optgroup {
+        background-color: #1e293b;
+        color: #f8fafc;
     }
 </style>
 
@@ -900,20 +938,122 @@ $matchHistory = $historyStmt->fetchAll();
 
     // Handle Form Pills and Card Selections
     function setupFormInteractions() {
-        // Course -> Topics Dropdown Filter
+        // Course -> Topics Dropdown Filter (Multi-strategy & live counts)
         const courseSelect = document.getElementById('formCourseId');
         const topicSelect = document.getElementById('formTopicId');
-        const allTopicsData = <?= json_encode($allTopics) ?>;
+        const allTopicsData = <?= json_encode($allTopics ?: []) ?>;
 
         if (courseSelect && topicSelect) {
-            courseSelect.addEventListener('change', function () {
-                const cId = this.value;
-                topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
-                const filtered = allTopicsData.filter(t => t.course_id === cId);
-                filtered.forEach(t => {
-                    topicSelect.innerHTML += `<option value="${t.id}">${t.name} (${t.question_count || 0} Qs)</option>`;
+            function populateTopicsForCourse() {
+                const selectedOpt = courseSelect.options[courseSelect.selectedIndex];
+                const cId = courseSelect.value ? String(courseSelect.value).trim() : '';
+                const cCode = selectedOpt ? String(selectedOpt.dataset.code || '').trim().toUpperCase() : '';
+                const cCodeClean = cCode.replace(/[^A-Z0-9]/g, '');
+
+                const previousVal = topicSelect.value;
+                topicSelect.innerHTML = '';
+
+                if (!cId) {
+                    const defaultOpt = document.createElement('option');
+                    defaultOpt.value = '';
+                    defaultOpt.textContent = '-- Select Course First (or choose topic below) --';
+                    topicSelect.appendChild(defaultOpt);
+
+                    if (Array.isArray(allTopicsData) && allTopicsData.length > 0) {
+                        const groups = {};
+                        allTopicsData.forEach(t => {
+                            const grpKey = t.course_code ? (t.course_code + (t.course_title ? ' - ' + t.course_title : '')) : 'General Topics';
+                            if (!groups[grpKey]) groups[grpKey] = [];
+                            groups[grpKey].push(t);
+                        });
+
+                        Object.keys(groups).sort().forEach(grpKey => {
+                            const optGroup = document.createElement('optgroup');
+                            optGroup.label = grpKey;
+                            groups[grpKey].forEach(t => {
+                                const opt = document.createElement('option');
+                                opt.value = String(t.id);
+                                opt.dataset.courseId = String(t.course_id || '');
+                                opt.dataset.courseCode = String(t.course_code || '');
+                                opt.textContent = `${t.name} (${t.question_count || 0} Qs)`;
+                                optGroup.appendChild(opt);
+                            });
+                            topicSelect.appendChild(optGroup);
+                        });
+                    }
+                    return;
+                }
+
+                // Filter topics for selected course using multi-strategy matching
+                const filtered = (Array.isArray(allTopicsData) ? allTopicsData : []).filter(t => {
+                    const tCid = String(t.course_id ?? '').trim();
+                    const tCode = String(t.course_code ?? '').trim().toUpperCase();
+                    const tCodeClean = tCode.replace(/[^A-Z0-9]/g, '');
+                    const tCidClean = tCid.replace(/[^A-Z0-9]/g, '').toUpperCase();
+
+                    // Match 1: t.course_id == cId (handles string vs int)
+                    if (tCid && tCid === cId) return true;
+                    // Match 2: t.course_code == cCode
+                    if (cCode && tCode && tCode === cCode) return true;
+                    // Match 3: t.course_id == cCode (topics table storing course code in course_id)
+                    if (cCode && tCid.toUpperCase() === cCode) return true;
+                    // Match 4: Normalized alphanumeric comparison
+                    if (cCodeClean && (tCodeClean === cCodeClean || tCidClean === cCodeClean)) return true;
+                    return false;
                 });
+
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '';
+
+                if (filtered.length === 0) {
+                    defaultOpt.textContent = '-- Select Topic (All Available Topics) --';
+                    topicSelect.appendChild(defaultOpt);
+                    (Array.isArray(allTopicsData) ? allTopicsData : []).forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = String(t.id);
+                        opt.dataset.courseId = String(t.course_id || '');
+                        opt.textContent = `${t.course_code ? t.course_code + ': ' : ''}${t.name} (${t.question_count || 0} Qs)`;
+                        topicSelect.appendChild(opt);
+                    });
+                } else {
+                    defaultOpt.textContent = '-- Select Topic --';
+                    topicSelect.appendChild(defaultOpt);
+                    filtered.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = String(t.id);
+                        opt.dataset.courseId = String(t.course_id || '');
+                        opt.textContent = `${t.name} (${t.question_count || 0} Qs)`;
+                        topicSelect.appendChild(opt);
+                    });
+                }
+
+                // If previous topic still exists in new options, preserve it
+                if (previousVal) {
+                    const match = Array.from(topicSelect.options).find(o => o.value === previousVal);
+                    if (match) {
+                        topicSelect.value = previousVal;
+                    }
+                }
+            }
+
+            // If user selects a topic from optgroup before picking a course, auto-sync course
+            topicSelect.addEventListener('change', function () {
+                const selectedOpt = topicSelect.options[topicSelect.selectedIndex];
+                if (!courseSelect.value && selectedOpt && selectedOpt.dataset.courseId) {
+                    const matchedCourseOpt = Array.from(courseSelect.options).find(o =>
+                        o.value === selectedOpt.dataset.courseId ||
+                        (selectedOpt.dataset.courseCode && o.dataset.code === selectedOpt.dataset.courseCode)
+                    );
+                    if (matchedCourseOpt) {
+                        courseSelect.value = matchedCourseOpt.value;
+                    }
+                }
             });
+
+            courseSelect.addEventListener('change', populateTopicsForCourse);
+
+            // Populate topics immediately on page load
+            populateTopicsForCourse();
         }
 
         // Questions per round pills
@@ -959,6 +1099,28 @@ $matchHistory = $historyStmt->fetchAll();
                 const courseId = document.getElementById('formCourseId').value;
                 const topicId = document.getElementById('formTopicId').value;
 
+                if (!courseId) {
+                    alert('Please choose a course for the battle.');
+                    courseSelect.focus();
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i data-lucide="sparkles" class="w-5 h-5"></i><span>GENERATE PREMED- CODE & CREATE ROOM</span>';
+                        if (window.lucide) lucide.createIcons();
+                    }
+                    return;
+                }
+
+                if (!topicId) {
+                    alert('Please select a topic for the battle room.');
+                    topicSelect.focus();
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i data-lucide="sparkles" class="w-5 h-5"></i><span>GENERATE PREMED- CODE & CREATE ROOM</span>';
+                        if (window.lucide) lucide.createIcons();
+                    }
+                    return;
+                }
+
                 const cOpt = courseSelect ? courseSelect.options[courseSelect.selectedIndex] : null;
                 const tOpt = topicSelect ? topicSelect.options[topicSelect.selectedIndex] : null;
 
@@ -969,8 +1131,8 @@ $matchHistory = $historyStmt->fetchAll();
                     roomName,
                     courseId,
                     topicId,
-                    courseCode: cOpt ? cOpt.dataset.code : 'COURSE',
-                    topicName: tOpt ? tOpt.text : 'Topic',
+                    courseCode: cOpt ? (cOpt.dataset.code || cOpt.text.split('-')[0].trim()) : 'COURSE',
+                    topicName: tOpt ? tOpt.text.replace(/\s*\(\d+\s*Qs\)/i, '').trim() : 'Topic',
                     mode: selectedModeVal,
                     questionsPerRound: selectedQPerRound,
                     totalRounds: selectedRounds,

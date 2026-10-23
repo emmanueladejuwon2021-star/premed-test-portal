@@ -32,6 +32,36 @@ function calculateSyncedTimeRemaining(turnStartTs, maxDur, currentServerTimeSec)
   return Math.max(0, Math.ceil((turnStartTs + maxDur) - currentServerTimeSec));
 }
 
+// Multi-strategy topic matching algorithm used by combat.php
+function filterTopicsForCourse(allTopicsData, courseId, courseCode) {
+  const cId = courseId ? String(courseId).trim() : '';
+  const cCode = courseCode ? String(courseCode).trim().toUpperCase() : '';
+  const cCodeClean = cCode.replace(/[^A-Z0-9]/g, '');
+
+  if (!cId) {
+    return allTopicsData;
+  }
+
+  const filtered = allTopicsData.filter(t => {
+    const tCid = String(t.course_id ?? '').trim();
+    const tCode = String(t.course_code ?? '').trim().toUpperCase();
+    const tCodeClean = tCode.replace(/[^A-Z0-9]/g, '');
+    const tCidClean = tCid.replace(/[^A-Z0-9]/g, '').toUpperCase();
+
+    // Match 1: t.course_id == cId (handles string vs int)
+    if (tCid && tCid === cId) return true;
+    // Match 2: t.course_code == cCode
+    if (cCode && tCode && tCode === cCode) return true;
+    // Match 3: t.course_id == cCode (topics table storing course code in course_id)
+    if (cCode && tCid.toUpperCase() === cCode) return true;
+    // Match 4: Normalized alphanumeric comparison
+    if (cCodeClean && (tCodeClean === cCodeClean || tCidClean === cCodeClean)) return true;
+    return false;
+  });
+
+  return filtered.length > 0 ? filtered : allTopicsData;
+}
+
 test('Combat round calculation strictly terminates at configured totalRounds (4 rounds of 4 questions = 16 questions total)', () => {
   const config = { questionsPerRound: 4, totalRounds: 4 };
 
@@ -175,4 +205,56 @@ test('api/combat_handler.php contains atomic processCombatAnswer, server timesta
   assert.ok(content.includes('turn_start_timestamp'), 'Must persist turn_start_timestamp in combat_rooms');
   assert.ok(content.includes('isReviewingAnswer'), 'Must track 2-second review overlay phase');
   assert.ok(content.includes("processCombatAnswer($pdo, $room, $code, $activeUserId, 'TIMEOUT')"), 'Must auto-process timeout on server when time expires');
+});
+
+test('combat.php implements multi-strategy topic filtering, high-contrast styles, and form validation', () => {
+  const combatPath = path.join(__dirname, '..', 'combat.php');
+  const content = fs.readFileSync(combatPath, 'utf8');
+
+  // Verify Single Source of Truth topic counts and joins
+  assert.ok(content.includes('getTopicListWithCounts'), 'combat.php must fetch topics with getTopicListWithCounts');
+  assert.ok(content.includes('course_code'), 'combat.php must map course_code to topics');
+
+  // Verify form styles for high-contrast visibility
+  assert.ok(content.includes('#formCourseId, #formTopicId'), 'combat.php must style #formCourseId and #formTopicId');
+  assert.ok(content.includes('#formCourseId option, #formTopicId option'), 'combat.php must style option elements for light/dark mode');
+
+  // Verify dynamic populateTopicsForCourse logic
+  assert.ok(content.includes('function populateTopicsForCourse()'), 'combat.php must define populateTopicsForCourse');
+  assert.ok(content.includes('populateTopicsForCourse();'), 'combat.php must invoke populateTopicsForCourse on init');
+  assert.ok(content.includes('optgroup'), 'combat.php must group topics into optgroup when course is not yet selected');
+
+  // Verify validation on room creation
+  assert.ok(content.includes('Please choose a course for the battle.'), 'combat.php must validate course selection before submission');
+  assert.ok(content.includes('Please select a topic for the battle room.'), 'combat.php must validate topic selection before submission');
+
+  // Test multi-strategy topic matching algorithm logic directly
+  const mockTopics = [
+    { id: '1', course_id: 1, name: 'Vectors', course_code: 'PHY 101', question_count: 15 },
+    { id: '2', course_id: '1', name: 'Kinematics', course_code: 'PHY 101', question_count: 20 },
+    { id: '3', course_id: 'PHY 101', name: 'Dynamics', course_code: '', question_count: 10 },
+    { id: '4', course_id: 2, name: 'Organic Chemistry', course_code: 'CHM 101', question_count: 25 },
+    { id: '5', course_id: 'crs_bio', name: 'Cell Biology', course_code: 'BIO 101', question_count: 30 }
+  ];
+
+  // Matching with numeric vs string course_id:
+  const phyResults = filterTopicsForCourse(mockTopics, '1', 'PHY 101');
+  assert.strictEqual(phyResults.length, 3, 'Must match topics with int course_id, string course_id, or course_code');
+  assert.ok(phyResults.some(t => t.name === 'Vectors'));
+  assert.ok(phyResults.some(t => t.name === 'Kinematics'));
+  assert.ok(phyResults.some(t => t.name === 'Dynamics'));
+
+  // Matching with course code string:
+  const chmResults = filterTopicsForCourse(mockTopics, '2', 'CHM 101');
+  assert.strictEqual(chmResults.length, 1);
+  assert.strictEqual(chmResults[0].name, 'Organic Chemistry');
+
+  // Matching with string course ID:
+  const bioResults = filterTopicsForCourse(mockTopics, 'crs_bio', 'BIO 101');
+  assert.strictEqual(bioResults.length, 1);
+  assert.strictEqual(bioResults[0].name, 'Cell Biology');
+
+  // Graceful fallback when no topic matches course: returns all topics for safe selection
+  const unknownCourseResults = filterTopicsForCourse(mockTopics, '999', 'UNKNOWN 999');
+  assert.strictEqual(unknownCourseResults.length, mockTopics.length, 'Must fall back to all topics so user is never blocked');
 });
